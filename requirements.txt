@@ -1,0 +1,7 @@
+# NOTE: huggingface_hub is pinned <0.26 because gradio 4.x still imports
+# the now-removed `HfFolder` symbol from it. If you upgrade gradio to 5.x
+# later, this pin can likely be relaxed.
+huggingface_hub>=0.24.0,<0.26.0
+gradio>=4.44.0,<5.0.0
+pandas>=2.2.0
+requests>=2.32.0
