@@ -21,11 +21,13 @@ so the demo still works without hitting the network. Run
 from __future__ import annotations
 
 from dataclasses import asdict
+from functools import lru_cache
 from typing import Any
 
 import gradio as gr
 import pandas as pd
 
+from enrich_scores import build_external_index
 from fetch_models import RAW_CACHE_PATH, load_raw_cache
 from hardware_filter import filter_models_by_vram
 from scoring import score_models
@@ -83,6 +85,20 @@ def _load_models() -> list[dict[str, Any]]:
     return MOCK_MODELS
 
 
+@lru_cache(maxsize=1)
+def _external_index():
+    """
+    Load external sources once per process. They're bulk catalogs read
+    from disk, so rebuilding them on every click would be wasted work.
+    Restart the app (or clear this cache) after refreshing them.
+    """
+    index = build_external_index()
+    print(f"[app.py] External sources loaded: {index.sources_loaded or 'none'}")
+    for warning in index.warnings:
+        print(f"[app.py] warning: {warning}")
+    return index
+
+
 def recommend(task_type: str, vram_gb: float) -> pd.DataFrame:
     if task_type != "code generation":
         # v1 scope guard — should be unreachable given the dropdown, but
@@ -90,8 +106,7 @@ def recommend(task_type: str, vram_gb: float) -> pd.DataFrame:
         return pd.DataFrame([{"error": f"Task type '{task_type}' not supported in v1."}])
 
     raw_models = _load_models()
-    scored = score_models(raw_models)  # NOTE: this calls enrich_scores.fetch_external_score
-    #       per model, which is currently mocked — see enrich_scores.py TODOs.
+    scored = score_models(raw_models, index=_external_index())
 
     scored_dicts = [asdict(s) for s in scored]
     fitted = filter_models_by_vram(scored_dicts, available_vram_gb=vram_gb)
@@ -116,7 +131,8 @@ def recommend(task_type: str, vram_gb: float) -> pd.DataFrame:
                 "vram_8bit_gb": m["vram_8bit_gb"],
                 "vram_4bit_gb": m["vram_4bit_gb"],
                 "num_sources": m["num_sources"],
-                "contamination_flagged": m["contamination_flagged"],
+                "sources": ", ".join(m["sources"]) or "—",
+                "self_reported_only": m["self_reported_only"],
                 "downloads": m["downloads"],
             }
         )
@@ -133,8 +149,10 @@ def build_interface() -> gr.Blocks:
             "Recommends open-weight Hugging Face code-generation models "
             "for your task and GPU VRAM budget, combining benchmark "
             "scores with a trust discount for source coverage + staleness.\n\n"
-            "**Note:** external benchmark scores (Artificial Analysis / "
-            "Epoch AI) are currently **mocked** — see `enrich_scores.py`."
+            "`trust_score` discounts models whose numbers come from few "
+            "independent sources, are stale, or are only self-reported on "
+            "the model's own card. External sources load from local caches "
+            "— see `enrich_scores.py` for how to refresh them."
         )
         with gr.Row():
             task_dropdown = gr.Dropdown(

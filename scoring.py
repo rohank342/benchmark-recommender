@@ -10,22 +10,22 @@ Pipeline:
   2. Normalize each to a 0-1 scale.
   3. Average them into a raw benchmark score (0-1).
   4. Apply a "trust discount" — a 0-1 multiplier that penalizes scores
-     backed by few independent sources and/or that are stale — inspired
-     by Epoch AI's benchmark-reliability flagging.
+     backed by few independent sources, that are stale, or that are only
+     self-reported on the model's own card.
   5. composite_score = raw_benchmark_score * trust_score
 
 This is intentionally simple for v1. The TODOs below mark the spots
-that most deserve real thought later (per-benchmark weighting,
-contamination handling, decay curve tuning, etc.).
+that most deserve real thought later (per-benchmark weighting, decay
+curve tuning, etc.).
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Optional
 
-from enrich_scores import ExternalScore, fetch_external_score
+from enrich_scores import ExternalScore, ExternalScoreIndex, build_external_index
 
 # --- Trust discount tuning knobs -------------------------------------
 # TODO(you): these are reasonable starting guesses, not calibrated
@@ -42,9 +42,16 @@ SOURCE_COUNT_WEIGHTS_DEFAULT = 1.0  # 3+ independent sources
 # run on) age quickly as training data windows creep forward.
 STALENESS_HALF_LIFE_DAYS = 270  # ~9 months
 
-# Flat penalty multiplier applied when a source flags possible
-# contamination / train-test leakage (Epoch-style flag).
-CONTAMINATION_PENALTY = 0.5
+# Flat penalty multiplier applied when a model's only benchmark numbers
+# come from its own model card, with no independent source reporting it.
+# Self-reported scores are the least reliable data in the pipeline: the
+# publisher chooses which benchmarks to show and runs them itself.
+# TODO(you): tune once there's enough coverage to compare self-reported
+# card numbers against independent runs of the same model.
+SELF_REPORT_PENALTY = 0.5
+
+# The source name used for benchmark numbers taken off the Hub card.
+HUB_CARD_SOURCE = "huggingface_hub_card"
 
 
 @dataclass
@@ -58,7 +65,8 @@ class ScoredModel:
     composite_score: Optional[float]  # raw_benchmark_score * trust_score
     num_sources: int
     benchmark_points_used: int
-    contamination_flagged: bool
+    self_reported_only: bool  # every number came from the model's own card
+    sources: list[str] = field(default_factory=list)
 
 
 def _normalize_value(value: float, scale: str) -> Optional[float]:
@@ -138,12 +146,12 @@ def _source_count_factor(num_sources: int) -> float:
 def compute_trust_score(
     num_independent_sources: int,
     ages_days: list[float],
-    any_contamination_flag: bool,
+    self_reported_only: bool,
 ) -> float:
     """
     Combine source-count confidence with recency into one 0-1 trust
-    multiplier, then apply a flat contamination penalty if any source
-    flagged the benchmark.
+    multiplier, then penalize models whose only numbers are self-reported
+    on their own model card.
 
     TODO(you): consider making this per-benchmark rather than one
     blended trust score per model, once you have enough real data
@@ -153,25 +161,23 @@ def compute_trust_score(
     avg_age = sum(ages_days) / len(ages_days) if ages_days else None
     recency = _recency_factor(avg_age)
     trust = source_factor * recency
-    if any_contamination_flag:
-        trust *= CONTAMINATION_PENALTY
+    if self_reported_only:
+        trust *= SELF_REPORT_PENALTY
     return round(max(0.0, min(1.0, trust)), 4)
 
 
 def score_model(raw_model: dict[str, Any], external_scores: Optional[list[ExternalScore]] = None) -> ScoredModel:
     """
     Score a single model. `raw_model` is one entry from
-    fetch_models.RawModel (as a dict). `external_scores` can be passed
-    in (e.g. pre-fetched in bulk) or is fetched here via
-    enrich_scores.fetch_external_score if omitted.
+    fetch_models.RawModel (as a dict). `external_scores` comes from
+    ExternalScoreIndex.lookup(); an empty list means no external source
+    covers this model, which the trust score penalizes.
     """
-    if external_scores is None:
-        external_scores = fetch_external_score(raw_model["model_id"])
+    external_scores = external_scores or []
 
     normalized_points: list[float] = []
     ages_days: list[float] = []
     sources_seen: set[str] = set()
-    contamination_flagged = False
 
     # 1. Points from the Hub card's model-index eval_results.
     for point in raw_model.get("eval_results", []):
@@ -181,7 +187,7 @@ def score_model(raw_model: dict[str, Any], external_scores: Optional[list[Extern
         norm = _normalize_value(value, scale or ("0-100" if value > 1 else "0-1"))
         if norm is not None:
             normalized_points.append(norm)
-            sources_seen.add("huggingface_hub_card")
+            sources_seen.add(HUB_CARD_SOURCE)
             age = _days_since(raw_model.get("last_modified"))
             if age is not None:
                 ages_days.append(age)
@@ -197,8 +203,8 @@ def score_model(raw_model: dict[str, Any], external_scores: Optional[list[Extern
             age = _days_since(ext.reported_date)
             if age is not None:
                 ages_days.append(age)
-        if ext.contamination_flag:
-            contamination_flagged = True
+
+    self_reported_only = sources_seen == {HUB_CARD_SOURCE}
 
     if not normalized_points:
         return ScoredModel(
@@ -211,11 +217,12 @@ def score_model(raw_model: dict[str, Any], external_scores: Optional[list[Extern
             composite_score=None,
             num_sources=0,
             benchmark_points_used=0,
-            contamination_flagged=contamination_flagged,
+            self_reported_only=False,
+            sources=[],
         )
 
     raw_benchmark_score = sum(normalized_points) / len(normalized_points)
-    trust_score = compute_trust_score(len(sources_seen), ages_days, contamination_flagged)
+    trust_score = compute_trust_score(len(sources_seen), ages_days, self_reported_only)
     composite_score = round(raw_benchmark_score * trust_score, 4)
 
     return ScoredModel(
@@ -228,13 +235,24 @@ def score_model(raw_model: dict[str, Any], external_scores: Optional[list[Extern
         composite_score=composite_score,
         num_sources=len(sources_seen),
         benchmark_points_used=len(normalized_points),
-        contamination_flagged=contamination_flagged,
+        self_reported_only=self_reported_only,
+        sources=sorted(sources_seen),
     )
 
 
-def score_models(raw_models: list[dict[str, Any]]) -> list[ScoredModel]:
-    """Score a batch of models, ranked descending by composite_score."""
-    scored = [score_model(m) for m in raw_models]
+def score_models(
+    raw_models: list[dict[str, Any]], index: Optional[ExternalScoreIndex] = None
+) -> list[ScoredModel]:
+    """
+    Score a batch of models, ranked descending by composite_score.
+
+    External sources are loaded once for the whole batch — they are bulk
+    catalogs, and Artificial Analysis' free tier allows fewer requests
+    per day than we have models to score.
+    """
+    if index is None:
+        index = build_external_index()
+    scored = [score_model(m, index.lookup(m["model_id"])) for m in raw_models]
     scored.sort(key=lambda s: (s.composite_score is not None, s.composite_score), reverse=True)
     return scored
 
