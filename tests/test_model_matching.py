@@ -47,3 +47,22 @@ def test_huggingface_url_parsing():
     )
     assert key_from_huggingface_url(None) is None
     assert key_from_huggingface_url("https://example.com/not-a-model") is None
+
+
+def test_word_order_does_not_matter():
+    """AA labels models "Qwen2.5 Coder Instruct 7B"; the Hub reverses the tail."""
+    assert match_key("Qwen/Qwen2.5-Coder-7B-Instruct") == match_key(
+        "Qwen2.5 Coder Instruct 7B"
+    )
+    assert match_key("Qwen/Qwen2.5-Coder-32B-Instruct-AWQ") == match_key(
+        "Qwen2.5 Coder Instruct 32B"
+    )
+
+
+def test_reordering_does_not_merge_distinct_models():
+    """Order-insensitivity must not erase real differences."""
+    assert match_key("Qwen2.5 Coder Instruct 7B") != match_key(
+        "Qwen2.5 Coder Instruct 14B"
+    )
+    assert match_key("Qwen2.5 Coder Instruct 7B") != match_key("Qwen2.5 Coder 7B")
+    assert match_key("Qwen3 Coder Next") != match_key("Qwen3 Coder Next GB10")

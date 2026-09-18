@@ -64,13 +64,14 @@ AA_FREE_ENDPOINT = f"{ARTIFICIAL_ANALYSIS_BASE_URL}/language/models/free"
 AA_PAID_ENDPOINT = f"{ARTIFICIAL_ANALYSIS_BASE_URL}/language/models"
 AA_PAGE_SIZE = 200
 
-# Which evaluation field to take as *the* score for a model, best first.
-# The coding index is what this project actually wants; the general
-# intelligence index is the free tier's fallback.
-AA_EVALUATION_PREFERENCE = (
-    "artificial_analysis_coding_index",
-    "artificial_analysis_intelligence_index",
-)
+# The only evaluation field this project should rank on. Deliberately
+# not falling back to artificial_analysis_intelligence_index: it is a
+# general-capability score on a different scale (observed 3-53 across the
+# catalog, against 0-82 for coding), so mixing the two into one average
+# would penalize whichever models happened to be scored on the general
+# index. A model without a coding index simply has no AA score here.
+# Coverage cost: ~261 of 652 catalogued models carry a coding index.
+AA_CODING_EVALUATION = "artificial_analysis_coding_index"
 
 # Epoch tracks ~80 benchmarks across maths, agentic work, games, etc.
 # v1 scope is code generation, so only code-relevant rows are kept.
@@ -186,12 +187,10 @@ def save_artificial_analysis_cache(
 
 
 def _aa_score(model: dict[str, Any]) -> tuple[Optional[str], Optional[float]]:
-    """Pick the best available evaluation field, best first."""
-    evaluations = model.get("evaluations") or {}
-    for name in AA_EVALUATION_PREFERENCE:
-        value = evaluations.get(name)
-        if isinstance(value, (int, float)):
-            return name, float(value)
+    """The model's coding index, or (None, None) if it doesn't have one."""
+    value = (model.get("evaluations") or {}).get(AA_CODING_EVALUATION)
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        return AA_CODING_EVALUATION, float(value)
     return None, None
 
 
@@ -238,6 +237,32 @@ def load_artificial_analysis(
         index.warnings.append(
             f"Artificial Analysis cache at {path} held no usable evaluation scores."
         )
+
+
+def artificial_analysis_catalog_targets(
+    path: Path = AA_CACHE_PATH,
+) -> list[tuple[str, str, Optional[str]]]:
+    """
+    Models Artificial Analysis has a coding score for, as
+    (match key, label, crediting organization) — the input to
+    fetch_models.fetch_models_for_catalog(), which locates the open-weight
+    ones on the Hub. Closed models are included here and simply fail to
+    resolve; that filtering belongs to the Hub lookup, not to this list.
+    """
+    if not path.exists():
+        return []
+    targets: dict[str, tuple[str, str, Optional[str]]] = {}
+    for model in json.loads(path.read_text()).get("models") or []:
+        _, score = _aa_score(model)
+        if score is None:
+            continue
+        label = model.get("name") or model.get("slug")
+        key = match_key(label)
+        if not key:
+            continue
+        creator = (model.get("model_creator") or {}).get("name")
+        targets[key] = (key, label, creator)
+    return list(targets.values())
 
 
 # --- Epoch AI ---------------------------------------------------------

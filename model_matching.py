@@ -75,7 +75,15 @@ def match_key(name: Optional[str]) -> Optional[str]:
         for t in _tokens(name)
         if t not in FORMAT_MARKERS and not _QUANT_TOKEN_RE.match(t)
     ]
-    return "".join(kept) or None
+    if not kept:
+        return None
+    # Sources order the same words differently — the Hub says
+    # "Qwen2.5-Coder-7B-Instruct", Artificial Analysis says
+    # "Qwen2.5 Coder Instruct 7B". Compare the token *set* so word order
+    # doesn't matter, while every token still has to be present: a model
+    # with an extra or different token (7b vs 14b, base vs instruct)
+    # remains a different key.
+    return "-".join(sorted(kept))
 
 
 def key_from_huggingface_url(url: Optional[str]) -> Optional[str]:

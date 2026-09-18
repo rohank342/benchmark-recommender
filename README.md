@@ -37,16 +37,25 @@ uv pip install -r requirements.txt
 ## Run
 
 ```bash
-# 1. (optional but recommended) pull real model data from the Hub
-python fetch_models.py
-
-# 2. (optional) pull external benchmark scores — see "External sources" below
+# 1. pull external benchmark scores first — see "External sources" below
 export ARTIFICIAL_ANALYSIS_API_KEY=...
 python enrich_scores.py
 
-# 3. launch the app — falls back to built-in mock models if step 1 was skipped
+# 2. pull model data from the Hub
+export HF_TOKEN=...        # recommended: anonymous access gets rate-limited
+python fetch_models.py
+
+# 3. launch the app — falls back to built-in mock models if step 2 was skipped
 python app.py
 ```
+
+Run `enrich_scores.py` *before* `fetch_models.py`: the fetch makes two
+passes, one over code-tagged Hub models and one that locates the
+externally-benchmarked models on the Hub. The second pass is what puts
+models with independent scores into the candidate set, and it needs the
+cached catalog. It makes one search per benchmarked model, so set
+`HF_TOKEN` (any free Hub account) to avoid anonymous rate limits — a
+rate-limited search is reported and skipped, not fatal.
 
 Run the tests with `pytest`.
 

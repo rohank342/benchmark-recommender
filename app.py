@@ -132,13 +132,20 @@ def recommend(task_type: str, vram_gb: float) -> pd.DataFrame:
                 "vram_4bit_gb": m["vram_4bit_gb"],
                 "num_sources": m["num_sources"],
                 "sources": ", ".join(m["sources"]) or "—",
-                "self_reported_only": m["self_reported_only"],
+                "corroborated": m["composite_score"] is not None
+                and not m["self_reported_only"],
                 "downloads": m["downloads"],
             }
         )
 
     df = pd.DataFrame(rows)
-    df = df.sort_values(by="composite_score", ascending=False, na_position="last")
+    # Same tiering as scoring.rank_key: corroborated first, then
+    # self-reported, then unscored.
+    df = df.sort_values(
+        by=["corroborated", "composite_score"],
+        ascending=[False, False],
+        na_position="last",
+    )
     return df.reset_index(drop=True)
 
 

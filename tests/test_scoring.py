@@ -140,3 +140,38 @@ class TestScoreModel:
             score_model(_raw([]), [as_fraction]).raw_benchmark_score
             == score_model(_raw([]), [as_percent]).raw_benchmark_score
         )
+
+
+class TestRanking:
+    def test_corroborated_outranks_higher_self_reported_score(self):
+        """An unverified number is not evidence, however large it is."""
+        from scoring import score_models
+
+        boastful = _raw([{"metric_name": "pass@1", "metric_value": 95.0}])
+        boastful["model_id"] = "org/self-scored"
+        measured = _raw([])
+        measured["model_id"] = "org/measured"
+
+        class FakeIndex:
+            def lookup(self, model_id):
+                return [_external(score=40.0)] if model_id == "org/measured" else []
+
+        ranked = score_models([boastful, measured], index=FakeIndex())
+        assert [m.model_id for m in ranked] == ["org/measured", "org/self-scored"]
+        # ...even though the self-reported composite is numerically higher.
+        assert ranked[1].composite_score > ranked[0].composite_score
+
+    def test_unscored_models_rank_last(self):
+        from scoring import score_models
+
+        class EmptyIndex:
+            def lookup(self, model_id):
+                return []
+
+        scored_model = _raw([{"metric_name": "pass@1", "metric_value": 10.0}])
+        scored_model["model_id"] = "org/has-data"
+        blank = _raw([])
+        blank["model_id"] = "org/no-data"
+
+        ranked = score_models([blank, scored_model], index=EmptyIndex())
+        assert [m.model_id for m in ranked] == ["org/has-data", "org/no-data"]

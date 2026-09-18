@@ -23,7 +23,7 @@ class TestArtificialAnalysis:
                     "name": "Qwen2.5 Coder 7B Instruct",
                     "slug": "qwen2-5-coder-7b-instruct",
                     "release_date": "2024-11-12",
-                    "evaluations": {"artificial_analysis_intelligence_index": 24.5},
+                    "evaluations": {"artificial_analysis_coding_index": 24.5},
                 }
             ],
         )
@@ -36,7 +36,7 @@ class TestArtificialAnalysis:
         assert scores[0].source == "artificial_analysis"
         assert scores[0].reported_date == "2024-11-12"
 
-    def test_coding_index_is_preferred_over_general_intelligence(self, tmp_path):
+    def test_coding_index_is_used_not_general_intelligence(self, tmp_path):
         path = _write_aa_cache(
             tmp_path,
             [
@@ -54,6 +54,21 @@ class TestArtificialAnalysis:
         score = index.lookup("org/Some-Coder-7B")[0]
         assert score.score == 42.0
         assert score.benchmark_name == "artificial_analysis_coding_index"
+
+    def test_general_intelligence_alone_is_not_a_coding_score(self, tmp_path):
+        """The two indices are on different scales — never substitute one."""
+        path = _write_aa_cache(
+            tmp_path,
+            [
+                {
+                    "name": "General Model 7B",
+                    "evaluations": {"artificial_analysis_intelligence_index": 24.5},
+                }
+            ],
+        )
+        index = ExternalScoreIndex()
+        load_artificial_analysis(index, path)
+        assert index.lookup("org/General-Model-7B") == []
 
     def test_huggingface_url_wins_over_name_when_present(self, tmp_path):
         """Pro tier gives a canonical repo URL — trust it over the label."""

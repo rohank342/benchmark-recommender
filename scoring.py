@@ -253,8 +253,27 @@ def score_models(
     if index is None:
         index = build_external_index()
     scored = [score_model(m, index.lookup(m["model_id"])) for m in raw_models]
-    scored.sort(key=lambda s: (s.composite_score is not None, s.composite_score), reverse=True)
+    scored.sort(key=rank_key, reverse=True)
     return scored
+
+
+def rank_key(model: ScoredModel) -> tuple[bool, bool, float]:
+    """
+    Rank corroborated models above self-reported ones, and both above
+    models with no benchmark data, before comparing composite scores.
+
+    The trust multiplier alone can't express this: a model that scores
+    itself 95 on its own card still outranks an independently-measured
+    competitor once multiplied. Tiering says the thing we actually mean —
+    an unverified number is not evidence — without tuning a penalty until
+    the ordering happens to look right.
+    """
+    has_score = model.composite_score is not None
+    return (
+        has_score,
+        has_score and not model.self_reported_only,
+        model.composite_score or 0.0,
+    )
 
 
 if __name__ == "__main__":

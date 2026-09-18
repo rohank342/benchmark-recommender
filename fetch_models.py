@@ -22,9 +22,12 @@ import re
 from dataclasses import dataclass, asdict, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Iterable, Optional
 
 from huggingface_hub import HfApi
+from huggingface_hub.utils import HfHubHTTPError
+
+from model_matching import match_key
 
 DATA_DIR = Path(__file__).parent / "data"
 RAW_CACHE_PATH = DATA_DIR / "models_raw.json"
@@ -147,6 +150,98 @@ def _extract_eval_results(card_data: dict[str, Any] | None) -> list[dict[str, An
     return results
 
 
+def _to_raw_model(model_info) -> RawModel:
+    """Build a RawModel from one Hub ModelInfo."""
+    card_data = getattr(model_info, "card_data", None)
+    card_dict = card_data.to_dict() if hasattr(card_data, "to_dict") else (card_data or {})
+    if not isinstance(card_dict, dict):
+        card_dict = {}
+    tags = list(getattr(model_info, "tags", []) or [])
+    last_modified = getattr(model_info, "last_modified", None)
+
+    return RawModel(
+        model_id=model_info.id,
+        params_billion=_extract_params_billion(model_info),
+        license=_extract_license(card_dict, tags),
+        eval_results=_extract_eval_results(card_dict),
+        downloads=getattr(model_info, "downloads", 0) or 0,
+        likes=getattr(model_info, "likes", 0) or 0,
+        last_modified=last_modified.isoformat() if last_modified else None,
+        tags=tags,
+        pipeline_tag=getattr(model_info, "pipeline_tag", None),
+    )
+
+
+def _has_real_weights(model_info) -> bool:
+    """
+    Guard against matching a model *name* to a repo that isn't that model's
+    weights — e.g. searching "GPT-3.5 Turbo" surfaces `Xenova/gpt-3.5-turbo`,
+    a tokenizer-only repo. Require a text-generation repo carrying weights.
+    """
+    total = getattr(getattr(model_info, "safetensors", None), "total", None)
+    return bool(total) and getattr(model_info, "pipeline_tag", None) == "text-generation"
+
+
+def _owner_matches_creator(repo_id: str, creator: Optional[str]) -> bool:
+    """
+    Does the repo's owning org look like the organization the benchmark
+    source credits? `Qwen/Qwen3-Coder` from creator "Qwen" is the real
+    weights; `testaccount-ai/Qwen3.8-Max` from the same creator is not.
+    """
+    if not creator:
+        return False
+    owner = match_key(repo_id.split("/", 1)[0]) or ""
+    creator_key = match_key(creator) or ""
+    if not owner or not creator_key:
+        return False
+    return owner in creator_key or creator_key in owner
+
+
+def fetch_models_for_catalog(
+    targets: Iterable[tuple[str, str, Optional[str]]], limit_per_search: int = 30
+) -> list[RawModel]:
+    """
+    Resolve externally-benchmarked models to Hub repos. `targets` is an
+    iterable of (match key, the source's label, crediting organization).
+
+    Tag-based discovery alone surfaces whatever is popular on the Hub,
+    which is mostly reuploads and fine-tunes that no benchmark org tracks.
+    Starting from models that *have* independent scores and locating their
+    weights is what gives the ranking anything to rank.
+
+    Closed models (Gemini, Claude, GPT) don't resolve, which is the
+    intended outcome — they aren't open-weight, so they aren't candidates.
+    Among repos that do match, the publisher's own repo is preferred over
+    community requantizations, and downloads break the remaining ties.
+    """
+    api = HfApi()
+    found: dict[str, RawModel] = {}
+
+    for key, label, creator in targets:
+        try:
+            candidates = [
+                m
+                for m in api.list_models(
+                    search=label, limit=limit_per_search, expand=EXPAND_PROPERTIES
+                )
+                if match_key(m.id) == key and _has_real_weights(m)
+            ]
+        except HfHubHTTPError as exc:  # one bad search shouldn't end the run
+            print(f"[fetch_models] search failed for {label!r}: {exc}")
+            continue
+        if not candidates:
+            continue
+        best = max(
+            candidates,
+            key=lambda m: (
+                _owner_matches_creator(m.id, creator),
+                getattr(m, "downloads", 0) or 0,
+            ),
+        )
+        found[best.id] = _to_raw_model(best)
+    return list(found.values())
+
+
 def fetch_code_gen_models(limit_per_query: int = MODELS_PER_QUERY) -> list[RawModel]:
     """
     Query the Hub for text-generation models tagged/named for code, dedupe,
@@ -167,24 +262,7 @@ def fetch_code_gen_models(limit_per_query: int = MODELS_PER_QUERY) -> list[RawMo
         for m in models:
             if m.id in seen:
                 continue
-            card_data = getattr(m, "card_data", None)
-            card_dict = card_data.to_dict() if hasattr(card_data, "to_dict") else (card_data or {})
-            if not isinstance(card_dict, dict):
-                card_dict = {}
-            tags = list(getattr(m, "tags", []) or [])
-            last_modified = getattr(m, "last_modified", None)
-
-            seen[m.id] = RawModel(
-                model_id=m.id,
-                params_billion=_extract_params_billion(m),
-                license=_extract_license(card_dict, tags),
-                eval_results=_extract_eval_results(card_dict),
-                downloads=getattr(m, "downloads", 0) or 0,
-                likes=getattr(m, "likes", 0) or 0,
-                last_modified=last_modified.isoformat() if last_modified else None,
-                tags=tags,
-                pipeline_tag=getattr(m, "pipeline_tag", None),
-            )
+            seen[m.id] = _to_raw_model(m)
 
     return list(seen.values())
 
@@ -205,8 +283,25 @@ def load_raw_cache(path: Path = RAW_CACHE_PATH) -> dict[str, Any]:
 
 
 if __name__ == "__main__":
+    from enrich_scores import artificial_analysis_catalog_targets
+
     print("Fetching code-generation models from the Hugging Face Hub...")
     models = fetch_code_gen_models()
-    print(f"Found {len(models)} unique models.")
+    print(f"  {len(models)} from tag search.")
+
+    # Second pass: models an external source has actually benchmarked.
+    # Tag search alone rarely surfaces them, and they're the only models
+    # that end up with an independent score to rank on.
+    targets = artificial_analysis_catalog_targets()
+    if targets:
+        print(f"Resolving {len(targets)} externally-benchmarked models on the Hub...")
+        by_id = {m.model_id: m for m in models}
+        for model in fetch_models_for_catalog(targets):
+            by_id.setdefault(model.model_id, model)
+        models = list(by_id.values())
+        print(f"  {len(models)} total after adding benchmarked models.")
+    else:
+        print("  No external catalog cached — run `python enrich_scores.py` first.")
+
     save_raw_cache(models)
-    print(f"Saved to {RAW_CACHE_PATH}")
+    print(f"Saved {len(models)} models to {RAW_CACHE_PATH}")
