@@ -99,52 +99,71 @@ def _external_index():
     return index
 
 
-def recommend(task_type: str, vram_gb: float) -> pd.DataFrame:
+def recommend(task_type: str, vram_gb: float, context_tokens: float = 8192) -> pd.DataFrame:
     if task_type != "code generation":
         # v1 scope guard — should be unreachable given the dropdown, but
         # fail loudly rather than silently returning code-gen results.
         return pd.DataFrame([{"error": f"Task type '{task_type}' not supported in v1."}])
 
+    context = int(context_tokens or 8192)
     raw_models = _load_models()
     scored = score_models(raw_models, index=_external_index())
 
     scored_dicts = [asdict(s) for s in scored]
-    fitted = filter_models_by_vram(scored_dicts, available_vram_gb=vram_gb)
+    # Carry through the fields scoring doesn't model but memory needs.
+    by_id = {m["model_id"]: m for m in raw_models}
+    for model in scored_dicts:
+        model["architecture"] = by_id.get(model["model_id"], {}).get("architecture", {})
+        model["tags"] = by_id.get(model["model_id"], {}).get("tags", [])
+
+    fitted = filter_models_by_vram(
+        scored_dicts, available_vram_gb=vram_gb, context_tokens=context
+    )
 
     if not fitted:
         return pd.DataFrame(
-            [{"message": f"No models fit within {vram_gb} GB VRAM at any quantization level."}]
+            [
+                {
+                    "message": f"No models fit within {vram_gb} GB VRAM at "
+                    f"{context:,} tokens of context, at any precision."
+                }
+            ]
         )
 
     rows = []
     for m in fitted:
+        max_context = m["max_context"]
         rows.append(
             {
                 "model_id": m["model_id"],
                 "composite_score": m["composite_score"],
                 "trust_score": m["trust_score"],
-                "raw_benchmark_score": m["raw_benchmark_score"],
                 "params_B": m["params_billion"],
                 "license": m["license"],
-                "best_fit_quant": m["best_fit_quant"],
-                "vram_fp16_gb": m["vram_fp16_gb"],
-                "vram_8bit_gb": m["vram_8bit_gb"],
-                "vram_4bit_gb": m["vram_4bit_gb"],
-                "num_sources": m["num_sources"],
+                "precision": m["best_fit_quant"] or "—",
+                "vram_total_gb": m["vram_total_gb"],
+                "weights_gb": m["vram_weights_gb"],
+                "kv_cache_gb": m["vram_kv_cache_gb"],
+                "kv_estimated": m["kv_cache_estimated"],
+                "ships_as": f"{m['native_quant']}-bit" if m["native_quant"] else "full precision",
+                "context_ok": None if max_context is None else context <= max_context,
+                "max_context": max_context,
                 "sources": ", ".join(m["sources"]) or "—",
                 "corroborated": m["composite_score"] is not None
                 and not m["self_reported_only"],
                 "provenance_verified": m["provenance_verified"],
+                "size_known": m["size_known"],
                 "downloads": m["downloads"],
             }
         )
 
     df = pd.DataFrame(rows)
-    # Same tiering as scoring.rank_key: confirmed provenance first, then
-    # corroborated, then self-reported, then unscored.
+    # Same tiering as scoring.rank_key: models whose size is known first
+    # (an unknown-size row can't be said to fit), then confirmed
+    # provenance, then corroborated, then self-reported, then unscored.
     df = df.sort_values(
-        by=["provenance_verified", "corroborated", "composite_score"],
-        ascending=[False, False, False],
+        by=["size_known", "provenance_verified", "corroborated", "composite_score"],
+        ascending=[False, False, False, False],
         na_position="last",
     )
     return df.reset_index(drop=True)
@@ -167,11 +186,23 @@ def build_interface() -> gr.Blocks:
                 choices=TASK_TYPES, value=TASK_TYPES[0], label="Task type"
             )
             vram_input = gr.Number(value=8, label="Available GPU VRAM (GB)", precision=1)
+            context_input = gr.Dropdown(
+                choices=[
+                    ("4K (short edits)", 4096),
+                    ("8K", 8192),
+                    ("32K (a file or two)", 32768),
+                    ("128K (whole repo)", 131072),
+                ],
+                value=8192,
+                label="Context length",
+                info="The KV cache grows with context — at 128K it can exceed the weights.",
+            )
         submit_btn = gr.Button("Recommend models", variant="primary")
         output_table = gr.Dataframe(label="Ranked recommendations", wrap=True)
 
-        submit_btn.click(fn=recommend, inputs=[task_dropdown, vram_input], outputs=output_table)
-        demo.load(fn=recommend, inputs=[task_dropdown, vram_input], outputs=output_table)
+        inputs = [task_dropdown, vram_input, context_input]
+        submit_btn.click(fn=recommend, inputs=inputs, outputs=output_table)
+        demo.load(fn=recommend, inputs=inputs, outputs=output_table)
 
     return demo
 

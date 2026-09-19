@@ -8,7 +8,13 @@ discounts scores backed by few independent sources or that are stale
 ## Scope (v1)
 
 - Task type: code generation only.
-- Filter: GPU VRAM budget only.
+- Filter: GPU VRAM budget at a chosen context length.
+
+VRAM is estimated as weights + KV cache + workspace, where the KV cache is
+computed from the model's own layer/head dimensions and grows linearly with
+context: a 7B model needs ~0.2 GB of cache at 4K and ~7 GB at 128K. Repos
+that ship pre-quantized (AWQ, FP8, NVFP4, GGUF) are only offered at the
+precision they actually contain.
 
 ## Project layout
 
@@ -18,7 +24,7 @@ discounts scores backed by few independent sources or that are stale
 | [`enrich_scores.py`](enrich_scores.py) | Loads external benchmark catalogs (Artificial Analysis API, Epoch AI CSV) in bulk and indexes them for lookup. |
 | [`model_matching.py`](model_matching.py) | Reduces Hub repo ids and external sources' model labels to a common match key. |
 | [`scoring.py`](scoring.py) | Normalizes benchmark numbers, applies the trust discount, outputs a composite score. |
-| [`hardware_filter.py`](hardware_filter.py) | Estimates fp16/8-bit/4-bit VRAM needs from param count and filters by budget. |
+| [`hardware_filter.py`](hardware_filter.py) | Estimates VRAM (weights + KV cache at a given context length) and filters by budget. |
 | [`app.py`](app.py) | Gradio UI tying it all together. |
 
 ## Setup
@@ -100,6 +106,9 @@ is marked. Highlights:
   decide when a repo is trusted to hold the weights a benchmark measured, for
   repos whose owner can't be tied to the crediting organization by name. They
   are judgement calls, picked by looking at the repos they separate.
-- **`hardware_filter.py`** — VRAM-per-billion-params multipliers are rule-of-
-  thumb, not measured; also doesn't yet account for context length / KV-cache
-  growth.
+- **`hardware_filter.py`** — the KV-cache calculation uses each repo's real
+  dimensions from `config.json`, but `WORKSPACE_GB` (activations, allocator
+  overhead) is still a constant, and nothing accounts for the serving stack:
+  vLLM's paged attention, llama.cpp's layer offloading, batch size, or a
+  quantized KV cache all move the real number. Measure a few models per
+  precision and fit from that.

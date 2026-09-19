@@ -24,8 +24,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable, Optional
 
-from huggingface_hub import HfApi
-from huggingface_hub.utils import HfHubHTTPError
+from huggingface_hub import HfApi, hf_hub_download
+from huggingface_hub.utils import EntryNotFoundError, HfHubHTTPError
 
 from model_matching import identity_string, match_key
 
@@ -56,6 +56,29 @@ EXPAND_PROPERTIES = [
 
 
 @dataclass
+class ModelArchitecture:
+    """
+    The fields from a repo's config.json that decide how much memory it
+    needs: the KV cache grows with layers x kv_heads x head_dim x context,
+    and native_quant_bits says what precision the weights already are.
+    Every field is optional — config.json is absent for GGUF repos and
+    incomplete for some multimodal ones.
+    """
+
+    num_hidden_layers: Optional[int] = None
+    num_key_value_heads: Optional[int] = None
+    head_dim: Optional[int] = None
+    hidden_size: Optional[int] = None
+    max_position_embeddings: Optional[int] = None
+    native_quant_method: Optional[str] = None  # "awq", "fp8", "gguf", ...
+    native_quant_bits: Optional[int] = None  # 4, 8, ... (None = full precision)
+
+    @property
+    def kv_cache_known(self) -> bool:
+        return bool(self.num_hidden_layers and self.num_key_value_heads and self.head_dim)
+
+
+@dataclass
 class RawModel:
     model_id: str
     params_billion: Optional[float]
@@ -70,6 +93,7 @@ class RawModel:
     # model *name* and no repo from the crediting organization matched —
     # i.e. we can't confirm it hosts the weights that were benchmarked.
     provenance_verified: bool = True
+    architecture: dict[str, Any] = field(default_factory=dict)
 
 
 def _estimate_params_from_id(model_id: str) -> Optional[float]:
@@ -154,6 +178,89 @@ def _extract_eval_results(card_data: dict[str, Any] | None) -> list[dict[str, An
     return results
 
 
+def _quantization_from_config(config: dict[str, Any]) -> tuple[Optional[str], Optional[int]]:
+    """
+    Read the precision a repo's weights already ship in. Three shapes are
+    in the wild: AWQ/GPTQ carry `bits`, fp8 carries only a method name,
+    and compressed-tensors (NVFP4) nests `num_bits` under config_groups.
+    """
+    quant = config.get("quantization_config")
+    if not isinstance(quant, dict):
+        return None, None
+
+    method = quant.get("quant_method")
+    bits = quant.get("bits") or quant.get("w_bit") or quant.get("weight_bits")
+    if isinstance(bits, int):
+        return method, bits
+
+    groups = quant.get("config_groups")
+    if isinstance(groups, dict):
+        for group in groups.values():
+            weights = (group or {}).get("weights") if isinstance(group, dict) else None
+            if isinstance(weights, dict) and isinstance(weights.get("num_bits"), int):
+                return method or "compressed-tensors", weights["num_bits"]
+
+    if isinstance(method, str) and "fp8" in method.lower():
+        return method, 8
+    return method, None
+
+
+def _architecture_from_config(config: dict[str, Any]) -> ModelArchitecture:
+    """
+    Pull the KV-cache dimensions out of a config.json. Multimodal repos
+    nest the language model's dimensions, so look there too.
+    """
+    nested = config
+    if not config.get("num_hidden_layers"):
+        for key in ("text_config", "language_model", "llm_config"):
+            candidate = config.get(key)
+            if isinstance(candidate, dict) and candidate.get("num_hidden_layers"):
+                nested = candidate
+                break
+
+    hidden_size = nested.get("hidden_size")
+    attention_heads = nested.get("num_attention_heads")
+    head_dim = nested.get("head_dim")
+    if not head_dim and hidden_size and attention_heads:
+        head_dim = hidden_size // attention_heads
+
+    # Multi-head attention (no grouped-query) means kv heads == attention heads.
+    kv_heads = nested.get("num_key_value_heads") or attention_heads
+
+    method, bits = _quantization_from_config(config)
+    return ModelArchitecture(
+        num_hidden_layers=nested.get("num_hidden_layers"),
+        num_key_value_heads=kv_heads,
+        head_dim=head_dim,
+        hidden_size=hidden_size,
+        max_position_embeddings=nested.get("max_position_embeddings"),
+        native_quant_method=method,
+        native_quant_bits=bits,
+    )
+
+
+def fetch_architecture(repo_id: str, tags: Optional[list[str]] = None) -> ModelArchitecture:
+    """
+    Download a repo's config.json and read its memory-relevant fields.
+
+    GGUF repos have no config.json at all — they're recognized by tag and
+    reported as quantized with unknown dimensions, so the estimator knows
+    to fall back rather than pretending they run at full precision.
+    """
+    tags = tags or []
+    try:
+        path = hf_hub_download(repo_id, "config.json", repo_type="model")
+        with open(path) as handle:
+            return _architecture_from_config(json.load(handle))
+    except (EntryNotFoundError, HfHubHTTPError, json.JSONDecodeError, OSError):
+        if any(tag.lower() == "gguf" for tag in tags):
+            # GGUF files embed their own quant level (Q4_K_M etc.); without
+            # parsing filenames, 4-bit is the common case and the honest
+            # floor — what matters is not offering fp16.
+            return ModelArchitecture(native_quant_method="gguf", native_quant_bits=4)
+        return ModelArchitecture()
+
+
 def _to_raw_model(model_info, provenance_verified: bool = True) -> RawModel:
     """Build a RawModel from one Hub ModelInfo."""
     card_data = getattr(model_info, "card_data", None)
@@ -174,6 +281,7 @@ def _to_raw_model(model_info, provenance_verified: bool = True) -> RawModel:
         tags=tags,
         pipeline_tag=getattr(model_info, "pipeline_tag", None),
         provenance_verified=provenance_verified,
+        architecture=asdict(fetch_architecture(model_info.id, tags)),
     )
 
 

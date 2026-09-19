@@ -1,102 +1,240 @@
 """
 hardware_filter.py
 ===================
-Rule-of-thumb VRAM estimation and filtering by GPU memory budget.
+Estimates how much VRAM a model needs and filters by GPU budget.
+
+Memory splits into three parts:
+
+  weights  = params x bytes-per-param at the chosen precision
+  KV cache = 2 (K and V) x layers x kv_heads x head_dim x context x 2 bytes
+  workspace = activations, buffers, fragmentation
+
+The KV cache is the part the first version of this file ignored, and it
+is the part that decides whether a model fits: it grows linearly with
+context length, and at long context it can exceed the weights themselves.
+A 7B model at 4K and the same model at 128K are different memory
+questions, so `context_tokens` is an input everywhere.
+
+Quantization is read from the repo rather than assumed. A repo that ships
+AWQ 4-bit weights cannot be run at fp16, and offering that is a
+recommendation the user cannot act on.
 
 ########################################################################
-# TODO(you): these are back-of-envelope multipliers, not measured
-# numbers. Real VRAM usage also depends on context length, KV-cache
-# size, batch size, activation memory, and the specific quant method
-# (GPTQ vs AWQ vs bitsandbytes vs GGUF all differ). Revisit once you
-# want production-grade estimates — e.g. by measuring actual peak
-# VRAM for a handful of models per quant level and fitting from that.
+# TODO(you): the numbers here are derived, not measured. Real usage also
+# depends on the serving stack (vLLM's paged attention, llama.cpp's
+# layer offloading), batch size, and whether the KV cache itself is
+# quantized. Measure a few models per quant level and fit from that.
 ########################################################################
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional
+from typing import Any, Optional
 
-# Rule-of-thumb multipliers: estimated GB of VRAM per billion params.
-# TODO(you): replace with measured/empirical multipliers when available.
-VRAM_GB_PER_BILLION_PARAMS = {
-    "fp16": 2.0,
-    "8bit": 1.0,
-    "4bit": 0.5,
-}
+# Bytes per parameter at each precision the user can choose.
+BYTES_PER_PARAM = {"fp16": 2.0, "8bit": 1.0, "4bit": 0.5}
+PRECISIONS_HIGH_TO_LOW = ("fp16", "8bit", "4bit")
 
-# Extra headroom added on top of the raw weight size to account for
-# activations/KV-cache at modest context lengths. Rough and configurable.
-# TODO(you): make this context-length-aware instead of a flat overhead.
-OVERHEAD_GB = 1.5
+# The KV cache holds one key and one value vector per layer per token,
+# in fp16 unless the serving stack quantizes it too.
+KV_BYTES_PER_ELEMENT = 2.0
+
+# Activations, CUDA context, allocator fragmentation. Roughly constant
+# next to weights and cache, and deliberately generous: an estimate that
+# says "fits" for a model that then OOMs is the expensive kind of wrong.
+WORKSPACE_GB = 1.0
+
+# Used only when config.json is unavailable (GGUF repos, mostly) and the
+# KV cache can't be computed from real dimensions.
+FALLBACK_KV_GB_PER_BILLION_PARAMS = 0.12
+
+GB = 1024**3
 
 
 @dataclass
 class VramEstimate:
-    fp16_gb: Optional[float]
-    bit8_gb: Optional[float]
-    bit4_gb: Optional[float]
+    """Everything needed to explain a fit decision, not just the total."""
+
+    precision: str
+    weights_gb: Optional[float]
+    kv_cache_gb: Optional[float]
+    total_gb: Optional[float]
+    kv_cache_estimated: bool  # True when dimensions were unavailable
+    available: bool  # False when the repo can't run at this precision
 
 
-def estimate_vram(params_billion: Optional[float], include_overhead: bool = True) -> VramEstimate:
+def _architecture(model: dict[str, Any]) -> dict[str, Any]:
+    arch = model.get("architecture")
+    return arch if isinstance(arch, dict) else {}
+
+
+def native_quant_bits(model: dict[str, Any]) -> Optional[int]:
+    """Bit width the repo's weights already ship in, if it is quantized."""
+    bits = _architecture(model).get("native_quant_bits")
+    return bits if isinstance(bits, int) else None
+
+
+def available_precisions(model: dict[str, Any]) -> tuple[str, ...]:
     """
-    Estimate VRAM (in GB) needed to run a model at fp16, 8-bit, and
-    4-bit quantization, given its parameter count in billions.
-    """
-    if params_billion is None:
-        return VramEstimate(fp16_gb=None, bit8_gb=None, bit4_gb=None)
+    Precisions this repo can actually be run at.
 
-    overhead = OVERHEAD_GB if include_overhead else 0.0
+    Weights that ship quantized can't be restored to a higher precision,
+    so a 4-bit AWQ repo offers 4-bit only. Full-precision weights can be
+    quantized at load time, so they offer all three.
+    """
+    bits = native_quant_bits(model)
+    if bits is None:
+        return PRECISIONS_HIGH_TO_LOW
+    if bits <= 4:
+        return ("4bit",)
+    if bits <= 8:
+        return ("8bit",)
+    return PRECISIONS_HIGH_TO_LOW
+
+
+def kv_cache_gb(model: dict[str, Any], context_tokens: int) -> tuple[Optional[float], bool]:
+    """
+    KV cache size at a given context length.
+
+    Returns (gigabytes, estimated), where `estimated` is True when the
+    repo's dimensions were unavailable and a per-parameter rule of thumb
+    stood in for them.
+    """
+    arch = _architecture(model)
+    layers = arch.get("num_hidden_layers")
+    kv_heads = arch.get("num_key_value_heads")
+    head_dim = arch.get("head_dim")
+
+    if layers and kv_heads and head_dim:
+        total_bytes = 2 * layers * kv_heads * head_dim * context_tokens * KV_BYTES_PER_ELEMENT
+        return round(total_bytes / GB, 2), False
+
+    params = model.get("params_billion")
+    if params:
+        # Scale the rule of thumb by context, anchored at 8K.
+        scaled = FALLBACK_KV_GB_PER_BILLION_PARAMS * params * (context_tokens / 8192)
+        return round(scaled, 2), True
+    return None, True
+
+
+def estimate_vram(
+    model: dict[str, Any], precision: str, context_tokens: int = 8192
+) -> VramEstimate:
+    """Estimate VRAM for one model at one precision and context length."""
+    params = model.get("params_billion")
+    available = precision in available_precisions(model)
+
+    if not params:
+        return VramEstimate(precision, None, None, None, True, available)
+
+    weights = params * BYTES_PER_PARAM[precision]
+    cache, estimated = kv_cache_gb(model, context_tokens)
+    total = weights + (cache or 0.0) + WORKSPACE_GB
 
     return VramEstimate(
-        fp16_gb=round(params_billion * VRAM_GB_PER_BILLION_PARAMS["fp16"] + overhead, 2),
-        bit8_gb=round(params_billion * VRAM_GB_PER_BILLION_PARAMS["8bit"] + overhead, 2),
-        bit4_gb=round(params_billion * VRAM_GB_PER_BILLION_PARAMS["4bit"] + overhead, 2),
+        precision=precision,
+        weights_gb=round(weights, 2),
+        kv_cache_gb=cache,
+        total_gb=round(total, 2),
+        kv_cache_estimated=estimated,
+        available=available,
     )
 
 
-def best_fit_quant(params_billion: Optional[float], available_vram_gb: float) -> Optional[str]:
+def best_fit_precision(
+    model: dict[str, Any], available_vram_gb: float, context_tokens: int = 8192
+) -> Optional[VramEstimate]:
     """
-    Return the highest-precision quantization level ("fp16" > "8bit" >
-    "4bit") that fits within available_vram_gb, or None if the model
-    doesn't fit even at 4-bit.
+    Highest precision the model can actually be served at within budget,
+    or None if it doesn't fit even at its lowest available precision.
     """
-    estimate = estimate_vram(params_billion)
-    if estimate.fp16_gb is not None and estimate.fp16_gb <= available_vram_gb:
-        return "fp16"
-    if estimate.bit8_gb is not None and estimate.bit8_gb <= available_vram_gb:
-        return "8bit"
-    if estimate.bit4_gb is not None and estimate.bit4_gb <= available_vram_gb:
-        return "4bit"
+    for precision in PRECISIONS_HIGH_TO_LOW:
+        if precision not in available_precisions(model):
+            continue
+        estimate = estimate_vram(model, precision, context_tokens)
+        if estimate.total_gb is not None and estimate.total_gb <= available_vram_gb:
+            return estimate
     return None
 
 
-def filter_models_by_vram(models: list[dict], available_vram_gb: float) -> list[dict]:
+def max_context_supported(model: dict[str, Any]) -> Optional[int]:
+    """The context length the model was trained/configured for, if known."""
+    value = _architecture(model).get("max_position_embeddings")
+    return value if isinstance(value, int) else None
+
+
+def filter_models_by_vram(
+    models: list[dict], available_vram_gb: float, context_tokens: int = 8192
+) -> list[dict]:
     """
-    Given a list of model dicts (must include a "params_billion" key —
-    e.g. ScoredModel.__dict__ entries), return only those that fit
-    within available_vram_gb at some quantization level, annotated
-    with their VRAM estimates and the best-fit quant level.
+    Annotate each model with its VRAM estimate at `context_tokens` and
+    keep those that fit.
+
+    Models whose parameter count is unknown are kept and marked, rather
+    than silently dropped: "we don't know" and "it doesn't fit" are
+    different answers, and only one of them is the model's fault.
     """
-    filtered = []
+    fitted = []
     for model in models:
-        params = model.get("params_billion")
-        estimate = estimate_vram(params)
-        fit = best_fit_quant(params, available_vram_gb)
-        if fit is None:
-            continue
         annotated = dict(model)
-        annotated["vram_fp16_gb"] = estimate.fp16_gb
-        annotated["vram_8bit_gb"] = estimate.bit8_gb
-        annotated["vram_4bit_gb"] = estimate.bit4_gb
-        annotated["best_fit_quant"] = fit
-        filtered.append(annotated)
-    return filtered
+        precisions = available_precisions(model)
+        estimate = best_fit_precision(model, available_vram_gb, context_tokens)
+
+        if model.get("params_billion") is None:
+            annotated.update(
+                {
+                    "best_fit_quant": None,
+                    "vram_total_gb": None,
+                    "vram_weights_gb": None,
+                    "vram_kv_cache_gb": None,
+                    "kv_cache_estimated": True,
+                    "size_known": False,
+                    "native_quant": native_quant_bits(model),
+                    "max_context": max_context_supported(model),
+                    "available_precisions": ", ".join(precisions),
+                }
+            )
+            fitted.append(annotated)
+            continue
+
+        if estimate is None:
+            continue
+
+        annotated.update(
+            {
+                "best_fit_quant": estimate.precision,
+                "vram_total_gb": estimate.total_gb,
+                "vram_weights_gb": estimate.weights_gb,
+                "vram_kv_cache_gb": estimate.kv_cache_gb,
+                "kv_cache_estimated": estimate.kv_cache_estimated,
+                "size_known": True,
+                "native_quant": native_quant_bits(model),
+                "max_context": max_context_supported(model),
+                "available_precisions": ", ".join(precisions),
+            }
+        )
+        fitted.append(annotated)
+    return fitted
 
 
 if __name__ == "__main__":
-    # Quick manual smoke test.
-    print(estimate_vram(7.0))  # ~7B model
-    print(best_fit_quant(7.0, available_vram_gb=8.0))
-    print(best_fit_quant(70.0, available_vram_gb=8.0))
+    # A 7B model with grouped-query attention, at two context lengths.
+    qwen7b = {
+        "params_billion": 7.62,
+        "architecture": {
+            "num_hidden_layers": 28,
+            "num_key_value_heads": 4,
+            "head_dim": 128,
+            "max_position_embeddings": 32768,
+        },
+    }
+    for context in (4096, 32768, 131072):
+        estimate = estimate_vram(qwen7b, "fp16", context)
+        print(
+            f"{context:>7} tokens: {estimate.total_gb} GB "
+            f"(weights {estimate.weights_gb}, kv {estimate.kv_cache_gb})"
+        )
+
+    awq = {"params_billion": 32.76, "architecture": {"native_quant_bits": 4}}
+    print("\nAWQ 4-bit repo offers:", available_precisions(awq))
