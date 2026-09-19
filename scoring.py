@@ -66,6 +66,7 @@ class ScoredModel:
     num_sources: int
     benchmark_points_used: int
     self_reported_only: bool  # every number came from the model's own card
+    provenance_verified: bool = True  # repo confirmed to be the benchmarked weights
     sources: list[str] = field(default_factory=list)
 
 
@@ -218,6 +219,7 @@ def score_model(raw_model: dict[str, Any], external_scores: Optional[list[Extern
             num_sources=0,
             benchmark_points_used=0,
             self_reported_only=False,
+            provenance_verified=raw_model.get("provenance_verified", True),
             sources=[],
         )
 
@@ -236,6 +238,7 @@ def score_model(raw_model: dict[str, Any], external_scores: Optional[list[Extern
         num_sources=len(sources_seen),
         benchmark_points_used=len(normalized_points),
         self_reported_only=self_reported_only,
+        provenance_verified=raw_model.get("provenance_verified", True),
         sources=sorted(sources_seen),
     )
 
@@ -257,20 +260,25 @@ def score_models(
     return scored
 
 
-def rank_key(model: ScoredModel) -> tuple[bool, bool, float]:
+def rank_key(model: ScoredModel) -> tuple[bool, bool, bool, float]:
     """
-    Rank corroborated models above self-reported ones, and both above
-    models with no benchmark data, before comparing composite scores.
+    Tier before comparing composite scores:
 
-    The trust multiplier alone can't express this: a model that scores
+      1. has any benchmark data at all
+      2. the repo is confirmed to hold the weights that were benchmarked
+      3. an independent source reported it, not just the model's own card
+
+    The trust multiplier alone can't express this. A model that scores
     itself 95 on its own card still outranks an independently-measured
-    competitor once multiplied. Tiering says the thing we actually mean —
-    an unverified number is not evidence — without tuning a penalty until
-    the ordering happens to look right.
+    competitor once multiplied, and a score attributed to an unconfirmed
+    repo may belong to a different model entirely — no penalty factor
+    makes that comparable. Tiering says what we actually mean without
+    tuning constants until the ordering happens to look right.
     """
     has_score = model.composite_score is not None
     return (
         has_score,
+        model.provenance_verified,
         has_score and not model.self_reported_only,
         model.composite_score or 0.0,
     )

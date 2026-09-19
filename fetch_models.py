@@ -27,7 +27,7 @@ from typing import Any, Iterable, Optional
 from huggingface_hub import HfApi
 from huggingface_hub.utils import HfHubHTTPError
 
-from model_matching import match_key
+from model_matching import identity_string, match_key
 
 DATA_DIR = Path(__file__).parent / "data"
 RAW_CACHE_PATH = DATA_DIR / "models_raw.json"
@@ -66,6 +66,10 @@ class RawModel:
     last_modified: Optional[str] = None
     tags: list[str] = field(default_factory=list)
     pipeline_tag: Optional[str] = None
+    # False when this repo was located by matching an external source's
+    # model *name* and no repo from the crediting organization matched —
+    # i.e. we can't confirm it hosts the weights that were benchmarked.
+    provenance_verified: bool = True
 
 
 def _estimate_params_from_id(model_id: str) -> Optional[float]:
@@ -150,7 +154,7 @@ def _extract_eval_results(card_data: dict[str, Any] | None) -> list[dict[str, An
     return results
 
 
-def _to_raw_model(model_info) -> RawModel:
+def _to_raw_model(model_info, provenance_verified: bool = True) -> RawModel:
     """Build a RawModel from one Hub ModelInfo."""
     card_data = getattr(model_info, "card_data", None)
     card_dict = card_data.to_dict() if hasattr(card_data, "to_dict") else (card_data or {})
@@ -169,32 +173,78 @@ def _to_raw_model(model_info) -> RawModel:
         last_modified=last_modified.isoformat() if last_modified else None,
         tags=tags,
         pipeline_tag=getattr(model_info, "pipeline_tag", None),
+        provenance_verified=provenance_verified,
     )
+
+
+# Pipeline tags for repos that generate text. Multimodal chat models are
+# tagged image-text-to-text but still write code, and excluding them sent
+# e.g. Kimi K2.6 to a community requantization instead of moonshotai's repo.
+WEIGHT_BEARING_PIPELINE_TAGS = {"text-generation", "image-text-to-text"}
 
 
 def _has_real_weights(model_info) -> bool:
     """
     Guard against matching a model *name* to a repo that isn't that model's
     weights — e.g. searching "GPT-3.5 Turbo" surfaces `Xenova/gpt-3.5-turbo`,
-    a tokenizer-only repo. Require a text-generation repo carrying weights.
+    a tokenizer-only repo. Require a text-generating repo carrying weights.
     """
     total = getattr(getattr(model_info, "safetensors", None), "total", None)
-    return bool(total) and getattr(model_info, "pipeline_tag", None) == "text-generation"
+    return (
+        bool(total)
+        and getattr(model_info, "pipeline_tag", None) in WEIGHT_BEARING_PIPELINE_TAGS
+    )
+
+
+# Words carrying no identity in an organization name, dropped before
+# taking initials: "Institute of Foundation Models" -> "ifm".
+_ORG_STOPWORDS = frozenset({"of", "the", "and", "for", "inc", "ltd", "llc", "labs", "lab"})
+
+# Adoption that vouches for a repo when its owner can't be tied to the
+# crediting organization by name. Publishers often use a brand or parent
+# name that doesn't match their Hub org ("Kimi" vs `moonshotai`,
+# "Alibaba" vs `Qwen`), so naming alone flags too many genuine repos.
+# Either signal suffices: a widely-pulled repo and a widely-liked one are
+# both hard to fake, and the repos that fail both are the ones worth
+# doubting (339 downloads / 2 likes for `testaccount-ai/Qwen3.8-Max`).
+MIN_DOWNLOADS_FOR_PROVENANCE = 5_000
+MIN_LIKES_FOR_PROVENANCE = 100
 
 
 def _owner_matches_creator(repo_id: str, creator: Optional[str]) -> bool:
     """
     Does the repo's owning org look like the organization the benchmark
-    source credits? `Qwen/Qwen3-Coder` from creator "Qwen" is the real
-    weights; `testaccount-ai/Qwen3.8-Max` from the same creator is not.
+    source credits, by full name or by initials? `Qwen/Qwen3-Coder` from
+    creator "Qwen" matches directly; `IFM/K2-Horizon-7B` from "Institute
+    of Foundation Models" matches on initials.
     """
     if not creator:
         return False
-    owner = match_key(repo_id.split("/", 1)[0]) or ""
-    creator_key = match_key(creator) or ""
+    owner = identity_string(repo_id.split("/", 1)[0]) or ""
+    creator_key = identity_string(creator) or ""
     if not owner or not creator_key:
         return False
-    return owner in creator_key or creator_key in owner
+    if owner in creator_key or creator_key in owner:
+        return True
+
+    words = [w for w in re.split(r"[^A-Za-z0-9]+", creator) if w and w.lower() not in _ORG_STOPWORDS]
+    initials = "".join(word[0].lower() for word in words)
+    return len(initials) > 1 and (initials == owner or owner.startswith(initials))
+
+
+def _provenance_verified(model_info, creator: Optional[str]) -> bool:
+    """
+    Can we believe this repo holds the weights the benchmark measured?
+
+    Ideal evidence is the publisher's own org. Failing that, adoption
+    stands in: a repo with real pull-through is the one the community
+    treats as the model, whereas an impersonation has neither.
+    """
+    if _owner_matches_creator(model_info.id, creator):
+        return True
+    return (getattr(model_info, "downloads", 0) or 0) >= MIN_DOWNLOADS_FOR_PROVENANCE or (
+        getattr(model_info, "likes", 0) or 0
+    ) >= MIN_LIKES_FOR_PROVENANCE
 
 
 def fetch_models_for_catalog(
@@ -238,7 +288,9 @@ def fetch_models_for_catalog(
                 getattr(m, "downloads", 0) or 0,
             ),
         )
-        found[best.id] = _to_raw_model(best)
+        found[best.id] = _to_raw_model(
+            best, provenance_verified=_provenance_verified(best, creator)
+        )
     return list(found.values())
 
 
@@ -283,7 +335,7 @@ def load_raw_cache(path: Path = RAW_CACHE_PATH) -> dict[str, Any]:
 
 
 if __name__ == "__main__":
-    from enrich_scores import artificial_analysis_catalog_targets
+    from enrich_scores import artificial_analysis_catalog_targets, epoch_catalog_targets
 
     print("Fetching code-generation models from the Hugging Face Hub...")
     models = fetch_code_gen_models()
@@ -292,7 +344,10 @@ if __name__ == "__main__":
     # Second pass: models an external source has actually benchmarked.
     # Tag search alone rarely surfaces them, and they're the only models
     # that end up with an independent score to rank on.
-    targets = artificial_analysis_catalog_targets()
+    targets = {t[0]: t for t in artificial_analysis_catalog_targets()}
+    for target in epoch_catalog_targets():
+        targets.setdefault(target[0], target)
+    targets = list(targets.values())
     if targets:
         print(f"Resolving {len(targets)} externally-benchmarked models on the Hub...")
         by_id = {m.model_id: m for m in models}

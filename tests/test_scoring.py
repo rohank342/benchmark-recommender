@@ -175,3 +175,31 @@ class TestRanking:
 
         ranked = score_models([blank, scored_model], index=EmptyIndex())
         assert [m.model_id for m in ranked] == ["org/has-data", "org/no-data"]
+
+
+class TestProvenance:
+    def test_unverified_repo_ranks_below_verified_one(self):
+        """A score attributed to an unconfirmed repo may be another model's."""
+        from scoring import score_models
+
+        impostor = _raw([])
+        impostor["model_id"] = "testaccount/Big-Closed-Model"
+        impostor["provenance_verified"] = False
+        genuine = _raw([])
+        genuine["model_id"] = "realorg/real-model"
+
+        class FakeIndex:
+            def lookup(self, model_id):
+                score = 95.0 if model_id.startswith("testaccount") else 40.0
+                return [_external(score=score)]
+
+        ranked = score_models([impostor, genuine], index=FakeIndex())
+        assert [m.model_id for m in ranked] == [
+            "realorg/real-model",
+            "testaccount/Big-Closed-Model",
+        ]
+        assert ranked[1].composite_score > ranked[0].composite_score
+
+    def test_models_default_to_verified(self):
+        """Tag-search models aren't name-matched, so provenance isn't in doubt."""
+        assert score_model(_raw([]), []).provenance_verified is True

@@ -134,16 +134,17 @@ def recommend(task_type: str, vram_gb: float) -> pd.DataFrame:
                 "sources": ", ".join(m["sources"]) or "—",
                 "corroborated": m["composite_score"] is not None
                 and not m["self_reported_only"],
+                "provenance_verified": m["provenance_verified"],
                 "downloads": m["downloads"],
             }
         )
 
     df = pd.DataFrame(rows)
-    # Same tiering as scoring.rank_key: corroborated first, then
-    # self-reported, then unscored.
+    # Same tiering as scoring.rank_key: confirmed provenance first, then
+    # corroborated, then self-reported, then unscored.
     df = df.sort_values(
-        by=["corroborated", "composite_score"],
-        ascending=[False, False],
+        by=["provenance_verified", "corroborated", "composite_score"],
+        ascending=[False, False, False],
         na_position="last",
     )
     return df.reset_index(drop=True)

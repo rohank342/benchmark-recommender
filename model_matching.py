@@ -47,6 +47,25 @@ FORMAT_MARKERS = frozenset(
     }
 )
 
+# Inference-effort and reasoning-mode variants of one set of weights:
+# Epoch writes "gpt-oss-120b_high" and "DeepSeek-V3.2-Exp_thinking",
+# Artificial Analysis writes "GPT-5.1 Codex (high)". The Hub hosts one
+# repo for all of them, so these tokens don't identify a model.
+EFFORT_MARKERS = frozenset(
+    {
+        "high",
+        "xhigh",
+        "medium",
+        "low",
+        "minimal",
+        "think",
+        "thinking",
+        "nonthinking",
+        "reasoning",
+        "nonreasoning",
+    }
+)
+
 # Quant level tokens: 4bit, 8-bit, w4a16, ...
 _QUANT_TOKEN_RE = re.compile(r"^(\d+bit|w\d+a\d+)$")
 
@@ -73,7 +92,9 @@ def match_key(name: Optional[str]) -> Optional[str]:
     kept = [
         t
         for t in _tokens(name)
-        if t not in FORMAT_MARKERS and not _QUANT_TOKEN_RE.match(t)
+        if t not in FORMAT_MARKERS
+        and t not in EFFORT_MARKERS
+        and not _QUANT_TOKEN_RE.match(t)
     ]
     if not kept:
         return None
@@ -84,6 +105,18 @@ def match_key(name: Optional[str]) -> Optional[str]:
     # with an extra or different token (7b vs 14b, base vs instruct)
     # remains a different key.
     return "-".join(sorted(kept))
+
+
+def identity_string(name: Optional[str]) -> Optional[str]:
+    """
+    Normalize a name *without* reordering: "Moonshot AI" -> "moonshotai",
+    which is comparable to the Hub org "moonshotai". match_key() sorts its
+    tokens, so it can't be used for this — organization names are matched
+    by containment, where order carries meaning.
+    """
+    if not name:
+        return None
+    return "".join(_tokens(name)) or None
 
 
 def key_from_huggingface_url(url: Optional[str]) -> Optional[str]:

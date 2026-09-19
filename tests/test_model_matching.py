@@ -66,3 +66,15 @@ def test_reordering_does_not_merge_distinct_models():
     )
     assert match_key("Qwen2.5 Coder Instruct 7B") != match_key("Qwen2.5 Coder 7B")
     assert match_key("Qwen3 Coder Next") != match_key("Qwen3 Coder Next GB10")
+
+
+def test_identity_string_preserves_order_for_org_matching():
+    """Org names match by containment, so token order must be kept."""
+    from model_matching import identity_string
+
+    assert identity_string("Moonshot AI") == "moonshotai"
+    assert identity_string("Z.ai") == "zai"
+    # The Hub owner and the benchmark source's creator name should line up.
+    assert identity_string("moonshotai") == identity_string("Moonshot AI")
+    # match_key sorts tokens, which is exactly why it can't do this job.
+    assert match_key("Moonshot AI") != identity_string("Moonshot AI")

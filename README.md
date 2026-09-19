@@ -72,11 +72,15 @@ allows 100 requests per 24h and returns headline indices only; a paid key
 also returns `huggingface_url` (exact repo matching instead of name
 matching) and the code-specific `artificial_analysis_coding_index`.
 
-**Epoch AI** — no public API. Download the benchmark CSV from
-<https://epoch.ai/benchmarks/use-this-data#download-this-data> and save it
-as `data/epoch_benchmarks.csv`. Only code-relevant benchmarks are used.
-Their data is CC-BY: credit "Epoch AI, 'Capabilities & Benchmarking'.
-epoch.ai (2026)" wherever you display it.
+**Epoch AI** — no public API. Their export is a zip of per-benchmark CSVs
+indexed by `benchmark_metadata.csv`, downloaded from
+<https://epoch.ai/benchmarks/use-this-data#download-this-data>. The
+code-generation benchmarks from it are committed here under
+`data/epoch_benchmarks/` (SWE-Bench verified, MirrorCode, Aider polyglot,
+GSO-Bench, Terminal Bench, DeepSWE, FrontierCode) — to refresh, re-download
+and copy those files over. Their data is CC-BY: credit "Epoch AI,
+'Capabilities & Benchmarking'. epoch.ai (2026)" wherever you display it, as
+`data/epoch_benchmarks/SOURCE.md` does.
 
 ## Where to plug in real logic later
 
@@ -92,6 +96,10 @@ is marked. Highlights:
 - **`model_matching.py`** — matching is exact-on-normalized-key only. Loosening
   it would raise coverage at the risk of attributing one model's scores to
   another.
+- **`fetch_models.py`** — `MIN_DOWNLOADS_FOR_PROVENANCE` / `MIN_LIKES_FOR_PROVENANCE`
+  decide when a repo is trusted to hold the weights a benchmark measured, for
+  repos whose owner can't be tied to the crediting organization by name. They
+  are judgement calls, picked by looking at the repos they separate.
 - **`hardware_filter.py`** — VRAM-per-billion-params multipliers are rule-of-
   thumb, not measured; also doesn't yet account for context length / KV-cache
   growth.

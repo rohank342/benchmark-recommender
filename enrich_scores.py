@@ -24,9 +24,9 @@ Setup:
       export ARTIFICIAL_ANALYSIS_API_KEY=...
       python enrich_scores.py          # fetches + caches the catalog
 
-  Epoch AI — download the benchmark CSV from
-  https://epoch.ai/benchmarks/use-this-data#download-this-data and save it
-  to data/epoch_benchmarks.csv. Their data is CC-BY: credit
+  Epoch AI — download the benchmark export from
+  https://epoch.ai/benchmarks/use-this-data#download-this-data and unzip it
+  to data/epoch_benchmarks/. Their data is CC-BY: credit
   "Epoch AI, 'Capabilities & Benchmarking'. epoch.ai (2026)" wherever you
   display it.
 
@@ -51,7 +51,7 @@ from model_matching import key_from_huggingface_url, match_key
 
 DATA_DIR = Path(__file__).parent / "data"
 AA_CACHE_PATH = DATA_DIR / "artificial_analysis.json"
-EPOCH_CSV_PATH = DATA_DIR / "epoch_benchmarks.csv"
+EPOCH_DATA_DIR = DATA_DIR / "epoch_benchmarks"
 
 ARTIFICIAL_ANALYSIS_API_KEY = os.environ.get("ARTIFICIAL_ANALYSIS_API_KEY")
 
@@ -73,27 +73,36 @@ AA_PAGE_SIZE = 200
 # Coverage cost: ~261 of 652 catalogued models carry a coding index.
 AA_CODING_EVALUATION = "artificial_analysis_coding_index"
 
-# Epoch tracks ~80 benchmarks across maths, agentic work, games, etc.
-# v1 scope is code generation, so only code-relevant rows are kept.
-CODE_BENCHMARK_HINTS = (
-    "code",
-    "swe",
-    "humaneval",
-    "mbpp",
-    "livecodebench",
-    "mirrorcode",
-    "bigcodebench",
-    "apps",
-    "terminalbench",
-    "scicode",
+# Epoch's export is a directory: benchmark_metadata.csv indexes ~86
+# benchmarks, each with its own CSV, score column, and scale factor.
+EPOCH_METADATA_FILE = "benchmark_metadata.csv"
+
+# Epoch covers maths, games, agentic work and more; v1 scope is code
+# generation. These are the code-relevant benchmarks in their export, by
+# the exact names used in benchmark_metadata.csv.
+EPOCH_CODE_BENCHMARKS = frozenset(
+    {
+        "SWE-Bench verified",
+        "SWE-bench Pro",
+        "MirrorCode",
+        "Aider polyglot",
+        "DeepSWE",
+        "FrontierCode",
+        "FrontierSWE",
+        "GSO-Bench",
+        "Terminal Bench",
+        "CursorBench",
+        "AlgoTune",
+        "ALE-Bench",
+        "SciCode",
+        "WebDev Arena",
+    }
 )
 
-# Epoch's CSV column names aren't contractual, so accept the plausible
-# spellings and fail loudly if none are present.
-_EPOCH_MODEL_COLUMNS = ("model", "model_name", "ml_model", "system")
-_EPOCH_BENCHMARK_COLUMNS = ("task", "benchmark", "task_path", "benchmark_name")
-_EPOCH_SCORE_COLUMNS = ("score", "accuracy", "best_score", "value", "result")
-_EPOCH_DATE_COLUMNS = ("date", "run_date", "publication_date", "released", "release_date")
+# Per-benchmark CSVs name the model in "Model version" and carry the
+# evaluation date; the score column varies and is named in the metadata.
+_EPOCH_MODEL_COLUMNS = ("model_version", "model", "model_name")
+_EPOCH_DATE_COLUMNS = ("date_of_evaluation", "release_date", "date")
 
 
 @dataclass
@@ -276,85 +285,137 @@ def _pick_column(fieldnames: Iterable[str], candidates: tuple[str, ...]) -> Opti
     return None
 
 
-def _is_code_benchmark(name: str) -> bool:
-    lowered = name.lower()
-    return any(hint in lowered for hint in CODE_BENCHMARK_HINTS)
+def _load_epoch_benchmark_file(
+    index: ExternalScoreIndex, directory: Path, meta: dict[str, str]
+) -> int:
+    """Index one benchmark's CSV, described by its metadata row."""
+    source_file = (meta.get("source_file") or "").strip()
+    score_column = (meta.get("score_column") or "").strip()
+    benchmark = (meta.get("benchmark") or "").strip()
+    path = directory / source_file
+    if not source_file or not score_column or not path.exists():
+        return 0
 
+    # `scale` is the multiplier that converts the column to a 0-1
+    # fraction: 1.0 where scores are already fractions, 0.01 where the
+    # column is a percentage.
+    try:
+        scale_factor = float(meta.get("scale") or 1.0)
+    except ValueError:
+        scale_factor = 1.0
 
-def load_epoch_ai(index: ExternalScoreIndex, path: Path = EPOCH_CSV_PATH) -> None:
-    """
-    Add scores from a downloaded Epoch AI benchmark CSV to `index`.
-
-    Their column names are not a published contract, so the columns are
-    detected from a list of plausible spellings and an unrecognized
-    header is reported rather than silently skipped.
-    """
-    if not path.exists():
-        index.warnings.append(
-            f"No Epoch AI CSV at {path} — download it from "
-            "https://epoch.ai/benchmarks/use-this-data#download-this-data"
-        )
-        return
-
+    added = 0
     with path.open(newline="", encoding="utf-8") as handle:
         reader = csv.DictReader(handle)
         fieldnames = reader.fieldnames or []
         model_col = _pick_column(fieldnames, _EPOCH_MODEL_COLUMNS)
-        bench_col = _pick_column(fieldnames, _EPOCH_BENCHMARK_COLUMNS)
-        score_col = _pick_column(fieldnames, _EPOCH_SCORE_COLUMNS)
         date_col = _pick_column(fieldnames, _EPOCH_DATE_COLUMNS)
-
-        if not (model_col and bench_col and score_col):
+        if not model_col or score_column not in fieldnames:
             index.warnings.append(
-                f"Epoch AI CSV at {path} has unrecognized columns {fieldnames!r}; "
-                "update the _EPOCH_*_COLUMNS lists in enrich_scores.py."
+                f"Epoch file {source_file} lacks a model or '{score_column}' column."
             )
-            return
+            return 0
 
-        rows = []
         for row in reader:
-            benchmark = (row.get(bench_col) or "").strip()
             model_name = (row.get(model_col) or "").strip()
-            if not benchmark or not model_name or not _is_code_benchmark(benchmark):
+            raw = (row.get(score_column) or "").strip().rstrip("%")
+            if not model_name or not raw:
                 continue
             try:
-                score = float((row.get(score_col) or "").strip().rstrip("%"))
+                score = float(raw) * scale_factor
             except ValueError:
                 continue
-            rows.append((model_name, benchmark, score, (row.get(date_col) or "").strip() if date_col else None))
+            index.add(
+                match_key(model_name),
+                ExternalScore(
+                    source="epoch_ai",
+                    benchmark_name=benchmark,
+                    score=score,
+                    score_scale="0-1",  # normalized by the metadata's scale factor
+                    reported_date=(row.get(date_col) or "").strip() or None,
+                    matched_name=model_name,
+                    notes="Epoch AI, 'Capabilities & Benchmarking'. epoch.ai (2026). CC-BY.",
+                ),
+            )
+            added += 1
+    return added
 
-    if not rows:
-        index.sources_loaded.append("epoch_ai")
+
+def load_epoch_ai(index: ExternalScoreIndex, path: Path = EPOCH_DATA_DIR) -> None:
+    """
+    Add scores from a downloaded Epoch AI benchmark export to `index`.
+
+    The export is a directory: `benchmark_metadata.csv` lists every
+    benchmark with its source file, score column and scale factor, and
+    each benchmark has its own CSV. Only the code-generation benchmarks
+    in EPOCH_CODE_BENCHMARKS are loaded.
+    """
+    metadata_path = path / EPOCH_METADATA_FILE
+    if not metadata_path.exists():
         index.warnings.append(
-            f"Epoch AI CSV at {path} held no code-generation benchmark rows."
+            f"No Epoch AI export at {path} (expected {EPOCH_METADATA_FILE} inside) — "
+            "download it from https://epoch.ai/benchmarks/use-this-data#download-this-data"
         )
         return
 
-    # Epoch reports accuracies as fractions; a file that ranges above 1 is
-    # on a 0-100 scale instead. Decide once per file rather than per row.
-    scale = "0-1" if max(row[2] for row in rows) <= 1.0 else "0-100"
+    with metadata_path.open(newline="", encoding="utf-8") as handle:
+        metadata = [
+            row
+            for row in csv.DictReader(handle)
+            if (row.get("benchmark") or "").strip() in EPOCH_CODE_BENCHMARKS
+        ]
 
-    for model_name, benchmark, score, date in rows:
-        index.add(
-            match_key(model_name),
-            ExternalScore(
-                source="epoch_ai",
-                benchmark_name=benchmark,
-                score=score,
-                score_scale=scale,
-                reported_date=date or None,
-                matched_name=model_name,
-                notes="Epoch AI, 'Capabilities & Benchmarking'. epoch.ai (2026). CC-BY.",
-            ),
-        )
+    added = sum(_load_epoch_benchmark_file(index, path, row) for row in metadata)
     index.sources_loaded.append("epoch_ai")
+    if not added:
+        index.warnings.append(
+            f"Epoch AI export at {path} held no usable code-benchmark scores."
+        )
+
+
+def epoch_catalog_targets(path: Path = EPOCH_DATA_DIR) -> list[tuple[str, str, Optional[str]]]:
+    """
+    Models Epoch has a code-benchmark score for, as
+    (match key, label, crediting organization) — the same shape
+    fetch_models.fetch_models_for_catalog() consumes.
+    """
+    metadata_path = path / EPOCH_METADATA_FILE
+    if not metadata_path.exists():
+        return []
+
+    with metadata_path.open(newline="", encoding="utf-8") as handle:
+        files = [
+            (row.get("source_file") or "").strip()
+            for row in csv.DictReader(handle)
+            if (row.get("benchmark") or "").strip() in EPOCH_CODE_BENCHMARKS
+        ]
+
+    targets: dict[str, tuple[str, str, Optional[str]]] = {}
+    for source_file in files:
+        file_path = path / source_file
+        if not source_file or not file_path.exists():
+            continue
+        with file_path.open(newline="", encoding="utf-8") as handle:
+            reader = csv.DictReader(handle)
+            model_col = _pick_column(reader.fieldnames or [], _EPOCH_MODEL_COLUMNS)
+            org_col = _pick_column(reader.fieldnames or [], ("organization", "creator"))
+            if not model_col:
+                continue
+            for row in reader:
+                label = (row.get(model_col) or "").strip()
+                key = match_key(label)
+                if key:
+                    targets.setdefault(
+                        key, (key, label, (row.get(org_col) or "").strip() or None if org_col else None)
+                    )
+    return list(targets.values())
 
 
 # --- Public entry point ----------------------------------------------
 
 
 def build_external_index(
-    aa_path: Path = AA_CACHE_PATH, epoch_path: Path = EPOCH_CSV_PATH
+    aa_path: Path = AA_CACHE_PATH, epoch_path: Path = EPOCH_DATA_DIR
 ) -> ExternalScoreIndex:
     """
     Load every available external source once and return a lookup index.
