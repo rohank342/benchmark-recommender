@@ -345,39 +345,67 @@ BENCHMARK_CATALOG: tuple[Benchmark, ...] = (
         release_date="2024-08-13",
         dataset_size=500,
         contamination_flagged=False,
-        # Upper end of the creators' own 5-10% estimate of flawed instances.
-        # Deliberately the conservative reading — see notes.
-        item_error_rate=0.10,
+        # A demonstrated FLOOR across all 500 problems, not a point estimate.
+        # 27.6% of the benchmark was audited; 59.4% of that subset was flawed;
+        # 0.594 x 138 is ~82 problems, ~16.4% of the whole 500. The other 362
+        # were never audited, so the true rate is >= this and unbounded above.
+        # This field holds a single number and cannot express "at least", so
+        # the notes carry that and the penalty is computed from the floor.
+        item_error_rate=0.164,
         saturation_flagged=False,
         independent_evaluators=5,
         task_specificity=0.95,
-                evidence_dates={
-            "item_error_rate": "2024-08-13",  # creators' own estimate at release
+        evidence_dates={
+            "item_error_rate": "2026-02-23",  # OpenAI's audit publication
         },
         curation_notes=(
             "RESEARCHED 2026-09-20. Human-validated subset of 500 real GitHub "
             "issues — the closest thing in this catalog to a real task, hence the "
             "0.95 specificity. Measured saturation here is already ~70%, so it is "
             "trending the way the others did. "
-            "CURATE(you): the underlying repositories are public, so both the issues "
-            "and their accepted patches are crawlable. No contamination flag yet "
-            "because I found no study quantifying it — that absence is the thing to "
-            "check, not evidence of cleanliness. "
-            "ITEM QUALITY (added 2026-09-20), and the evidence here diverges wildly. "
-            "The creators estimate 5-10% of instances are flawed; item_error_rate "
-            "records 0.10, the top of their own range. But an independent audit of a "
-            "27.6% subset (UTBoost, arXiv 2506.09289) found at least 59.4% of the "
-            "problems it examined had test cases that REJECT functionally correct "
-            "submissions, and a parser defect touched 271 of the 500 instances. "
-            "DeepSWE's authors corroborate the mechanism from another angle: an "
-            "independent judge disagreed with SWE-bench Pro's inherited tests 32.4% "
-            "of the time against 1.4% for hand-written verifiers. "
-            "CURATE(you): the 0.10 here is the conservative choice because the "
-            "audit's definition (tests that can reject a correct patch) is broader "
-            "than 'wrong answer key' and covers a subset. Using the audit figure "
-            "instead would roughly halve this benchmark's trust score. Deciding "
-            "which definition belongs in this field is a real call, and this is the "
-            "most consequential open question in the catalog."
+            "ITEM QUALITY — REVISED 2026-09-21, from 0.10 to a 0.164 FLOOR. "
+            "OpenAI published an audit on 2026-02-23 ('Why SWE-bench Verified no "
+            "longer measures frontier coding capabilities') covering 138 problems, "
+            "27.6% of the 500, of which 59.4% had material issues in TEST DESIGN "
+            "AND/OR PROBLEM DESCRIPTION. Epoch's review of that audit computes the "
+            "implied floor across the whole benchmark: 0.594 x 138 is ~82 problems, "
+            "~16.4% of 500, and Epoch concludes the benchmark is 'unlikely to meet "
+            "our bar of fewer than 20% of questions having accuracy-impacting "
+            "issues'. https://openai.com/index/why-we-no-longer-evaluate-swe-bench-verified/ "
+            "| https://epoch.ai/benchmarks/swe-bench-verified/review "
+            "WHY THE FLOOR AND NOT 59.4%: the 138 were chosen BECAUSE o3 failed "
+            "them consistently across 64 runs. That is a deliberately hard, "
+            "non-random sample, so 59.4% is the flaw rate among problems models "
+            "already fail, not across the benchmark. Applying it to all 500 would "
+            "assume the unaudited 362 are as broken as the hardest 138, which the "
+            "evidence does not support. 16.4% is what the audit demonstrates for "
+            "the whole set regardless of how the rest turn out. "
+            "CURATE(you): UPPER BOUND UNKNOWN. The other 362 problems have never "
+            "been audited — unknown, not clean. A random-sample audit would replace "
+            "this floor with an actual estimate and is the single most valuable "
+            "thing anyone could do for this entry. "
+            "CURATE(you): the 18.8% 'wide tests' and 5.1% miscellaneous figures "
+            "sometimes quoted for this audit could NOT be verified — OpenAI's page "
+            "returns 403 to automated fetches and no reachable secondary source "
+            "carried them. Only the 35.5% narrow-test figure is confirmed. "
+            "OPPOSITE-DIRECTION EVIDENCE, deliberately not merged into the number "
+            "above: a preprint of 2026-06-14 (arXiv 2606.16062) reports that in a "
+            "49-task sample, 28.5% have test suites weak enough that a "
+            "Docker-verified INCORRECT patch passes. That is false acceptance, the "
+            "mirror of the false rejection the OpenAI audit measured; combining "
+            "them would add two different quantities. Small sample, single source, "
+            "sampling method not described. CURATE(you): if it holds up, this "
+            "benchmark is wrong in both directions at once and item_error_rate as "
+            "a single number may be the wrong shape for it. "
+            "CORRECTION: an earlier version of this note attributed the 59.4% to "
+            "UTBoost (arXiv 2506.09289). That was a conflation — the 27.6%/59.4% "
+            "audit is OpenAI's. UTBoost is separate work on the same weakness. "
+            "SEPARATE FINDING, NOT ACTED ON: the same OpenAI post reports that "
+            "every frontier model tested could reproduce verbatim gold patches or "
+            "problem-specific details, i.e. direct contamination evidence. This "
+            "entry still carries contamination_flagged=False. Changing that is a "
+            "scoring decision outside the scope of the commit that revised "
+            "item_error_rate, and is flagged for a deliberate call."
         ),
         epoch_source_file="swe_bench_verified.csv",
     ),

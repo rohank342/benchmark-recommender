@@ -99,3 +99,37 @@ class TestScoringIsTimeAware:
             assert score_benchmark(benchmark).trust_score == pytest.approx(
                 score_benchmark(benchmark, as_of=None).trust_score
             )
+
+
+class TestSweBenchFloorIsNotVisibleInThePast:
+    """
+    SWE-Bench Verified's item_error_rate is a floor derived from an audit
+    published 2026-02-23. A backtest run at 2024-06-01 must not see it —
+    and the benchmark did not even exist then (released 2024-08-13).
+    """
+
+    def test_the_audit_postdates_the_cutoff(self):
+        swe = find_benchmark("SWE-Bench Verified")
+        assert swe.evidence_dates["item_error_rate"] == "2026-02-23"
+        assert not swe.known_at("item_error_rate", CUTOFF)
+
+    def test_no_item_quality_penalty_is_applied_at_the_cutoff(self):
+        then = score_benchmark(find_benchmark("SWE-Bench Verified"), as_of=CUTOFF)
+        assert not any("mislabelled" in p for p in then.penalties), then.penalties
+
+    def test_the_penalty_is_applied_today(self):
+        now = score_benchmark(find_benchmark("SWE-Bench Verified"))
+        assert any("mislabelled" in p for p in now.penalties), now.penalties
+
+    def test_raising_the_floor_did_not_move_the_2024_score(self):
+        """
+        The revision must be invisible to the backtest entirely. This is the
+        property that keeps the June 2024 result honest: evidence published
+        in 2026 cannot change what the scorer would have said in 2024.
+        """
+        then = score_benchmark(find_benchmark("SWE-Bench Verified"), as_of=CUTOFF)
+        # Recompute with the old value to prove the cutoff score is identical.
+        from dataclasses import replace
+
+        old = replace(find_benchmark("SWE-Bench Verified"), item_error_rate=0.10)
+        assert score_benchmark(old, as_of=CUTOFF).trust_score == then.trust_score

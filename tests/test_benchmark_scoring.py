@@ -390,7 +390,9 @@ class TestItemQuality:
     def test_real_entries_carry_their_audited_rates(self):
         assert find_benchmark("MMLU").item_error_rate == pytest.approx(0.0649)
         assert find_benchmark("HellaSwag").item_error_rate == pytest.approx(0.36)
-        assert find_benchmark("SWE-Bench Verified").item_error_rate == pytest.approx(0.10)
+        # A floor derived from OpenAI's partial audit, not a point estimate:
+        # 59.4% of an audited 27.6% is ~16.4% of the whole benchmark.
+        assert find_benchmark("SWE-Bench Verified").item_error_rate == pytest.approx(0.164)
 
     def test_unaudited_benchmarks_stay_none(self):
         """Most of the catalog has never been audited; that must show as None."""
