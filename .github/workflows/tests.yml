@@ -1,0 +1,21 @@
+name: tests
+
+# The suite is the main defence against invented numbers leading the
+# rankings — several tests assert that no benchmark reaches the top 5 on
+# uncurated fields, and that the backtest cannot see post-cutoff
+# evidence. Those only help if they run without anyone remembering to.
+on:
+  push:
+  pull_request:
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: uv venv --python 3.12
+      - run: uv pip install -r requirements.txt pytest
+      # No network and no API keys here. Everything under test reads the
+      # committed data in data/; the fetch scripts are not exercised.
+      - run: .venv/bin/python -m pytest -q

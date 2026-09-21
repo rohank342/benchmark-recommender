@@ -18,7 +18,7 @@ Sources:
       7,200+ models on ARC, HellaSwag, MMLU, TruthfulQA, Winogrande,
       GSM8K — the set retired in June 2024 for saturation.
   EvalPlus (evalplus.github.io/results.json)
-      125 models on HumanEval / HumanEval+ / MBPP / MBPP+.
+      125 models on HumanEval.
 
 Both leaderboards carry a `Flagged` column marking models the
 maintainers identified as contaminated or otherwise broken. Those rows
@@ -105,7 +105,6 @@ RANDOM_BASELINES = {
     "truthfulqa": 0.0,  # generative/MC2 scoring, no clean chance baseline
     "mmlu_pro": 0.1,  # ten options
     "humaneval": 0.0,
-    "humaneval_plus": 0.0,
 }
 
 
@@ -262,10 +261,14 @@ def fetch_open_llm_v1() -> list[ScoreSet]:
 
 def fetch_evalplus(timeout: int = 30) -> list[ScoreSet]:
     """
-    EvalPlus publishes greedy-decoding pass@1 for HumanEval and its
-    HumanEval+ variant (extra tests, same problems). Both are kept: the
-    gap between them is itself evidence about how much the original's
-    test coverage was letting through.
+    EvalPlus publishes greedy-decoding pass@1 for HumanEval and for
+    HumanEval+ (the same 164 problems with far more tests).
+
+    Only HumanEval is kept, because only HumanEval is in the catalog and
+    nothing reads an orphaned score file. Adding HumanEval+ as its own
+    entry would be worthwhile — the gap between the two is direct
+    evidence about how much the original's thin test coverage was
+    letting through — but that needs curation, not just a download.
     """
     response = requests.get(EVALPLUS_RESULTS_URL, timeout=timeout)
     response.raise_for_status()
@@ -279,16 +282,9 @@ def fetch_evalplus(timeout: int = 30) -> list[ScoreSet]:
         # time-filtered and are excluded from any as-of scoring.
         if isinstance(scores.get("humaneval"), (int, float)):
             humaneval.append((model, float(scores["humaneval"]) / 100.0, ""))
-        if isinstance(scores.get("humaneval+"), (int, float)):
-            humaneval_plus.append((model, float(scores["humaneval+"]) / 100.0, ""))
 
-    print(f"  evalplus: {len(humaneval)} HumanEval, {len(humaneval_plus)} HumanEval+ scores")
-    sets = []
-    if humaneval:
-        sets.append(ScoreSet("humaneval", "evalplus", humaneval))
-    if humaneval_plus:
-        sets.append(ScoreSet("humaneval_plus", "evalplus", humaneval_plus))
-    return sets
+    print(f"  evalplus: {len(humaneval)} HumanEval scores")
+    return [ScoreSet("humaneval", "evalplus", humaneval)] if humaneval else []
 
 
 SOURCES: tuple[tuple[str, Callable[[], list[ScoreSet]]], ...] = (

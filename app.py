@@ -17,9 +17,9 @@ Run with:
     python app.py
 
 The benchmark tab works offline from the catalog in fetch_benchmarks.py
-and Epoch's export in data/. The model tab needs data/models_raw.json —
-run `python fetch_models.py` first, or it falls back to a small built-in
-MOCK_MODELS list.
+and the score data in data/. The model tab needs data/models_raw.json —
+run `python fetch_models.py` first, or it says so rather than inventing
+placeholder models.
 """
 
 from __future__ import annotations
@@ -39,59 +39,26 @@ from hardware_filter import filter_models_by_vram
 from scoring import score_models
 from task_matcher import CATEGORY_KEYWORDS, all_categories, recommend_benchmarks
 
-# --- Fallback data so the demo runs even with an empty/missing cache ---
-# TODO(you): remove once `python fetch_models.py` is part of your normal
-# setup flow, or keep as an offline-demo fallback — your call.
-MOCK_MODELS: list[dict[str, Any]] = [
-    {
-        "model_id": "example-org/mock-coder-7b",
-        "params_billion": 7.0,
-        "license": "apache-2.0",
-        "eval_results": [{"metric_name": "pass@1", "metric_value": 48.5}],
-        "downloads": 50000,
-        "last_modified": "2025-05-01",
-    },
-    {
-        "model_id": "example-org/mock-coder-13b",
-        "params_billion": 13.0,
-        "license": "llama2",
-        "eval_results": [{"metric_name": "pass@1", "metric_value": 55.0}],
-        "downloads": 30000,
-        "last_modified": "2024-11-15",
-    },
-    {
-        "model_id": "example-org/mock-coder-34b",
-        "params_billion": 34.0,
-        "license": "apache-2.0",
-        "eval_results": [{"metric_name": "pass@1", "metric_value": 62.3}],
-        "downloads": 15000,
-        "last_modified": "2025-02-20",
-    },
-    {
-        "model_id": "example-org/mock-coder-1.3b",
-        "params_billion": 1.3,
-        "license": "mit",
-        "eval_results": [{"metric_name": "pass@1", "metric_value": 32.0}],
-        "downloads": 80000,
-        "last_modified": "2025-07-10",
-    },
-]
-
 # Task categories now come from the benchmark catalog rather than a
 # hardcoded single option.
 TASK_TYPES = list(all_categories())
 
 
 def _load_models() -> list[dict[str, Any]]:
-    cache = load_raw_cache(RAW_CACHE_PATH)
-    models = cache.get("models") or []
-    if models:
-        return models
-    print(
-        f"[app.py] No cached models found at {RAW_CACHE_PATH}. "
-        "Using built-in MOCK_MODELS. Run `python fetch_models.py` for real data."
-    )
-    return MOCK_MODELS
+    """
+    The cached Hub models, or an empty list.
+
+    There is deliberately no built-in fallback. Four fake models made a
+    missing fetch look like a working app with odd results, which is a
+    worse failure than an empty table saying what to run.
+    """
+    models = load_raw_cache(RAW_CACHE_PATH).get("models") or []
+    if not models:
+        print(
+            f"[app.py] No model cache at {RAW_CACHE_PATH} — "
+            "run `python fetch_models.py`. The benchmark tab works without it."
+        )
+    return models
 
 
 @lru_cache(maxsize=1)
@@ -206,6 +173,15 @@ def recommend(
     # number on the box.
     budget = usable_memory_gb(device, vram_gb)
     raw_models = _load_models()
+    if not raw_models:
+        return pd.DataFrame(
+            [
+                {
+                    "message": "No model data. Run `python fetch_models.py` to "
+                    "populate data/models_raw.json, then restart the app."
+                }
+            ]
+        )
     scored = score_models(raw_models, index=_external_index())
 
     scored_dicts = [asdict(s) for s in scored]

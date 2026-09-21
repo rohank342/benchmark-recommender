@@ -1,136 +1,160 @@
 # Benchmark Recommender
 
-**Which benchmark should you trust?** A benchmark's popularity is not evidence
-that it still works. Labs optimize against well-known benchmarks until the
+**Which benchmark should you believe?** Popularity is not evidence that a
+benchmark still works. Labs optimize against well-known benchmarks until the
 leaderboard stops separating models, and public test sets leak into training
 data — so HumanEval and MMLU keep getting quoted long after they stopped
-discriminating.
+discriminating. This scores *benchmarks* first. Model rankings are downstream:
+a model's result is worth what the benchmark that produced it is worth.
 
-This scores *benchmarks* first: saturation measured from real score
-distributions, plus age, reproducibility and task specificity, into a 0-100
-trust score with a breakdown of what limits it. Model recommendations are
-downstream — a model's result counts for as much as the benchmark that
-produced it is worth.
+The concrete case. For code generation, **HumanEval scores 28.7/100 and
+MirrorCode scores 74.3.** HumanEval is the famous one. It is also 164 short
+functions published in 2021, whose top ten models now span 7.9 points of the
+usable range and average 92% of it — measured, from 125 models' scores — while
+8–18% of its items appear in major pretraining corpora and the same models
+score 39.4% lower on a decontaminated variant. MirrorCode is from 2026, holds
+back ~34% of its tests so solutions can't be memorized, and its top ten still
+spread out. Neither number is a matter of opinion about which benchmark is
+fashionable.
 
-## Scope
+---
 
-- **Benchmark trust**: 22 benchmarks across 9 task categories.
-- **Model ranking** (downstream): open-weight Hub models, filtered by memory
-  budget at a chosen context length, for a chosen device.
+## What you can and can't trust here
 
-VRAM is estimated as weights + KV cache + workspace, where the KV cache is
-computed from the model's own layer/head dimensions and grows linearly with
-context: a 7B model needs ~0.2 GB of cache at 4K and ~7 GB at 128K. Repos
-that ship pre-quantized (AWQ, FP8, NVFP4, GGUF, MLX) are only offered at the
-precision they actually contain.
+This matters more than the scores, so it comes first.
 
-**Device matters as much as memory.** A repo is packaged for a runtime:
-AWQ and GPTQ ship CUDA kernels, MLX is Apple-only, FP8 needs Ada or newer,
-NVFP4 needs Blackwell. Load-time quantization is device-specific too —
-`bitsandbytes` has no working MPS backend, so on Apple Silicon a
-full-precision repo means fp16 or a GGUF/MLX build of the same weights,
-never an 8-bit load. [`device_profiles.py`](device_profiles.py) encodes
-this; artifacts the selected device can't run are dropped rather than
-ranked, and the memory budget is discounted (~70% of unified memory on a
-Mac, ~95% of discrete VRAM).
+**Measured** — computed from real score distributions, reproducible from the
+committed data:
 
-## Project layout
-
-| File | Purpose |
+| | coverage |
 |---|---|
-| [`fetch_benchmarks.py`](fetch_benchmarks.py) | The benchmark catalog: categories, release dates, contamination/saturation flags. Curated fields marked `CURATE(you)`. |
-| [`benchmark_scoring.py`](benchmark_scoring.py) | Benchmark trust score (0-100): discrimination, freshness, reproducibility, specificity. |
-| [`task_matcher.py`](task_matcher.py) | Maps a free-text task description to a benchmark category. |
-| [`fetch_models.py`](fetch_models.py) | Pulls code-gen models from the HF Hub, caches to `data/models_raw.json`. |
-| [`enrich_scores.py`](enrich_scores.py) | Loads external benchmark catalogs (Artificial Analysis API, Epoch AI CSV) in bulk and indexes them for lookup. |
-| [`model_matching.py`](model_matching.py) | Reduces Hub repo ids and external sources' model labels to a common match key. |
-| [`scoring.py`](scoring.py) | Model scoring: normalizes benchmark numbers, weights them by benchmark trust, applies the source-trust discount. |
-| [`hardware_filter.py`](hardware_filter.py) | Estimates VRAM (weights + KV cache at a given context length) and filters by budget. |
-| [`device_profiles.py`](device_profiles.py) | What each device can actually run: quant formats, load-time quantization, usable memory. |
-| [`app.py`](app.py) | Gradio UI: "Which benchmark should I trust?" and "Which model should I use?" |
+| Saturation (the `discrimination` factor) | 21 of 22 benchmarks |
+| Cross-source agreement (`reproducibility`) | 4 of 22 |
 
-## Setup
+**Curated** — read out of papers and reports by a human, cited in each entry's
+`curation_notes` with a date:
+
+| | coverage |
+|---|---|
+| Contamination rate (fraction of items in pretraining corpora) | 3 of 22 |
+| Item error rate (wrong answer keys, broken tests) | 3 of 22 |
+| Release dates, dataset sizes, holdout type | all 22 |
+
+**Judgement calls** — defensible, argued in comments, but mine rather than
+anybody's finding:
+
+- `task_specificity` for all 22 benchmarks: how narrowly a benchmark maps to
+  real work, 0–1.
+- `independent_evaluators` for the 18 benchmarks where agreement can't be
+  measured.
+- Every weight and threshold: the 40/20/20/20 factor split, the two-year
+  leakage half-life, the penalty curves.
+
+The UI reports `measured` / `curated` / `unknown` per factor, per benchmark, so
+you can see which kind of number you're looking at. If a number in the table
+traces back to a guess, the guess is visible.
+
+---
+
+## Limitations
+
+The ones that undercut the project, stated plainly:
+
+**The weights are uncalibrated.** 40% discrimination, 20% each for freshness,
+reproducibility and specificity, with a two-year leakage half-life. These are
+judgement calls. [The backtest](docs/BACKTEST.md) shows the ranking survives
+most reweightings and correctly reproduces one real expert decision — but eight
+benchmarks and one decision can falsify the scorer, not validate it.
+
+**Saturation depends on which models you measure.** On GPQA Diamond the
+frontier's top ten sit at 93% of the usable range while the open-community
+leaderboard's top ten sit at 27% — 89% versus 59% saturation. Both are true and
+they answer different questions. The headline reading prefers frontier
+coverage, because "has this stopped separating the best models?" is usually
+what's being asked, and the UI shows every source's reading rather than
+averaging them into one misleading number.
+
+**Reproducibility is measured for 4 benchmarks and guessed for 18.** Only MMLU,
+GPQA Diamond, BBH and MATH Lvl 5 have two comparable sources. The rest fall
+back to a curated count of how many groups publish scores — which says nothing
+about whether those scores agree. Where both exist they can disagree sharply:
+GPQA has five evaluators (proxy: fully reproducible) and 8.1 points of
+unexplained scatter between two of them (measurement: not reproducible at all).
+
+**Evaluator coverage is thin.** MirrorCode, which currently leads the rankings,
+has exactly one independent evaluator, and seven more benchmarks have only two.
+A benchmark nobody else has run is not the same as a benchmark everyone agrees
+about.
+
+**Model scoring is the weaker half.** The benchmark side is the point; the
+model tab inherits every limitation above plus its own — VRAM estimates are
+derived rather than measured, and nothing models the serving stack.
+
+**Some benchmarks are missing.** Winogrande, GSM8K, MuSR and IFEval are not
+catalogued, which is the cheapest thing that would strengthen the backtest.
+
+---
+
+## Install and run
+
+Requires Python 3.12 (pinned in `pyproject.toml`; `uv venv` will otherwise
+happily pick an end-of-life system Python).
 
 ```bash
-pip install -r requirements.txt
+uv venv --python 3.12
+uv pip install -r requirements.txt pytest
+python app.py          # http://127.0.0.1:7860
+pytest                 # 181 tests
 ```
 
-or with `uv`:
+The **benchmark tab works offline** from committed data. The **model tab** needs
+`python fetch_models.py` first, and says so rather than inventing placeholders.
 
-```bash
-uv venv
-uv pip install -r requirements.txt
-```
+---
 
-## Run
+## Refreshing the data
 
-```bash
-# 1. pull external benchmark scores first — see "External sources" below
-export ARTIFICIAL_ANALYSIS_API_KEY=...
-python enrich_scores.py
+All measured numbers come from data committed in `data/`. Nothing here hits the
+network at runtime.
 
-# 2. pull model data from the Hub
-export HF_TOKEN=...        # recommended: anonymous access gets rate-limited
-python fetch_models.py
+| source | refresh | needs | last pulled |
+|---|---|---|---|
+| Leaderboard score distributions | `python fetch_benchmark_scores.py` | `HF_TOKEN` | 2026-09-21 |
+| Epoch AI benchmark export | manual download (see below) | — | 2026-09-14 |
+| Hub model catalog | `python fetch_models.py` | `HF_TOKEN` | 2026-09-18 |
+| Artificial Analysis catalog | `python enrich_scores.py` | `ARTIFICIAL_ANALYSIS_API_KEY` | 2026-09-18 |
 
-# 3. launch the app — falls back to built-in mock models if step 2 was skipped
-python app.py
-```
+Keys go in `.env` (gitignored) as `NAME=value`.
 
-Run `enrich_scores.py` *before* `fetch_models.py`: the fetch makes two
-passes, one over code-tagged Hub models and one that locates the
-externally-benchmarked models on the Hub. The second pass is what puts
-models with independent scores into the candidate set, and it needs the
-cached catalog. It makes one search per benchmarked model, so set
-`HF_TOKEN` (any free Hub account) to avoid anonymous rate limits — a
-rate-limited search is reported and skipped, not fatal.
+**Epoch AI** has no public API. Download the benchmark export from
+[their data page](https://epoch.ai/benchmarks/use-this-data#download-this-data)
+and copy the relevant CSVs into `data/epoch_benchmarks/`. Their data is CC-BY —
+credit "Epoch AI, 'Capabilities & Benchmarking'. epoch.ai (2026)" wherever you
+display it.
 
-Run the tests with `pytest`.
+**Staleness matters here.** Saturation is a moving target: a benchmark measured
+as healthy a year ago may be finished now. The committed distributions are the
+project's evidence base, so a stale `data/` means stale conclusions, not just
+stale numbers. `data/artificial_analysis.json` is gitignored — the free tier is
+internal-use-only and not ours to redistribute.
 
-## External sources
+---
 
-Both sources are optional; whatever is missing is reported as a warning at
-startup and the trust score accounts for the reduced source coverage.
+## Layout
 
-**Artificial Analysis** — create a key at
-<https://artificialanalysis.ai/data-api> and export it as
-`ARTIFICIAL_ANALYSIS_API_KEY`, then run `python enrich_scores.py` to cache
-the catalog to `data/artificial_analysis.json` (gitignored). The free tier
-allows 100 requests per 24h and returns headline indices only; a paid key
-also returns `huggingface_url` (exact repo matching instead of name
-matching) and the code-specific `artificial_analysis_coding_index`.
+| file | purpose |
+|---|---|
+| [`fetch_benchmarks.py`](fetch_benchmarks.py) | The catalog: 22 benchmarks across 9 task categories, their curated fields, and the evidence dates behind each claim. |
+| [`benchmark_scoring.py`](benchmark_scoring.py) | The four factors, the penalties, and as-of scoring for the backtest. |
+| [`cross_source.py`](cross_source.py) | Do two evaluators agree about the same models? Offset vs scatter. |
+| [`task_matcher.py`](task_matcher.py) | Free-text task description → benchmark category. |
+| [`fetch_benchmark_scores.py`](fetch_benchmark_scores.py) | Pulls score distributions from HF leaderboards and EvalPlus. |
+| [`backtest.py`](backtest.py) | Scores benchmarks as of a past date and checks against HF's June 2024 retirement. |
+| [`scoring.py`](scoring.py) | Model scoring, weighted by benchmark trust. |
+| [`fetch_models.py`](fetch_models.py), [`hardware_filter.py`](hardware_filter.py), [`device_profiles.py`](device_profiles.py) | The model side: Hub fetching, VRAM estimation, what each device can actually run. |
+| [`app.py`](app.py) | Two tabs: which benchmark to trust, then which model to use. |
 
-**Epoch AI** — no public API. Their export is a zip of per-benchmark CSVs
-indexed by `benchmark_metadata.csv`, downloaded from
-<https://epoch.ai/benchmarks/use-this-data#download-this-data>. The
-code-generation benchmarks from it are committed here under
-`data/epoch_benchmarks/` (SWE-Bench verified, MirrorCode, Aider polyglot,
-GSO-Bench, Terminal Bench, DeepSWE, FrontierCode) — to refresh, re-download
-and copy those files over. Their data is CC-BY: credit "Epoch AI,
-'Capabilities & Benchmarking'. epoch.ai (2026)" wherever you display it, as
-`data/epoch_benchmarks/SOURCE.md` does.
-
-## Where to plug in real logic later
-
-Search the codebase for `TODO(you)` — every stub and rule-of-thumb constant
-is marked. Highlights:
-
-- **`scoring.py`** — trust-discount tuning knobs (`SOURCE_COUNT_WEIGHTS`,
-  `STALENESS_HALF_LIFE_DAYS`, `SELF_REPORT_PENALTY`) are reasonable
-  starting guesses, not calibrated numbers.
-- **`enrich_scores.py`** — Epoch's CSV column names are detected from a list
-  of plausible spellings (`_EPOCH_*_COLUMNS`), since they aren't a published
-  contract. Unrecognized headers are reported at startup.
-- **`model_matching.py`** — matching is exact-on-normalized-key only. Loosening
-  it would raise coverage at the risk of attributing one model's scores to
-  another.
-- **`fetch_models.py`** — `MIN_DOWNLOADS_FOR_PROVENANCE` / `MIN_LIKES_FOR_PROVENANCE`
-  decide when a repo is trusted to hold the weights a benchmark measured, for
-  repos whose owner can't be tied to the crediting organization by name. They
-  are judgement calls, picked by looking at the repos they separate.
-- **`hardware_filter.py`** — the KV-cache calculation uses each repo's real
-  dimensions from `config.json`, but `WORKSPACE_GB` (activations, allocator
-  overhead) is still a constant, and nothing accounts for the serving stack:
-  vLLM's paged attention, llama.cpp's layer offloading, batch size, or a
-  quantized KV cache all move the real number. Measure a few models per
-  precision and fit from that.
+**Further reading:** [docs/METHODOLOGY.md](docs/METHODOLOGY.md) for how every
+number is computed and what evidence standard it had to meet.
+[docs/BACKTEST.md](docs/BACKTEST.md) for the one real test of whether any of
+this works.

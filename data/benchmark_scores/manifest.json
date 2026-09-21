@@ -90,16 +90,6 @@
       "ceiling": 1.0,
       "models": 125,
       "dated_models": 0
-    },
-    "humaneval_plus__evalplus": {
-      "benchmark_key": "humaneval_plus",
-      "source": "evalplus",
-      "column": "",
-      "normalization": "none",
-      "random_baseline": 0.0,
-      "ceiling": 1.0,
-      "models": 125,
-      "dated_models": 0
     }
   }
 }
