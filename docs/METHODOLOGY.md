@@ -158,6 +158,82 @@ scorer that already has more parameters than validation. It is recorded
 here rather than patched, and any fix should be decided on its own merits
 rather than by what it does to the backtest.
 
+#### Diagnosis: where the SWE-Bench / HumanEval inversion actually comes from
+
+Analysis only. No value changed, and the three treatments below are
+**hypothetical arithmetic, not proposals**.
+
+**Before any penalty, SWE-Bench Verified is 16.75 points ahead.**
+
+| factor | SWE-Bench Verified | HumanEval |
+|---|---|---|
+| discrimination (×0.40) | 0.297 → 11.86 *(measured)* | 0.286 → 11.46 *(measured)* |
+| freshness (×0.20) | 0.482 → 9.64 | 0.164 → 3.29 |
+| reproducibility (×0.20) | 1.000 → 20.00 *(curated)* | 1.000 → 20.00 *(curated)* |
+| specificity (×0.20) | 0.950 → 19.00 | 0.450 → 9.00 |
+| **weighted subtotal** | **60.50** | **43.74** |
+
+The four factors say what you would expect: the 2024 benchmark of real
+GitHub issues beats the 2021 benchmark of 164 toy functions, mostly on
+freshness and specificity, with near-identical measured discrimination.
+**The entire reversal happens in the penalty stage.**
+
+| | SWE-Bench Verified | HumanEval |
+|---|---|---|
+| contamination multiplier | **0.650** — flat, flag only | **0.655** — severity 0.985 from a 13% rate and a 39.4% effect |
+| item-quality multiplier | 0.672 — from the 0.164 floor | none recorded |
+| combined | **0.4364** | **0.6552** |
+| final | **26.4** | **28.7** |
+
+Two things fall out of that table:
+
+1. **A flag with no numbers attached (0.650) is charged fractionally
+   harder than contamination measured at near-maximal severity (0.655).**
+   HumanEval has one of the best-quantified contamination cases in the
+   literature, and being measured buys it nothing.
+2. SWE-Bench is the only benchmark here carrying **two** multiplicative
+   penalties, and both derive from **one** audit of one non-random
+   138-problem sample. They are independent defects with independent
+   evidence, but not independent observations.
+
+##### The three treatments, computed
+
+Only the unquantified path changes. HumanEval's contamination is
+quantified, so its 28.7 is identical in all three rows.
+
+| treatment | contamination multiplier | SWE-Bench | HumanEval | gap | SWE rank |
+|---|---:|---:|---:|---:|---|
+| **(a) full severity — current** | 0.650 | **26.4** | 28.7 | **−2.2** | 18/26 |
+| (b) half severity | 0.825 | 33.5 | 28.7 | +4.9 | 15/26 |
+| (c) warning only, no numeric penalty | 1.000 | 40.7 | 28.7 | +12.0 | 14/26 |
+
+**How much of the gap comes from the full-severity charge? All of it.**
+The flag costs SWE-Bench **14.2 points**; the inversion is 2.2 points
+deep. Without the flag SWE-Bench leads by 12.0, and **half severity alone
+is enough to restore the ordering** (+4.9). There is no reading of this
+where the inversion is driven by anything else — not by the item-quality
+floor, which is evidence-backed and applies in all three rows, and not by
+the factors, which favour SWE-Bench by 16.75 before penalties.
+
+##### What each treatment asserts, since that is the actual decision
+
+- **(a)** asserts that a credible qualitative report of memorization is as
+  damning as the worst measured contamination in the catalog. It is
+  internally inconsistent with `item_error_rate=None` costing nothing, but
+  it is the only option that never *under*-penalises.
+- **(b)** asserts that unmeasured contamination is real but that its
+  magnitude is unknown, so it should cost something without costing the
+  maximum. It is the only option requiring a number nobody can source —
+  0.5 is a placeholder, and the project's own standard says a number with
+  no basis should not be in the scoring path.
+- **(c)** asserts that a penalty needs a measurement, and that an
+  unquantified flag belongs in the UI as a warning rather than in the
+  arithmetic. It is the most consistent with the evidence standard and the
+  most likely to understate real harm — SWE-Bench would sit at 40.7 with
+  frontier models demonstrably able to reproduce its gold patches.
+
+Not picked here. This is the owner's call.
+
 ### Item quality
 
 ```
@@ -257,16 +333,22 @@ after any reasonable penalty.
 Honest list of where the methodology is weakest:
 
 1. **Specificity** is 20% of every score and is entirely judgement.
-2. **Reproducibility** is measured for 4 of 22; the fallback proxy can
-   contradict the measurement outright (GPQA).
+2. **Reproducibility** is measured for 6 of 26; the fallback proxy can
+   contradict the measurement outright (GPQA). The backtest uses the proxy
+   for all twelve, because as-of scoring has no cross-source data.
 3. **The saturation formula's constants** — 0.20 healthy spread, the 0.65/0.35
    split between tightness and headroom — are unvalidated.
 4. **Penalty curves** — 0.30 full contamination rate, 0.20 full item error
    rate, and the floors — are set by looking at the benchmarks they separate,
    which is uncomfortably close to fitting to the sample.
-5. **`item_error_rate` definitions vary by study.** SWE-Bench Verified
-   records 0.10 (its creators' own estimate) while an independent audit
-   found ≥59.4% of an examined subset had tests that reject correct
-   solutions. Adopting that figure would roughly halve the score of the
-   benchmark this catalog otherwise treats as a gold standard. Flagged in
-   its entry as the most consequential open question here.
+5. **`item_error_rate` definitions vary by study.** SWE-Bench Verified now
+   records 0.164 as a `lower_bound` — OpenAI audited 27.6% of the set and
+   found 59.4% of that subset materially flawed. The other 362 problems
+   have never been examined, so the true rate is unbounded above. A
+   separate 2026 preprint reports the opposite error (28.5% of a 49-task
+   sample accept an incorrect patch), which a single rate cannot express.
+6. **An unquantified contamination flag is charged at full severity**, and
+   it is the sole cause of SWE-Bench Verified scoring below HumanEval.
+   Diagnosed in full under "Contamination" above, with three treatments
+   computed. Unresolved by design: every fix requires a number with no
+   evidence behind it.
