@@ -137,6 +137,27 @@ by a wide margin.
 
 With the flag set but neither quantity known, the flat 0.65 applies.
 
+**This is a known flaw, not a design choice.** 0.65 is also what
+`severity = 1` produces, so *"contamination reported, nobody has measured
+it"* is charged **exactly as hard as "measured to be maximally
+contaminated"**. Ignorance gets the worst case. That contradicts the rule
+this project applies everywhere else — `item_error_rate=None` means
+unaudited and costs nothing, precisely so that absence of measurement is
+not read as a finding.
+
+It bites hardest on SWE-Bench Verified, whose contamination evidence
+(OpenAI's report that frontier models reproduce gold patches verbatim) is
+qualitative and therefore unquantifiable at present. Flagging it dropped
+it from 40.7 to 26.4 and put it *below* HumanEval, whose contamination is
+quantified and severe. `tests/test_scoring.py` pins both the inversion and
+its cause.
+
+Fixing it means choosing a penalty for "flagged, unmeasured" that sits
+between 1.0 and 0.65 — a new free parameter, chosen with no evidence, on a
+scorer that already has more parameters than validation. It is recorded
+here rather than patched, and any fix should be decided on its own merits
+rather than by what it does to the backtest.
+
 ### Item quality
 
 ```

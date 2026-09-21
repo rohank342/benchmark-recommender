@@ -208,24 +208,73 @@ class TestProvenance:
 class TestBenchmarkWeighting:
     """Model scores are downstream of benchmark trust."""
 
-    def test_saturated_benchmark_counts_for_less(self):
+    def test_the_same_raw_score_carries_different_trust(self):
         from scoring import score_model
 
-        # Same score, different benchmarks: HumanEval (saturated, old) vs
-        # SWE-Bench Verified (recent, task-shaped).
+        # Same number, different benchmarks: HumanEval (2021, saturated,
+        # quantified contamination) vs MirrorCode (2026, held out).
         on_humaneval = score_model(
             _raw([{"dataset": "HumanEval", "metric_value": 90.0}]), []
         )
-        on_swebench = score_model(
-            _raw([{"dataset": "SWE-bench Verified", "metric_value": 90.0}]), []
+        on_mirrorcode = score_model(
+            _raw([{"dataset": "MirrorCode", "metric_value": 90.0}]), []
         )
         # Raw score is the same number...
-        assert on_humaneval.raw_benchmark_score == on_swebench.raw_benchmark_score
+        assert on_humaneval.raw_benchmark_score == on_mirrorcode.raw_benchmark_score
         # ...but the breakdown records very different benchmark trust.
         assert (
             on_humaneval.benchmark_breakdown[0]["trust"]
-            < on_swebench.benchmark_breakdown[0]["trust"]
+            < on_mirrorcode.benchmark_breakdown[0]["trust"]
         )
+
+    def test_swe_bench_verified_now_scores_below_humaneval(self):
+        """
+        Pinned because it is counter-intuitive and was previously asserted
+        the other way round.
+
+        Until 2026-09-21 this test claimed SWE-Bench Verified — recent and
+        task-shaped — must outrank HumanEval. Flagging its contamination on
+        OpenAI's own report inverted that: 26.4 vs 28.7.
+
+        The cause is not that SWE-Bench is worse than HumanEval. It is that
+        SWE-Bench takes TWO multiplicative penalties from ONE audit
+        (memorized gold patches, misgraded items), and the contamination
+        flag is unquantified, which the scorer charges at full severity —
+        see docs/METHODOLOGY.md on the flat 0.65. HumanEval's contamination
+        IS quantified, and a 13% rate with a 39% effect lands in almost the
+        same place as "flagged, no numbers at all".
+
+        That is a property of the penalty design, not a finding about the
+        two benchmarks, and this test exists so nobody reads the ranking as
+        the latter. Not fixed by tuning.
+        """
+        from benchmark_scoring import score_benchmark
+        from fetch_benchmarks import find_benchmark
+
+        swe = score_benchmark(find_benchmark("SWE-Bench Verified"))
+        humaneval = score_benchmark(find_benchmark("HumanEval"))
+        assert swe.trust_score < humaneval.trust_score
+        # ...on two penalties versus one.
+        assert len(swe.penalties) == 2, swe.penalties
+        assert len(humaneval.penalties) == 1, humaneval.penalties
+
+    def test_an_unquantified_flag_is_charged_at_full_severity(self):
+        """
+        The design issue the test above depends on, stated directly: a
+        benchmark nobody has measured is penalized exactly as hard as one
+        measured to be maximally contaminated. Documented, not endorsed.
+        """
+        from dataclasses import replace
+
+        from benchmark_scoring import score_benchmark
+        from fetch_benchmarks import find_benchmark
+
+        swe = find_benchmark("SWE-Bench Verified")
+        flagged_only = score_benchmark(swe).trust_score
+        worst_case = score_benchmark(
+            replace(swe, contamination_rate=0.99, contamination_effect=0.99)
+        ).trust_score
+        assert flagged_only == pytest.approx(worst_case)
 
     def test_weighted_mean_favors_the_trusted_benchmark(self):
         """A model strong on a trusted benchmark beats one strong on a stale one."""

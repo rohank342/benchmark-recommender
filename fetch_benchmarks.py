@@ -366,7 +366,11 @@ BENCHMARK_CATALOG: tuple[Benchmark, ...] = (
         aliases=("SWE-bench", "SWE-Bench verified", "SWE-bench Verified", "swebench"),
         release_date="2024-08-13",
         dataset_size=500,
-        contamination_flagged=False,
+        # Set 2026-09-21 on OpenAI's own report (2026-02-23) that every
+        # frontier model it tested could reproduce the gold patch verbatim.
+        # Rate and effect stay None: the post gives neither, and None here
+        # means "nobody has quantified it", which is the truth.
+        contamination_flagged=True,
         # A demonstrated FLOOR across all 500 problems, not a point estimate.
         # 27.6% of the benchmark was audited; 59.4% of that subset was flawed;
         # 0.594 x 138 is ~82 problems, ~16.4% of the whole 500. The other 362
@@ -378,6 +382,9 @@ BENCHMARK_CATALOG: tuple[Benchmark, ...] = (
         task_specificity=0.95,
         evidence_dates={
             "item_error_rate": "2026-02-23",  # OpenAI's audit publication
+            # Same post, same date. Postdates the 2024-06-01 backtest
+            # cutoff by 20 months, and the benchmark postdates it too.
+            "contamination_flagged": "2026-02-23",
         },
         curation_notes=(
             "RESEARCHED 2026-09-20. Human-validated subset of 500 real GitHub "
@@ -433,12 +440,33 @@ BENCHMARK_CATALOG: tuple[Benchmark, ...] = (
             "CORRECTION: an earlier version of this note attributed the 59.4% to "
             "UTBoost (arXiv 2506.09289). That was a conflation — the 27.6%/59.4% "
             "audit is OpenAI's. UTBoost is separate work on the same weakness. "
-            "SEPARATE FINDING, NOT ACTED ON: the same OpenAI post reports that "
-            "every frontier model tested could reproduce verbatim gold patches or "
-            "problem-specific details, i.e. direct contamination evidence. This "
-            "entry still carries contamination_flagged=False. Changing that is a "
-            "scoring decision outside the scope of the commit that revised "
-            "item_error_rate, and is flagged for a deliberate call."
+            "CONTAMINATION — FLAGGED 2026-09-21, evidence dated 2026-02-23. The "
+            "same OpenAI post reports that 'all frontier models we tested were "
+            "able to reproduce the original, human-written bug fix used as the "
+            "ground-truth reference, known as the gold patch, or verbatim problem "
+            "statement specifics for certain tasks'. That is direct memorization "
+            "evidence from the lab that built the models and commissioned the "
+            "benchmark's verified subset, i.e. a source arguing against its own "
+            "flagship number. It is stronger evidence than the n-gram overlap "
+            "studies behind most other flags in this catalog. Flagged on a "
+            "deliberate call, in its own commit, separate from the item_error_rate "
+            "revision it was found alongside. "
+            "CURATE(you): NO RATE AND NO EFFECT. contamination_rate and "
+            "contamination_effect stay None because the post quantifies neither — "
+            "it does not say how many of the 500 are reproducible, nor how far "
+            "scores fall without them. So this entry takes the flat flagged "
+            "penalty rather than a scaled one, which is the coarsest treatment "
+            "the scorer has. What would replace it: a count of tasks whose gold "
+            "patch a model emits verbatim (-> rate), or a re-run on rewritten "
+            "problems (-> effect). 'All frontier models could do it for certain "
+            "tasks' is unbounded in both directions and must not be read as 1.0. "
+            "WHY THIS COMPOUNDS: the same tasks are now penalized for being "
+            "memorized AND for being misgraded. Those are independent defects "
+            "with independent evidence, but they come from one audit of one "
+            "non-random 138-problem sample, so they are not independent "
+            "OBSERVATIONS. Two multiplicative penalties from one study may "
+            "double-count; the scorer has no way to express that and this note "
+            "is the only record of it."
         ),
         epoch_source_file="swe_bench_verified.csv",
     ),

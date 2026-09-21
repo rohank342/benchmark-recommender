@@ -140,6 +140,38 @@ class TestSweBenchFloorIsNotVisibleInThePast:
         assert swe.evidence_dates["item_error_rate"] == "2026-02-23"
         assert not swe.known_at("item_error_rate", CUTOFF)
 
+    def test_the_contamination_flag_from_the_same_post_is_also_invisible(self):
+        """
+        Both findings come from the 2026-02-23 post. Neither may reach a
+        2024 scoring run — the benchmark did not exist and the audit was
+        20 months away.
+        """
+        swe = find_benchmark("SWE-Bench Verified")
+        assert swe.contamination_flagged
+        assert swe.evidence_dates["contamination_flagged"] == "2026-02-23"
+        assert not swe.known_at("contamination_flagged", CUTOFF)
+
+        then = score_benchmark(swe, as_of=CUTOFF)
+        assert not any("contamination" in p for p in then.penalties), then.penalties
+        now = score_benchmark(swe)
+        assert any("contamination" in p for p in now.penalties), now.penalties
+
+    def test_flagging_contamination_did_not_move_the_2024_score(self):
+        """The same property the item_error_rate revision had to satisfy."""
+        from dataclasses import replace
+
+        swe = find_benchmark("SWE-Bench Verified")
+        unflagged = replace(swe, contamination_flagged=False)
+        assert score_benchmark(unflagged, as_of=CUTOFF).trust_score == (
+            score_benchmark(swe, as_of=CUTOFF).trust_score
+        )
+
+    def test_no_rate_or_effect_is_claimed(self):
+        """The post quantifies neither; inventing one would be worse than coarse."""
+        swe = find_benchmark("SWE-Bench Verified")
+        assert swe.contamination_rate is None
+        assert swe.contamination_effect is None
+
     def test_no_item_quality_penalty_is_applied_at_the_cutoff(self):
         then = score_benchmark(find_benchmark("SWE-Bench Verified"), as_of=CUTOFF)
         assert not any("mislabelled" in p for p in then.penalties), then.penalties
