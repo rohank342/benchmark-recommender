@@ -703,6 +703,86 @@ BENCHMARK_CATALOG: tuple[Benchmark, ...] = (
         epoch_source_file="frontiercode_external.csv",
     ),
     Benchmark(
+        key="winogrande",
+        name="Winogrande",
+        category="commonsense reasoning",
+        aliases=("WinoGrande", "wino_grande_external", "winogrande_xl"),
+        release_date="2019-07-24",
+        dataset_size=44000,
+        contamination_flagged=True,
+        saturation_flagged=True,
+        independent_evaluators=4,
+        task_specificity=0.2,
+        evidence_dates={
+            "saturation_flagged": "2024-06-26",  # HF retirement announcement
+            # CURATE(you): contamination is assumed from 2019 public release,
+            # with no dated study quantifying it, so as-of scoring ignores it.
+        },
+        curation_notes=(
+            "RESEARCHED 2026-09-21. Sakaguchi et al., arXiv 1907.10641 (2019-07-24), "
+            "AI2: 44k fill-in-the-blank pronoun-resolution problems, built by "
+            "crowdsourcing plus AFLITE adversarial debiasing to make the original "
+            "Winograd Schema Challenge harder and larger. Retired from HF's Open LLM "
+            "Leaderboard in June 2024 with the rest of the v1 set, for saturation — "
+            "which is why it is catalogued: it is one of the six benchmarks the "
+            "backtest checks against. https://arxiv.org/abs/1907.10641 "
+            "Specificity 0.2: binary pronoun disambiguation is a proxy for "
+            "commonsense, not a task anyone performs. "
+            "CURATE(you): contamination_flagged is set on the 2019 public release "
+            "and the AFLITE construction being widely reproduced, NOT on a study "
+            "that counted overlap. No rate, no effect, no evidence date — so it is "
+            "invisible to as-of scoring, which is the correct treatment for a claim "
+            "that cannot be dated. Finding a real decontamination study would be "
+            "worth more than the flag."
+        ),
+        epoch_source_file="wino_grande_external.csv",
+    ),
+    Benchmark(
+        key="gsm8k",
+        name="GSM8K",
+        category="mathematical reasoning",
+        aliases=("GSM-8K", "gsm8k_external", "grade school math"),
+        release_date="2021-10-27",
+        dataset_size=8500,
+        contamination_flagged=True,
+        item_error_rate=0.02,  # creators' own quality-control estimate
+        saturation_flagged=True,
+        independent_evaluators=5,
+        task_specificity=0.4,
+        evidence_dates={
+            "saturation_flagged": "2024-06-26",  # HF retirement announcement
+            "contamination_flagged": "2024-05-01",  # GSM1k, arXiv 2405.00332
+            "item_error_rate": "2021-10-27",  # stated in the original paper
+        },
+        curation_notes=(
+            "RESEARCHED 2026-09-21. Cobbe et al. (2021-10-27, arXiv 2110.14168): "
+            "8.5K grade-school word problems taking 2-8 elementary arithmetic steps, "
+            "with natural-language solutions. Retired from HF's Open LLM Leaderboard "
+            "in June 2024 with the rest of the v1 set. "
+            "CONTAMINATION: Scale AI commissioned GSM1k, a fresh set mirroring "
+            "GSM8K's style, and found accuracy drops of UP TO 13% on it, with Phi "
+            "and Mistral families showing systematic overfitting across sizes while "
+            "frontier models showed little. A model's probability of generating a "
+            "GSM8K example correlates with its GSM8K-to-GSM1k gap (Spearman r^2 = "
+            "0.32), which is about as direct as memorization evidence gets. "
+            "https://arxiv.org/abs/2405.00332 "
+            "CURATE(you): contamination_effect is deliberately NOT set. The "
+            "published 13% is a MAXIMUM across models; every other effect figure in "
+            "this catalog (HumanEval's 0.394) is a mean across a model set. "
+            "Recording 0.13 here would silently compare a max against means. The "
+            "paper reports per-family numbers — extracting a mean is the fix. "
+            "ITEM QUALITY: 0.02 is the creators' own estimate from their quality "
+            "control, the same kind of self-reported figure that turned out to be "
+            "far too low for SWE-Bench Verified. Treat it as a floor of a different "
+            "sort: nobody independent has audited GSM8K's labels. "
+            "CURATE(you): dataset_size records the 8.5K headline. The paper "
+            "describes a 7.5K/1K train/test split while the released test split is "
+            "1,319 problems; the discrepancy is unresolved and matters if anyone "
+            "computes per-item error bars."
+        ),
+        epoch_source_file="gsm8k_external.csv",
+    ),
+    Benchmark(
         key="math_level_5",
         name="MATH Level 5",
         category="mathematical reasoning",

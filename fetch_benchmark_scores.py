@@ -69,6 +69,13 @@ OPEN_LLM_V2_COLUMNS = {
     "BBH Raw": "bbh",
     "GPQA Raw": "gpqa_diamond",
     "MATH Lvl 5 Raw": "math_level_5",
+    "IFEval Raw": "ifeval",
+    # MuSR is the sharpest example of why the Raw column matters: raw runs
+    # 0.29-0.60 while the rescaled column runs 0-38.7, because MuSR's
+    # chance baseline is high and rescaling against it compresses
+    # everything. Reading the rescaled column as an accuracy would make
+    # every model look near-random.
+    "MUSR Raw": "musr",
 }
 # v1 has no raw/normalized split, but it is not uniform either: ARC and
 # HellaSwag were reported as normalized accuracy (acc_norm) while MMLU and
@@ -79,6 +86,8 @@ OPEN_LLM_V1_COLUMNS = {
     "MMLU": "mmlu",
     "ARC": "arc",
     "HellaSwag": "hellaswag",
+    "Winogrande": "winogrande",
+    "GSM8K": "gsm8k",
 }
 # Two different normalizations are in play, and calling both "normalized"
 # would hide the difference:
@@ -104,6 +113,14 @@ RANDOM_BASELINES = {
     "math_level_5": 0.0,
     "truthfulqa": 0.0,  # generative/MC2 scoring, no clean chance baseline
     "mmlu_pro": 0.1,  # ten options
+    "winogrande": 0.5,  # binary choice; matches Epoch's metadata
+    "gsm8k": 0.0,  # free-form numeric answer
+    "ifeval": 0.0,  # verifiable instructions, pass/fail per constraint
+    # CURATE(you): MuSR mixes domains with different option counts, so a
+    # single chance level is an approximation. 0.33 assumes three options,
+    # which matches the murder-mystery and team-allocation splits but not
+    # necessarily object placement.
+    "musr": 0.33,
     "humaneval": 0.0,
 }
 

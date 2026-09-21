@@ -1,5 +1,5 @@
 {
-  "fetched_at": "2026-09-21T03:29:14.616662+00:00",
+  "fetched_at": "2026-09-21T20:16:19.002298+00:00",
   "sets": {
     "mmlu_pro__open_llm_leaderboard_v2": {
       "benchmark_key": "mmlu_pro",
@@ -41,6 +41,26 @@
       "models": 4575,
       "dated_models": 4046
     },
+    "ifeval__open_llm_leaderboard_v2": {
+      "benchmark_key": "ifeval",
+      "source": "open_llm_leaderboard_v2",
+      "column": "IFEval Raw",
+      "normalization": "none",
+      "random_baseline": 0.0,
+      "ceiling": 1.0,
+      "models": 4575,
+      "dated_models": 4046
+    },
+    "musr__open_llm_leaderboard_v2": {
+      "benchmark_key": "musr",
+      "source": "open_llm_leaderboard_v2",
+      "column": "MUSR Raw",
+      "normalization": "none",
+      "random_baseline": 0.33,
+      "ceiling": 1.0,
+      "models": 4575,
+      "dated_models": 4046
+    },
     "truthfulqa__open_llm_leaderboard_v1": {
       "benchmark_key": "truthfulqa",
       "source": "open_llm_leaderboard_v1",
@@ -77,6 +97,26 @@
       "column": "HellaSwag",
       "normalization": "length",
       "random_baseline": 0.25,
+      "ceiling": 1.0,
+      "models": 7260,
+      "dated_models": 7234
+    },
+    "winogrande__open_llm_leaderboard_v1": {
+      "benchmark_key": "winogrande",
+      "source": "open_llm_leaderboard_v1",
+      "column": "Winogrande",
+      "normalization": "none",
+      "random_baseline": 0.5,
+      "ceiling": 1.0,
+      "models": 7260,
+      "dated_models": 7234
+    },
+    "gsm8k__open_llm_leaderboard_v1": {
+      "benchmark_key": "gsm8k",
+      "source": "open_llm_leaderboard_v1",
+      "column": "GSM8K",
+      "normalization": "none",
+      "random_baseline": 0.0,
       "ceiling": 1.0,
       "models": 7260,
       "dated_models": 7234
