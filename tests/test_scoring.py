@@ -1,0 +1,277 @@
+from datetime import datetime, timedelta, timezone
+
+import pytest
+
+from enrich_scores import ExternalScore
+from scoring import (
+    SELF_REPORT_PENALTY,
+    STALENESS_HALF_LIFE_DAYS,
+    _days_since,
+    _parse_card_value,
+    compute_trust_score,
+    score_model,
+)
+
+
+def _days_ago(days: int) -> str:
+    return (datetime.now(timezone.utc) - timedelta(days=days)).date().isoformat()
+
+
+def _external(score=60.0, source="artificial_analysis", days_ago=10):
+    return ExternalScore(
+        source=source,
+        benchmark_name="test_bench",
+        score=score,
+        score_scale="0-100",
+        reported_date=_days_ago(days_ago),
+    )
+
+
+def _raw(eval_results=None, days_ago=10):
+    return {
+        "model_id": "org/test-coder-7b",
+        "params_billion": 7.0,
+        "license": "apache-2.0",
+        "downloads": 100,
+        "eval_results": eval_results or [],
+        "last_modified": _days_ago(days_ago),
+    }
+
+
+class TestCardValueParsing:
+    @pytest.mark.parametrize(
+        "raw,expected",
+        [(45.2, 45.2), (60, 60.0), ("45.2", 45.2), ("7.84%", 7.84), (" 45.2 ", 45.2)],
+    )
+    def test_numbers_and_percent_strings(self, raw, expected):
+        assert _parse_card_value(raw)[0] == expected
+
+    def test_percent_string_is_known_to_be_0_100(self):
+        # Regression: "7.84%" on bigcode/tiny_starcoder_py used to crash.
+        assert _parse_card_value("7.84%") == (7.84, "0-100")
+
+    @pytest.mark.parametrize("raw", ["n/a", "", None, True, [1, 2], {"a": 1}])
+    def test_unreadable_values_are_skipped(self, raw):
+        assert _parse_card_value(raw)[0] is None
+
+
+class TestDateParsing:
+    @pytest.mark.parametrize(
+        "raw",
+        [
+            "2025-01-12",
+            "2025-01-12T02:03:41+00:00",
+            "2025-01-12T02:03:41.123456+00:00",
+            "2025-01-12T02:03:41Z",
+        ],
+    )
+    def test_supported_formats(self, raw):
+        assert _days_since(raw) is not None
+
+    @pytest.mark.parametrize("raw", [None, "", "None", "not a date"])
+    def test_unparseable_is_unknown_not_crash(self, raw):
+        assert _days_since(raw) is None
+
+
+class TestTrustScore:
+    def test_more_sources_earns_more_trust(self):
+        fresh = [1.0]
+        one = compute_trust_score(1, fresh, self_reported_only=False)
+        two = compute_trust_score(2, fresh, self_reported_only=False)
+        three = compute_trust_score(3, fresh, self_reported_only=False)
+        assert one < two < three
+
+    def test_stale_scores_are_discounted(self):
+        fresh = compute_trust_score(3, [1.0], self_reported_only=False)
+        stale = compute_trust_score(3, [STALENESS_HALF_LIFE_DAYS], self_reported_only=False)
+        assert stale == pytest.approx(fresh / 2, rel=0.02)
+
+    def test_self_reported_only_is_penalized(self):
+        independent = compute_trust_score(1, [1.0], self_reported_only=False)
+        self_reported = compute_trust_score(1, [1.0], self_reported_only=True)
+        # Both values are rounded to 4dp independently, so allow for the
+        # difference between rounding before vs after applying the penalty.
+        assert self_reported == pytest.approx(independent * SELF_REPORT_PENALTY, abs=1e-4)
+
+    def test_unknown_age_is_treated_as_moderately_stale(self):
+        assert compute_trust_score(3, [], self_reported_only=False) == 0.5
+
+    def test_stays_within_bounds(self):
+        assert 0.0 <= compute_trust_score(99, [0], self_reported_only=False) <= 1.0
+
+
+class TestScoreModel:
+    def test_card_only_model_is_flagged_self_reported(self):
+        result = score_model(_raw([{"metric_name": "pass@1", "metric_value": 80.0}]), [])
+        assert result.self_reported_only is True
+        assert result.sources == ["huggingface_hub_card"]
+
+    def test_independent_source_removes_the_penalty(self):
+        card = [{"metric_name": "pass@1", "metric_value": 80.0}]
+        alone = score_model(_raw(card), [])
+        corroborated = score_model(_raw(card), [_external(score=80.0)])
+        assert corroborated.self_reported_only is False
+        # Same benchmark number, but corroborated by an independent source.
+        assert corroborated.raw_benchmark_score == alone.raw_benchmark_score
+        assert corroborated.composite_score > alone.composite_score
+
+    def test_self_reported_model_ranks_below_corroborated_one(self):
+        """The sakthai-coder-1.5b case: a card-only score topping the table."""
+        boastful = score_model(
+            _raw([{"metric_name": "pass@1", "metric_value": 95.0}]), []
+        )
+        corroborated = score_model(
+            _raw([{"metric_name": "pass@1", "metric_value": 70.0}]),
+            [_external(score=70.0), _external(score=70.0, source="epoch_ai")],
+        )
+        assert corroborated.composite_score > boastful.composite_score
+
+    def test_model_with_no_benchmarks_scores_none(self):
+        result = score_model(_raw([]), [])
+        assert result.composite_score is None
+        assert result.num_sources == 0
+        assert result.self_reported_only is False
+
+    def test_scales_are_respected_when_averaging(self):
+        """A 0-1 source and a 0-100 source reporting the same result agree."""
+        as_fraction = ExternalScore("s", "b", 0.7, "0-1", _days_ago(10))
+        as_percent = ExternalScore("s", "b", 70.0, "0-100", _days_ago(10))
+        assert (
+            score_model(_raw([]), [as_fraction]).raw_benchmark_score
+            == score_model(_raw([]), [as_percent]).raw_benchmark_score
+        )
+
+
+class TestRanking:
+    def test_corroborated_outranks_higher_self_reported_score(self):
+        """An unverified number is not evidence, however large it is."""
+        from scoring import score_models
+
+        boastful = _raw([{"metric_name": "pass@1", "metric_value": 95.0}])
+        boastful["model_id"] = "org/self-scored"
+        measured = _raw([])
+        measured["model_id"] = "org/measured"
+
+        class FakeIndex:
+            def lookup(self, model_id):
+                return [_external(score=40.0)] if model_id == "org/measured" else []
+
+        ranked = score_models([boastful, measured], index=FakeIndex())
+        assert [m.model_id for m in ranked] == ["org/measured", "org/self-scored"]
+        # ...even though the self-reported composite is numerically higher.
+        assert ranked[1].composite_score > ranked[0].composite_score
+
+    def test_unscored_models_rank_last(self):
+        from scoring import score_models
+
+        class EmptyIndex:
+            def lookup(self, model_id):
+                return []
+
+        scored_model = _raw([{"metric_name": "pass@1", "metric_value": 10.0}])
+        scored_model["model_id"] = "org/has-data"
+        blank = _raw([])
+        blank["model_id"] = "org/no-data"
+
+        ranked = score_models([blank, scored_model], index=EmptyIndex())
+        assert [m.model_id for m in ranked] == ["org/has-data", "org/no-data"]
+
+
+class TestProvenance:
+    def test_unverified_repo_ranks_below_verified_one(self):
+        """A score attributed to an unconfirmed repo may be another model's."""
+        from scoring import score_models
+
+        impostor = _raw([])
+        impostor["model_id"] = "testaccount/Big-Closed-Model"
+        impostor["provenance_verified"] = False
+        genuine = _raw([])
+        genuine["model_id"] = "realorg/real-model"
+
+        class FakeIndex:
+            def lookup(self, model_id):
+                score = 95.0 if model_id.startswith("testaccount") else 40.0
+                return [_external(score=score)]
+
+        ranked = score_models([impostor, genuine], index=FakeIndex())
+        assert [m.model_id for m in ranked] == [
+            "realorg/real-model",
+            "testaccount/Big-Closed-Model",
+        ]
+        assert ranked[1].composite_score > ranked[0].composite_score
+
+    def test_models_default_to_verified(self):
+        """Tag-search models aren't name-matched, so provenance isn't in doubt."""
+        assert score_model(_raw([]), []).provenance_verified is True
+
+
+class TestBenchmarkWeighting:
+    """Model scores are downstream of benchmark trust."""
+
+    def test_saturated_benchmark_counts_for_less(self):
+        from scoring import score_model
+
+        # Same score, different benchmarks: HumanEval (saturated, old) vs
+        # SWE-Bench Verified (recent, task-shaped).
+        on_humaneval = score_model(
+            _raw([{"dataset": "HumanEval", "metric_value": 90.0}]), []
+        )
+        on_swebench = score_model(
+            _raw([{"dataset": "SWE-bench Verified", "metric_value": 90.0}]), []
+        )
+        # Raw score is the same number...
+        assert on_humaneval.raw_benchmark_score == on_swebench.raw_benchmark_score
+        # ...but the breakdown records very different benchmark trust.
+        assert (
+            on_humaneval.benchmark_breakdown[0]["trust"]
+            < on_swebench.benchmark_breakdown[0]["trust"]
+        )
+
+    def test_weighted_mean_favors_the_trusted_benchmark(self):
+        """A model strong on a trusted benchmark beats one strong on a stale one."""
+        from scoring import score_model
+
+        strong_where_it_counts = score_model(
+            _raw(
+                [
+                    {"dataset": "SWE-bench Verified", "metric_value": 80.0},
+                    {"dataset": "HellaSwag", "metric_value": 20.0},
+                ]
+            ),
+            [],
+        )
+        strong_where_it_doesnt = score_model(
+            _raw(
+                [
+                    {"dataset": "SWE-bench Verified", "metric_value": 20.0},
+                    {"dataset": "HellaSwag", "metric_value": 80.0},
+                ]
+            ),
+            [],
+        )
+        assert (
+            strong_where_it_counts.raw_benchmark_score
+            > strong_where_it_doesnt.raw_benchmark_score
+        )
+
+    def test_unrecognized_benchmark_gets_a_middling_weight(self):
+        from scoring import UNKNOWN_BENCHMARK_TRUST, score_model
+
+        result = score_model(
+            _raw([{"dataset": "SomeInternalEval", "metric_value": 70.0}]), []
+        )
+        entry = result.benchmark_breakdown[0]
+        assert entry["recognized"] is False
+        assert entry["trust"] == UNKNOWN_BENCHMARK_TRUST
+
+    def test_breakdown_names_what_drove_the_score(self):
+        from scoring import score_model
+
+        result = score_model(
+            _raw([{"dataset": "MMLU", "metric_value": 70.0}]),
+            [_external(score=60.0)],
+        )
+        assert len(result.benchmark_breakdown) == 2
+        # Sorted by trust, so the reader sees the strongest evidence first.
+        trusts = [b["trust"] for b in result.benchmark_breakdown]
+        assert trusts == sorted(trusts, reverse=True)

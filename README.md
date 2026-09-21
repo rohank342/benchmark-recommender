@@ -1,24 +1,53 @@
-# OpenModel Recommender (v1)
+# Benchmark Recommender
 
-Recommends the best open-weight Hugging Face **code generation** model for a
-given GPU VRAM budget, combining benchmark scores with a "trust score" that
-discounts scores backed by few independent sources or that are stale
-(inspired by Epoch AI's benchmark-reliability flagging).
+**Which benchmark should you trust?** A benchmark's popularity is not evidence
+that it still works. Labs optimize against well-known benchmarks until the
+leaderboard stops separating models, and public test sets leak into training
+data — so HumanEval and MMLU keep getting quoted long after they stopped
+discriminating.
 
-## Scope (v1)
+This scores *benchmarks* first: saturation measured from real score
+distributions, plus age, reproducibility and task specificity, into a 0-100
+trust score with a breakdown of what limits it. Model recommendations are
+downstream — a model's result counts for as much as the benchmark that
+produced it is worth.
 
-- Task type: code generation only.
-- Filter: GPU VRAM budget only.
+## Scope
+
+- **Benchmark trust**: 22 benchmarks across 9 task categories.
+- **Model ranking** (downstream): open-weight Hub models, filtered by memory
+  budget at a chosen context length, for a chosen device.
+
+VRAM is estimated as weights + KV cache + workspace, where the KV cache is
+computed from the model's own layer/head dimensions and grows linearly with
+context: a 7B model needs ~0.2 GB of cache at 4K and ~7 GB at 128K. Repos
+that ship pre-quantized (AWQ, FP8, NVFP4, GGUF, MLX) are only offered at the
+precision they actually contain.
+
+**Device matters as much as memory.** A repo is packaged for a runtime:
+AWQ and GPTQ ship CUDA kernels, MLX is Apple-only, FP8 needs Ada or newer,
+NVFP4 needs Blackwell. Load-time quantization is device-specific too —
+`bitsandbytes` has no working MPS backend, so on Apple Silicon a
+full-precision repo means fp16 or a GGUF/MLX build of the same weights,
+never an 8-bit load. [`device_profiles.py`](device_profiles.py) encodes
+this; artifacts the selected device can't run are dropped rather than
+ranked, and the memory budget is discounted (~70% of unified memory on a
+Mac, ~95% of discrete VRAM).
 
 ## Project layout
 
 | File | Purpose |
 |---|---|
+| [`fetch_benchmarks.py`](fetch_benchmarks.py) | The benchmark catalog: categories, release dates, contamination/saturation flags. Curated fields marked `CURATE(you)`. |
+| [`benchmark_scoring.py`](benchmark_scoring.py) | Benchmark trust score (0-100): discrimination, freshness, reproducibility, specificity. |
+| [`task_matcher.py`](task_matcher.py) | Maps a free-text task description to a benchmark category. |
 | [`fetch_models.py`](fetch_models.py) | Pulls code-gen models from the HF Hub, caches to `data/models_raw.json`. |
-| [`enrich_scores.py`](enrich_scores.py) | Stubbed external benchmark lookups (Artificial Analysis, Epoch AI) — **mock data today**, real API keys TODO. |
-| [`scoring.py`](scoring.py) | Normalizes benchmark numbers, applies the trust discount, outputs a composite score. |
-| [`hardware_filter.py`](hardware_filter.py) | Estimates fp16/8-bit/4-bit VRAM needs from param count and filters by budget. |
-| [`app.py`](app.py) | Gradio UI tying it all together. |
+| [`enrich_scores.py`](enrich_scores.py) | Loads external benchmark catalogs (Artificial Analysis API, Epoch AI CSV) in bulk and indexes them for lookup. |
+| [`model_matching.py`](model_matching.py) | Reduces Hub repo ids and external sources' model labels to a common match key. |
+| [`scoring.py`](scoring.py) | Model scoring: normalizes benchmark numbers, weights them by benchmark trust, applies the source-trust discount. |
+| [`hardware_filter.py`](hardware_filter.py) | Estimates VRAM (weights + KV cache at a given context length) and filters by budget. |
+| [`device_profiles.py`](device_profiles.py) | What each device can actually run: quant formats, load-time quantization, usable memory. |
+| [`app.py`](app.py) | Gradio UI: "Which benchmark should I trust?" and "Which model should I use?" |
 
 ## Setup
 
@@ -36,25 +65,72 @@ uv pip install -r requirements.txt
 ## Run
 
 ```bash
-# 1. (optional but recommended) pull real model data from the Hub
+# 1. pull external benchmark scores first — see "External sources" below
+export ARTIFICIAL_ANALYSIS_API_KEY=...
+python enrich_scores.py
+
+# 2. pull model data from the Hub
+export HF_TOKEN=...        # recommended: anonymous access gets rate-limited
 python fetch_models.py
 
-# 2. launch the app — falls back to built-in mock models if step 1 was skipped
+# 3. launch the app — falls back to built-in mock models if step 2 was skipped
 python app.py
 ```
+
+Run `enrich_scores.py` *before* `fetch_models.py`: the fetch makes two
+passes, one over code-tagged Hub models and one that locates the
+externally-benchmarked models on the Hub. The second pass is what puts
+models with independent scores into the candidate set, and it needs the
+cached catalog. It makes one search per benchmarked model, so set
+`HF_TOKEN` (any free Hub account) to avoid anonymous rate limits — a
+rate-limited search is reported and skipped, not fatal.
+
+Run the tests with `pytest`.
+
+## External sources
+
+Both sources are optional; whatever is missing is reported as a warning at
+startup and the trust score accounts for the reduced source coverage.
+
+**Artificial Analysis** — create a key at
+<https://artificialanalysis.ai/data-api> and export it as
+`ARTIFICIAL_ANALYSIS_API_KEY`, then run `python enrich_scores.py` to cache
+the catalog to `data/artificial_analysis.json` (gitignored). The free tier
+allows 100 requests per 24h and returns headline indices only; a paid key
+also returns `huggingface_url` (exact repo matching instead of name
+matching) and the code-specific `artificial_analysis_coding_index`.
+
+**Epoch AI** — no public API. Their export is a zip of per-benchmark CSVs
+indexed by `benchmark_metadata.csv`, downloaded from
+<https://epoch.ai/benchmarks/use-this-data#download-this-data>. The
+code-generation benchmarks from it are committed here under
+`data/epoch_benchmarks/` (SWE-Bench verified, MirrorCode, Aider polyglot,
+GSO-Bench, Terminal Bench, DeepSWE, FrontierCode) — to refresh, re-download
+and copy those files over. Their data is CC-BY: credit "Epoch AI,
+'Capabilities & Benchmarking'. epoch.ai (2026)" wherever you display it, as
+`data/epoch_benchmarks/SOURCE.md` does.
 
 ## Where to plug in real logic later
 
 Search the codebase for `TODO(you)` — every stub and rule-of-thumb constant
 is marked. Highlights:
 
-- **`enrich_scores.py`** — `fetch_external_score()` returns mock data from
-  both `_fetch_from_artificial_analysis` and `_fetch_from_epoch_ai`. Set
-  `ARTIFICIAL_ANALYSIS_API_KEY` / `EPOCH_AI_API_KEY` env vars and replace
-  those two function bodies with real HTTP calls.
 - **`scoring.py`** — trust-discount tuning knobs (`SOURCE_COUNT_WEIGHTS`,
-  `STALENESS_HALF_LIFE_DAYS`, `CONTAMINATION_PENALTY`) are reasonable
+  `STALENESS_HALF_LIFE_DAYS`, `SELF_REPORT_PENALTY`) are reasonable
   starting guesses, not calibrated numbers.
-- **`hardware_filter.py`** — VRAM-per-billion-params multipliers are rule-of-
-  thumb, not measured; also doesn't yet account for context length / KV-cache
-  growth.
+- **`enrich_scores.py`** — Epoch's CSV column names are detected from a list
+  of plausible spellings (`_EPOCH_*_COLUMNS`), since they aren't a published
+  contract. Unrecognized headers are reported at startup.
+- **`model_matching.py`** — matching is exact-on-normalized-key only. Loosening
+  it would raise coverage at the risk of attributing one model's scores to
+  another.
+- **`fetch_models.py`** — `MIN_DOWNLOADS_FOR_PROVENANCE` / `MIN_LIKES_FOR_PROVENANCE`
+  decide when a repo is trusted to hold the weights a benchmark measured, for
+  repos whose owner can't be tied to the crediting organization by name. They
+  are judgement calls, picked by looking at the repos they separate.
+- **`hardware_filter.py`** — the KV-cache calculation uses each repo's real
+  dimensions from `config.json`, but `WORKSPACE_GB` (activations, allocator
+  overhead) is still a constant, and nothing accounts for the serving stack:
+  vLLM's paged attention, llama.cpp's layer offloading, batch size, or a
+  quantized KV cache all move the real number. Measure a few models per
+  precision and fit from that.

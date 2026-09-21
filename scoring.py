@@ -4,28 +4,45 @@ scoring.py
 Turns raw benchmark numbers (from the Hub card + enrich_scores.py's
 external sources) into one composite, rankable score per model.
 
+Model scores are downstream of benchmark scores. A number is only worth
+as much as the benchmark that produced it, so every data point is
+weighted by that benchmark's trust score from benchmark_scoring.py: 92%
+on HumanEval (trust 21, saturated and old) moves a model's score far
+less than 40% on SWE-Bench Verified.
+
 Pipeline:
   1. Collect every benchmark data point available for a model (Hub
      card `model-index` results + Artificial Analysis + Epoch AI).
   2. Normalize each to a 0-1 scale.
-  3. Average them into a raw benchmark score (0-1).
-  4. Apply a "trust discount" — a 0-1 multiplier that penalizes scores
-     backed by few independent sources and/or that are stale — inspired
-     by Epoch AI's benchmark-reliability flagging.
+  3. Average them, weighted by benchmark trust (0-100 from
+     benchmark_scoring.py), into a raw benchmark score (0-1).
+  4. Apply a "source trust discount" — a separate 0-1 multiplier for
+     how the number was *reported*: few independent sources, stale
+     results, or self-reported on the model's own card.
   5. composite_score = raw_benchmark_score * trust_score
 
-This is intentionally simple for v1. The TODOs below mark the spots
-that most deserve real thought later (per-benchmark weighting,
-contamination handling, decay curve tuning, etc.).
+Two distinct trusts are in play and worth keeping straight: how much to
+believe the *benchmark* (step 3) and how much to believe the *report* of
+a model's result on it (step 4).
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Optional
 
-from enrich_scores import ExternalScore, fetch_external_score
+from benchmark_scoring import BenchmarkTrust, trust_by_key
+from enrich_scores import ExternalScore, ExternalScoreIndex, build_external_index
+from fetch_benchmarks import find_benchmark
+
+# Weight given to a data point whose benchmark isn't in the catalog —
+# composite indices like Artificial Analysis' coding index, or a model
+# card citing something unrecognized. Middling on purpose: an unknown
+# benchmark is not evidence of a bad one, but it can't be trusted like a
+# benchmark that has been assessed.
+# TODO(you): shrink this as the catalog grows to cover what sources report.
+UNKNOWN_BENCHMARK_TRUST = 45.0
 
 # --- Trust discount tuning knobs -------------------------------------
 # TODO(you): these are reasonable starting guesses, not calibrated
@@ -42,9 +59,16 @@ SOURCE_COUNT_WEIGHTS_DEFAULT = 1.0  # 3+ independent sources
 # run on) age quickly as training data windows creep forward.
 STALENESS_HALF_LIFE_DAYS = 270  # ~9 months
 
-# Flat penalty multiplier applied when a source flags possible
-# contamination / train-test leakage (Epoch-style flag).
-CONTAMINATION_PENALTY = 0.5
+# Flat penalty multiplier applied when a model's only benchmark numbers
+# come from its own model card, with no independent source reporting it.
+# Self-reported scores are the least reliable data in the pipeline: the
+# publisher chooses which benchmarks to show and runs them itself.
+# TODO(you): tune once there's enough coverage to compare self-reported
+# card numbers against independent runs of the same model.
+SELF_REPORT_PENALTY = 0.5
+
+# The source name used for benchmark numbers taken off the Hub card.
+HUB_CARD_SOURCE = "huggingface_hub_card"
 
 
 @dataclass
@@ -58,7 +82,65 @@ class ScoredModel:
     composite_score: Optional[float]  # raw_benchmark_score * trust_score
     num_sources: int
     benchmark_points_used: int
-    contamination_flagged: bool
+    self_reported_only: bool  # every number came from the model's own card
+    provenance_verified: bool = True  # repo confirmed to be the benchmarked weights
+    sources: list[str] = field(default_factory=list)
+    # Which benchmarks produced this score, and what each was worth:
+    # [{benchmark, trust, score, source}], most influential first.
+    benchmark_breakdown: list[dict[str, Any]] = field(default_factory=list)
+
+
+@dataclass
+class _DataPoint:
+    """One normalized benchmark result, with the weight it carries."""
+
+    value: float  # 0-1
+    benchmark_label: str  # what the source called it
+    benchmark_key: Optional[str]  # catalog key, if recognized
+    benchmark_trust: float  # 0-100
+    source: str
+
+    @property
+    def weight(self) -> float:
+        return self.benchmark_trust / 100.0
+
+
+def _weighted_point(
+    value: float,
+    label: Optional[str],
+    source: str,
+    benchmark_trust: dict[str, BenchmarkTrust],
+) -> _DataPoint:
+    """Attach benchmark trust to a normalized score."""
+    benchmark = find_benchmark(label)
+    if benchmark is not None and benchmark.key in benchmark_trust:
+        trust = benchmark_trust[benchmark.key]
+        return _DataPoint(
+            value=value,
+            benchmark_label=trust.benchmark.name,
+            benchmark_key=benchmark.key,
+            benchmark_trust=trust.trust_score,
+            source=source,
+        )
+    return _DataPoint(
+        value=value,
+        benchmark_label=str(label) if label else "unidentified benchmark",
+        benchmark_key=None,
+        benchmark_trust=UNKNOWN_BENCHMARK_TRUST,
+        source=source,
+    )
+
+
+def _benchmark_weighted_mean(points: list[_DataPoint]) -> float:
+    """
+    Average the points, weighted by how much each benchmark is worth
+    trusting. A 90% on a saturated benchmark counts for less than a 60%
+    on one that still separates models.
+    """
+    total_weight = sum(point.weight for point in points)
+    if total_weight <= 0:
+        return sum(p.value for p in points) / len(points)
+    return sum(point.value * point.weight for point in points) / total_weight
 
 
 def _normalize_value(value: float, scale: str) -> Optional[float]:
@@ -138,12 +220,12 @@ def _source_count_factor(num_sources: int) -> float:
 def compute_trust_score(
     num_independent_sources: int,
     ages_days: list[float],
-    any_contamination_flag: bool,
+    self_reported_only: bool,
 ) -> float:
     """
     Combine source-count confidence with recency into one 0-1 trust
-    multiplier, then apply a flat contamination penalty if any source
-    flagged the benchmark.
+    multiplier, then penalize models whose only numbers are self-reported
+    on their own model card.
 
     TODO(you): consider making this per-benchmark rather than one
     blended trust score per model, once you have enough real data
@@ -153,25 +235,33 @@ def compute_trust_score(
     avg_age = sum(ages_days) / len(ages_days) if ages_days else None
     recency = _recency_factor(avg_age)
     trust = source_factor * recency
-    if any_contamination_flag:
-        trust *= CONTAMINATION_PENALTY
+    if self_reported_only:
+        trust *= SELF_REPORT_PENALTY
     return round(max(0.0, min(1.0, trust)), 4)
 
 
-def score_model(raw_model: dict[str, Any], external_scores: Optional[list[ExternalScore]] = None) -> ScoredModel:
+def score_model(
+    raw_model: dict[str, Any],
+    external_scores: Optional[list[ExternalScore]] = None,
+    benchmark_trust: Optional[dict[str, BenchmarkTrust]] = None,
+) -> ScoredModel:
     """
     Score a single model. `raw_model` is one entry from
-    fetch_models.RawModel (as a dict). `external_scores` can be passed
-    in (e.g. pre-fetched in bulk) or is fetched here via
-    enrich_scores.fetch_external_score if omitted.
-    """
-    if external_scores is None:
-        external_scores = fetch_external_score(raw_model["model_id"])
+    fetch_models.RawModel (as a dict). `external_scores` comes from
+    ExternalScoreIndex.lookup(); an empty list means no external source
+    covers this model, which the trust score penalizes.
 
-    normalized_points: list[float] = []
+    Data points are weighted by the trust of the benchmark they came
+    from, so a result on a saturated benchmark moves the score less than
+    one on a benchmark that still discriminates. `benchmark_trust` is
+    passed in per batch; it's the same for every model.
+    """
+    external_scores = external_scores or []
+    benchmark_trust = benchmark_trust if benchmark_trust is not None else trust_by_key()
+
+    points: list[_DataPoint] = []
     ages_days: list[float] = []
     sources_seen: set[str] = set()
-    contamination_flagged = False
 
     # 1. Points from the Hub card's model-index eval_results.
     for point in raw_model.get("eval_results", []):
@@ -180,8 +270,9 @@ def score_model(raw_model: dict[str, Any], external_scores: Optional[list[Extern
             continue
         norm = _normalize_value(value, scale or ("0-100" if value > 1 else "0-1"))
         if norm is not None:
-            normalized_points.append(norm)
-            sources_seen.add("huggingface_hub_card")
+            label = point.get("dataset") or point.get("metric_name")
+            points.append(_weighted_point(norm, label, HUB_CARD_SOURCE, benchmark_trust))
+            sources_seen.add(HUB_CARD_SOURCE)
             age = _days_since(raw_model.get("last_modified"))
             if age is not None:
                 ages_days.append(age)
@@ -192,13 +283,14 @@ def score_model(raw_model: dict[str, Any], external_scores: Optional[list[Extern
             continue
         norm = _normalize_value(ext.score, ext.score_scale)
         if norm is not None:
-            normalized_points.append(norm)
+            points.append(_weighted_point(norm, ext.benchmark_name, ext.source, benchmark_trust))
             sources_seen.add(ext.source)
             age = _days_since(ext.reported_date)
             if age is not None:
                 ages_days.append(age)
-        if ext.contamination_flag:
-            contamination_flagged = True
+
+    self_reported_only = sources_seen == {HUB_CARD_SOURCE}
+    normalized_points = [p.value for p in points]
 
     if not normalized_points:
         return ScoredModel(
@@ -211,11 +303,14 @@ def score_model(raw_model: dict[str, Any], external_scores: Optional[list[Extern
             composite_score=None,
             num_sources=0,
             benchmark_points_used=0,
-            contamination_flagged=contamination_flagged,
+            self_reported_only=False,
+            provenance_verified=raw_model.get("provenance_verified", True),
+            sources=[],
+            benchmark_breakdown=[],
         )
 
-    raw_benchmark_score = sum(normalized_points) / len(normalized_points)
-    trust_score = compute_trust_score(len(sources_seen), ages_days, contamination_flagged)
+    raw_benchmark_score = _benchmark_weighted_mean(points)
+    trust_score = compute_trust_score(len(sources_seen), ages_days, self_reported_only)
     composite_score = round(raw_benchmark_score * trust_score, 4)
 
     return ScoredModel(
@@ -228,15 +323,68 @@ def score_model(raw_model: dict[str, Any], external_scores: Optional[list[Extern
         composite_score=composite_score,
         num_sources=len(sources_seen),
         benchmark_points_used=len(normalized_points),
-        contamination_flagged=contamination_flagged,
+        self_reported_only=self_reported_only,
+        provenance_verified=raw_model.get("provenance_verified", True),
+        sources=sorted(sources_seen),
+        benchmark_breakdown=[
+            {
+                "benchmark": point.benchmark_label,
+                "trust": round(point.benchmark_trust, 1),
+                "score": round(point.value, 4),
+                "source": point.source,
+                "recognized": point.benchmark_key is not None,
+            }
+            for point in sorted(points, key=lambda p: p.benchmark_trust, reverse=True)
+        ],
     )
 
 
-def score_models(raw_models: list[dict[str, Any]]) -> list[ScoredModel]:
-    """Score a batch of models, ranked descending by composite_score."""
-    scored = [score_model(m) for m in raw_models]
-    scored.sort(key=lambda s: (s.composite_score is not None, s.composite_score), reverse=True)
+def score_models(
+    raw_models: list[dict[str, Any]],
+    index: Optional[ExternalScoreIndex] = None,
+    benchmark_trust: Optional[dict[str, BenchmarkTrust]] = None,
+) -> list[ScoredModel]:
+    """
+    Score a batch of models, ranked descending by composite_score.
+
+    External sources and benchmark trust scores are computed once for the
+    whole batch: the sources are bulk catalogs (Artificial Analysis' free
+    tier allows fewer requests per day than we have models), and trust is
+    a property of the benchmark, not of any model.
+    """
+    if index is None:
+        index = build_external_index()
+    if benchmark_trust is None:
+        benchmark_trust = trust_by_key()
+    scored = [
+        score_model(m, index.lookup(m["model_id"]), benchmark_trust) for m in raw_models
+    ]
+    scored.sort(key=rank_key, reverse=True)
     return scored
+
+
+def rank_key(model: ScoredModel) -> tuple[bool, bool, bool, float]:
+    """
+    Tier before comparing composite scores:
+
+      1. has any benchmark data at all
+      2. the repo is confirmed to hold the weights that were benchmarked
+      3. an independent source reported it, not just the model's own card
+
+    The trust multiplier alone can't express this. A model that scores
+    itself 95 on its own card still outranks an independently-measured
+    competitor once multiplied, and a score attributed to an unconfirmed
+    repo may belong to a different model entirely — no penalty factor
+    makes that comparable. Tiering says what we actually mean without
+    tuning constants until the ordering happens to look right.
+    """
+    has_score = model.composite_score is not None
+    return (
+        has_score,
+        model.provenance_verified,
+        has_score and not model.self_reported_only,
+        model.composite_score or 0.0,
+    )
 
 
 if __name__ == "__main__":

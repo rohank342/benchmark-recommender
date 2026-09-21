@@ -3,3 +3,7 @@ __pycache__/
 *.pyc
 data/models_raw.json
 .env
+
+# Artificial Analysis catalog cache — API data, not ours to redistribute.
+# (Epoch's CSV is CC-BY, so data/epoch_benchmarks.csv can be committed.)
+data/artificial_analysis.json
