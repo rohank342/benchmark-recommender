@@ -146,11 +146,29 @@ RANDOM_BASELINES = {
     # directly comparable to 0.371, but it independently confirms the
     # direction — 0.33 was too low.
     #
-    # EFFECT, stated because it points the wrong way: a higher baseline
-    # means less headroom, so this RAISES measured saturation for MuSR and
-    # LOWERS its trust score — deepening the backtest's one inversion
-    # rather than fixing it. Committed before the backtest was rerun,
-    # because the dataset says so.
+    # EFFECT, measured after committing the value, and NOT what was first
+    # written here. The first guess was "higher baseline -> less headroom
+    # -> more saturation -> lower trust". It is the opposite: saturation
+    # 0.474 -> 0.440, trust 42.3 -> 43.7.
+    #
+    # Why: both terms are expressed as fractions of the usable range
+    # (ceiling - baseline), and raising the baseline shrinks that range.
+    #   headroom_used = (mean(top) - baseline)/(1 - baseline) falls,
+    #     because MuSR's leaders sit near 0.57 — far from the ceiling, so
+    #     moving the floor up makes them a SMALLER fraction of what is
+    #     left. Models barely above chance read as "lots of room left".
+    #   spread = (max - min)/(1 - baseline) rises, 9.3 -> 9.9 points,
+    #     because the same absolute gap is a bigger share of a smaller
+    #     range, and a wider spread reads as healthier.
+    # Both push toward "less saturated" at once. The headroom term is
+    # arguably right; the spread term is a rescaling artifact, since no
+    # model moved. CURATE(you): that is a flaw in measure_saturation, not
+    # in this value — a benchmark can be made to look better by correcting
+    # its chance level upward. Recorded, not patched.
+    #
+    # It also means this correction NARROWS the backtest's one inversion
+    # (MMLU 45.0 over MuSR) rather than deepening it. The value was
+    # committed from the dataset before any of this was known.
     "musr": 0.371,
     "humaneval": 0.0,
 }
