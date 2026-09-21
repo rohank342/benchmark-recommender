@@ -248,6 +248,12 @@ def _discrimination_factor(
 HOLDOUT_AGE_DISCOUNT = {
     "public_static": 1.0,  # full decay
     "refreshed": 0.35,  # ages at about a third the rate
+    # 0.6 rather than a midpoint 0.5: hiding the grading material blocks
+    # memorizing the answer key, but the task text itself is still public
+    # and crawlable, so a model can be trained on the questions and on
+    # discussion of them. That is a partial defence, and the discount sits
+    # deliberately nearer "public" than "private" to say so.
+    "partial_holdout": 0.6,
     "private_holdout": 0.0,  # doesn't age this way at all
 }
 PRIVATE_HOLDOUT_FLOOR = 0.9
@@ -275,6 +281,11 @@ def _freshness_factor(benchmark: Benchmark) -> Factor:
         explanation = (
             f"launched {years:.1f} years ago but refreshed on a rolling basis, "
             "so what it scores is newer than that"
+        )
+    elif benchmark.holdout == "partial_holdout":
+        explanation = (
+            f"{years:.1f} years old, but the grading material is withheld, so "
+            "the questions can leak without the answer key following"
         )
     elif benchmark.holdout == "private_holdout":
         explanation = f"{years:.1f} years old, but answers are held back from publication"

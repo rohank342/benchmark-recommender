@@ -98,6 +98,11 @@ class Benchmark:
     #   "refreshed"      — new items added on a rolling basis (LiveCodeBench's
     #                      release windows, Epoch's re-runs), so the effective
     #                      age of what's being scored stays low.
+    #   "partial_holdout" — questions are public but the grading material
+    #                      is not: hidden test cases, an unpublished rubric,
+    #                      or reference solutions kept out of the public
+    #                      record. Memorizing the answer key is blocked even
+    #                      though the task text is crawlable.
     #   "private_holdout" — answers withheld; scoring runs server-side.
     # HF's Open ASR Leaderboard study is the argument for tracking this:
     # the models with the best scores were the most likely to reproduce
@@ -105,17 +110,13 @@ class Benchmark:
     # "fully held-out evaluation sets" with temporal separation.
     # https://huggingface.co/blog/asr-benchmark-optimization
     #
-    # CURATE(you): these three values are too coarse, and curating the
-    # 2026 benchmarks made that obvious. MirrorCode holds out ~34% of each
-    # program's tests, FrontierCode grades against held-out tests plus a
-    # maintainer rubric, and DeepSWE never contributes its tasks upstream
-    # so the reference solutions stay unpublished. All three are real
-    # leakage defences on benchmarks whose *questions* are public — which
-    # is neither "public_static" nor "private_holdout". They are currently
-    # recorded as public_static, so they get no credit for it. A fourth
-    # value ("partial_holdout") with a discount between the two would fix
-    # this, but it would lift three of the top six, so it is your call
-    # rather than something to slip in.
+    # "partial_holdout" was added after curating the 2026 benchmarks made
+    # the original three values obviously too coarse: MirrorCode, DeepSWE
+    # and FrontierCode all defend against leakage without being private or
+    # refreshed, and were getting no credit for it. A sweep of the other
+    # 19 entries found no further cases — Terminal Bench's "refresh" is
+    # version churn, not a leakage defence, and HLE's held-out pool feeds
+    # a rolling variant this repo may not even be scoring (see its notes).
     holdout: str = "public_static"
     curation_notes: str = ""
 
@@ -401,6 +402,7 @@ BENCHMARK_CATALOG: tuple[Benchmark, ...] = (
         saturation_flagged=False,
         independent_evaluators=1,
         task_specificity=0.8,
+        holdout="partial_holdout",  # ~34% of tests held out
         curation_notes=(
             "RESEARCHED 2026-09-20. Epoch AI's long-horizon coding benchmark, "
             "co-developed with METR. Models reimplement CLI programs from "
@@ -412,10 +414,9 @@ BENCHMARK_CATALOG: tuple[Benchmark, ...] = (
             "capability but a constructed exercise, not a task someone had anyway. "
             "Evaluators lowered 2 -> 1: Epoch publishes the scores and METR "
             "co-built it, so they are not independent of each other. "
-            "LEAKAGE DEFENCE NOT CAPTURED BY `holdout`: ~34% of each program's "
-            "test cases are held out, which blocks memorizing solutions without "
-            "making the benchmark private or refreshed. The three-value field "
-            "can't express partial holdout — see the note on that field. "
+            "Leakage defence: ~34% of each program's test cases are held out, "
+            "which blocks memorizing solutions without making the benchmark "
+            "private or refreshed. Recorded as holdout='partial_holdout'. "
             "https://epoch.ai/benchmarks/mirrorcode "
             "CURATE(you): Epoch dates it 2026-06-26 but the citation says "
             "published August 2026 — check which is the public release."
@@ -514,6 +515,7 @@ BENCHMARK_CATALOG: tuple[Benchmark, ...] = (
         saturation_flagged=False,
         independent_evaluators=2,
         task_specificity=0.9,
+        holdout="partial_holdout",  # reference solutions never published upstream
         curation_notes=(
             "RESEARCHED 2026-09-20. 113 original long-horizon engineering tasks "
             "written from scratch across 91 open-source repos in five languages "
@@ -526,8 +528,10 @@ BENCHMARK_CATALOG: tuple[Benchmark, ...] = (
             "for SWE-bench Pro's inherited tests — i.e. much of what SWE-bench-"
             "style benchmarks score as failure is the test being wrong, not the "
             "patch. Specificity 0.9 stands. Evaluators = 2 (authors, Epoch). "
-            "Unpublished solutions are a real leakage defence that `holdout` "
-            "cannot express — see that field's note. "
+            "Unpublished reference solutions are a real leakage defence — "
+            "recorded as holdout='partial_holdout'. Note this is the strongest "
+            "form of the three: the answers were never public at all, rather "
+            "than public-but-partially-hidden. "
             "NAME COLLISION — CURATE(you): 'DeepSWE-Preview' is a 32B coding MODEL "
             "from Agentica/Together AI (July 2025), unrelated to this benchmark. "
             "The alias 'Deep SWE' could pick up model scores; worth tightening. "
@@ -547,6 +551,7 @@ BENCHMARK_CATALOG: tuple[Benchmark, ...] = (
         saturation_flagged=False,
         independent_evaluators=2,
         task_specificity=0.95,
+        holdout="partial_holdout",  # held-out tests + unpublished maintainer rubric
         curation_notes=(
             "RESEARCHED 2026-09-20. Built by COGNITION, not Epoch — Epoch charts "
             "Cognition's public leaderboard, currently revision 1.1. Each task pairs "
@@ -557,8 +562,9 @@ BENCHMARK_CATALOG: tuple[Benchmark, ...] = (
             "hardest of 150). Specificity raised 0.8 -> 0.95: 'would a maintainer "
             "merge this?' is the actual job, not a proxy for it. Evaluators = 2 "
             "(Cognition, Epoch). "
-            "Partial leakage defence (held-out tests) again not expressible in "
-            "`holdout` — see that field's note. "
+            "Leakage defence: graded against held-out tests plus a rubric that "
+            "is not published, so neither the tests nor the grading criteria can "
+            "be memorized. Recorded as holdout='partial_holdout'. "
             "https://epoch.ai/benchmarks/frontiercode"
         ),
         epoch_source_file="frontiercode_external.csv",

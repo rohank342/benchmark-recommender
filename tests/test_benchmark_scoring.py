@@ -287,3 +287,59 @@ class TestMeasurementPopulation:
         """The headline claim, now from a distribution rather than a citation."""
         trust = score_benchmark(find_benchmark("HumanEval"))
         assert trust.measured_saturation > 0.6
+
+
+class TestPartialHoldout:
+    """Hidden grading material is a real defence, short of a private set."""
+
+    def _freshness(self, holdout, days_old=900):
+        from datetime import date, timedelta
+
+        from fetch_benchmarks import Benchmark
+
+        released = (date.today() - timedelta(days=days_old)).isoformat()
+        bench = Benchmark(
+            key="t", name="T", category="code generation",
+            release_date=released, holdout=holdout,
+        )
+        return {f.name: f for f in score_benchmark(bench).factors}["freshness"].value
+
+    def test_partial_sits_between_public_and_refreshed(self):
+        public = self._freshness("public_static")
+        partial = self._freshness("partial_holdout")
+        refreshed = self._freshness("refreshed")
+        assert public < partial < refreshed
+
+    def test_partial_is_well_below_private(self):
+        assert self._freshness("partial_holdout") < self._freshness("private_holdout")
+
+    def test_unknown_holdout_value_decays_fully(self):
+        """An unrecognized value must not silently earn a discount."""
+        assert self._freshness("nonsense") == self._freshness("public_static")
+
+    def test_explanation_says_why(self):
+        from datetime import date, timedelta
+
+        from fetch_benchmarks import Benchmark
+
+        bench = Benchmark(
+            key="t", name="T", category="code generation",
+            release_date=(date.today() - timedelta(days=900)).isoformat(),
+            holdout="partial_holdout",
+        )
+        freshness = {f.name: f for f in score_benchmark(bench).factors}["freshness"]
+        assert "grading material is withheld" in freshness.explanation
+
+    def test_the_three_benchmarks_are_marked(self):
+        for name in ("MirrorCode", "FrontierCode", "DeepSWE"):
+            assert find_benchmark(name).holdout == "partial_holdout", name
+
+    def test_no_other_entry_claims_partial_holdout_without_evidence(self):
+        from fetch_benchmarks import load_benchmark_catalog
+
+        for b in load_benchmark_catalog():
+            if b.holdout == "partial_holdout":
+                notes = b.curation_notes.lower()
+                assert "held out" in notes or "held-out" in notes or "unpublished" in notes, (
+                    f"{b.name} claims partial_holdout with no evidence in its notes"
+                )
