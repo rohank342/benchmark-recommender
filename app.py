@@ -24,6 +24,7 @@ placeholder models.
 
 from __future__ import annotations
 
+import re
 from dataclasses import asdict
 from functools import lru_cache
 from typing import Any
@@ -32,6 +33,7 @@ import gradio as gr
 import pandas as pd
 
 from benchmark_scoring import score_all_benchmarks, trust_by_key
+from fetch_benchmarks import describe_population
 from device_profiles import DEVICES, detect_local_device, get_device, usable_memory_gb
 from enrich_scores import build_external_index
 from fetch_models import RAW_CACHE_PATH, load_raw_cache
@@ -104,8 +106,6 @@ def rank_benchmarks(task_description: str) -> tuple[str, pd.DataFrame]:
     rows = []
     for trust in benchmarks:
         benchmark = trust.benchmark
-        from fetch_benchmarks import describe_population
-
         saturation = (
             f"{trust.measured_saturation * 100:.0f}% (measured, n={trust.models_measured})"
             if trust.measured_saturation is not None
@@ -124,21 +124,18 @@ def rank_benchmarks(task_description: str) -> tuple[str, pd.DataFrame]:
             or "—"
         )
         factors = {f.name: f for f in trust.factors}
+        # Deliberately few columns. Everything else — the full factor
+        # breakdown, the per-source saturation readings, the curation
+        # notes and their sources — lives in the detail panel, because a
+        # paragraph of reasoning crammed into a dataframe cell is not
+        # readable and the reasoning is the point of the tool.
         rows.append(
             {
                 "benchmark": benchmark.name,
-                "trust_score": trust.trust_score,
-                "category": benchmark.category,
+                "trust": trust.trust_score,
                 "saturation": saturation,
-                "measured_over": measured_over,
-                "saturation_by_source": by_source,
-                "limiting_factor": trust.dominant_factor.name if trust.dominant_factor else "—",
-                "why": trust.summary,
-                "released": benchmark.release_date or "unknown",
-                "discrimination": round(factors["discrimination"].value, 2),
-                "freshness": round(factors["freshness"].value, 2),
-                "reproducibility": round(factors["reproducibility"].value, 2),
-                "specificity": round(factors["specificity"].value, 2),
+                "measured over": measured_over,
+                "held back by": trust.dominant_factor.name if trust.dominant_factor else "—",
                 "evidence": factors["discrimination"].basis,
                 "flags": ", ".join(trust.penalties) or "—",
             }
@@ -158,6 +155,98 @@ def rank_benchmarks(task_description: str) -> tuple[str, pd.DataFrame]:
             + ", ".join(f"{t.benchmark.name} ({t.trust_score:.0f})" for t in weak)
         )
     return header, pd.DataFrame(rows)
+
+
+SOURCE_URL_PATTERN = re.compile(r"https?://[^\s|)]+")
+
+
+def benchmark_detail(name: str) -> str:
+    """
+    Everything behind one benchmark's score: the factor arithmetic, the
+    saturation reading per population, the penalties, and the curation
+    notes with their sources.
+
+    This is the part worth reading. The table ranks; this explains, and
+    an explanation nobody can audit is just an assertion with a number
+    attached.
+    """
+    if not name:
+        return "*Pick a benchmark above to see how its score was reached.*"
+
+    trust = next((t for t in _benchmark_trust() if t.benchmark.name == name), None)
+    if trust is None:
+        return f"*No benchmark called {name!r} in the catalog.*"
+
+    benchmark = trust.benchmark
+    lines = [
+        f"## {benchmark.name} — {trust.trust_score:.1f}/100",
+        f"*{benchmark.category} · released {benchmark.release_date or 'unknown'} · "
+        f"{benchmark.dataset_size or '?'} items · holdout: {benchmark.holdout}*",
+        "",
+        "### How the score is built",
+        "",
+        "| factor | value | weight | contributes | basis | why |",
+        "|---|---:|---:|---:|---|---|",
+    ]
+    for factor in trust.factors:
+        lines.append(
+            f"| {factor.name} | {factor.value:.2f} | {factor.weight:.0%} | "
+            f"{factor.contribution:.1f} | `{factor.basis}` | {factor.explanation} |"
+        )
+
+    if trust.penalties:
+        lines += [
+            "",
+            "### Penalties applied",
+            "",
+            *(f"- {penalty}" for penalty in trust.penalties),
+        ]
+
+    if trust.saturation_by_source:
+        lines += [
+            "",
+            "### Saturation, by which models you measure",
+            "",
+            "| population | saturation | models |",
+            "|---|---:|---:|",
+        ]
+        for source, (value, count) in trust.saturation_by_source.items():
+            marker = " ← headline" if source == trust.primary_source else ""
+            lines.append(
+                f"| {describe_population(source)}{marker} | {value * 100:.0f}% | {count} |"
+            )
+        if len(trust.saturation_by_source) > 1:
+            lines.append(
+                "\n*Sources disagree because they cover different model "
+                "populations. Both readings are real; they answer different "
+                "questions.*"
+            )
+
+    if trust.agreement is not None:
+        lines += ["", "### Cross-source agreement", "", trust.agreement.describe()]
+
+    notes = benchmark.curation_notes or "*No curation notes recorded.*"
+    sources = SOURCE_URL_PATTERN.findall(notes)
+    for url in sources:
+        notes = notes.replace(url, "")
+    lines += ["", "### Where the curated numbers came from", "", notes.strip()]
+    if sources:
+        lines += ["", "**Sources:** " + " · ".join(f"[{_host(u)}]({u})" for u in sources)]
+    if benchmark.evidence_dates:
+        lines += [
+            "",
+            "**When each claim became public:** "
+            + ", ".join(f"{k} ({v})" for k, v in sorted(benchmark.evidence_dates.items())),
+        ]
+    return "\n".join(lines)
+
+
+def _host(url: str) -> str:
+    """Short label for a link — the domain, plus an arXiv id when present."""
+    host = url.split("//", 1)[-1].split("/", 1)[0].replace("www.", "")
+    if "arxiv.org" in host:
+        return f"arXiv:{url.rstrip('/').rsplit('/', 1)[-1]}"
+    return host
 
 
 def recommend(
@@ -292,15 +381,32 @@ def build_interface() -> gr.Blocks:
             benchmark_summary = gr.Markdown()
             benchmark_table = gr.Dataframe(label="Benchmarks, ranked by trust", wrap=True)
 
-            benchmark_btn.click(
-                fn=rank_benchmarks,
-                inputs=task_input,
-                outputs=[benchmark_summary, benchmark_table],
+            gr.Markdown("---\n### Why did a benchmark score that?")
+            detail_picker = gr.Dropdown(
+                choices=[], label="Show the reasoning for", interactive=True
             )
-            demo.load(
-                fn=rank_benchmarks,
-                inputs=task_input,
-                outputs=[benchmark_summary, benchmark_table],
+            detail_panel = gr.Markdown(
+                "*Rank benchmarks above, then pick one to see how its score "
+                "was reached.*"
+            )
+
+            def rank_and_offer(description):
+                """Rank, and offer the ranked names for inspection."""
+                summary, table = rank_benchmarks(description)
+                names = list(table["benchmark"]) if len(table) else []
+                first = names[0] if names else None
+                return (
+                    summary,
+                    table,
+                    gr.Dropdown(choices=names, value=first),
+                    benchmark_detail(first) if first else "*No benchmarks matched.*",
+                )
+
+            outputs = [benchmark_summary, benchmark_table, detail_picker, detail_panel]
+            benchmark_btn.click(fn=rank_and_offer, inputs=task_input, outputs=outputs)
+            demo.load(fn=rank_and_offer, inputs=task_input, outputs=outputs)
+            detail_picker.change(
+                fn=benchmark_detail, inputs=detail_picker, outputs=detail_panel
             )
 
         with gr.Tab("Which model should I use?"):
