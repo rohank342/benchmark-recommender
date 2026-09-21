@@ -148,6 +148,17 @@ multiplier = 1 - (1 - 0.60) × severity
 An explicit `0.0` would mean a clean audit. The distinction is pinned by
 tests because it is easy to erode.
 
+`item_error_rate_basis` records what kind of number the rate is:
+`"estimate"` (default — a measurement of the whole set, or a sample meant
+to stand for it) or `"lower_bound"` (a floor the audit demonstrated, with
+the remainder never examined). **It changes the wording, never the
+score**: a floor of 16% renders as *"at least 16% of items are
+mislabelled"* and an estimate of 16% as *"16% of items are mislabelled"*,
+and both carry the identical penalty. Scoring a bound more harshly would
+mean assigning a severity the evidence does not contain; the field marks
+precision, which the four factors do not price. Only SWE-Bench Verified
+is a `lower_bound` today.
+
 ### Reported saturation
 
 A flat 0.80, applied **only** when there is no score data to measure

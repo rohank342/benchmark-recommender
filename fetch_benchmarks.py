@@ -99,6 +99,23 @@ class Benchmark:
     # answer key. Populate only from a study that counted; None means
     # nobody has looked, NOT that the benchmark is clean.
     item_error_rate: Optional[float] = None
+    # What kind of number item_error_rate is:
+    #   "estimate"    — a measurement of the whole benchmark, or a random
+    #                   sample intended to stand for it. The default,
+    #                   because that is what most audits report.
+    #   "lower_bound" — a floor. The audit demonstrated at least this much
+    #                   and the rest of the benchmark was never examined,
+    #                   so the true rate is >= the recorded value and
+    #                   unbounded above.
+    # SCORING IS DELIBERATELY IDENTICAL for both. A floor of 16% and an
+    # estimate of 16% carry the same penalty, because the alternative —
+    # inflating a bound into a worst case — would be inventing a number
+    # the evidence does not contain. What this field changes is what the
+    # tool SAYS: "at least 16% of items are mislabelled" rather than
+    # "16% of items are mislabelled". The distinction is real and a reader
+    # deserves it, but it is a claim about precision, not about severity,
+    # and precision is not something the four factors price.
+    item_error_rate_basis: str = "estimate"
     # Publicly discussed as saturated. Note this is the *reported* status;
     # benchmark_scoring.py also measures saturation where data allows, and
     # the two disagreeing is itself informative.
@@ -354,9 +371,8 @@ BENCHMARK_CATALOG: tuple[Benchmark, ...] = (
         # 27.6% of the benchmark was audited; 59.4% of that subset was flawed;
         # 0.594 x 138 is ~82 problems, ~16.4% of the whole 500. The other 362
         # were never audited, so the true rate is >= this and unbounded above.
-        # This field holds a single number and cannot express "at least", so
-        # the notes carry that and the penalty is computed from the floor.
         item_error_rate=0.164,
+        item_error_rate_basis="lower_bound",
         saturation_flagged=False,
         independent_evaluators=5,
         task_specificity=0.95,

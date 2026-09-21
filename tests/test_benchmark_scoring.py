@@ -348,7 +348,7 @@ class TestPartialHoldout:
 class TestItemQuality:
     """A wrong answer key is a defect, not a dimension."""
 
-    def _rate(self, rate):
+    def _rate(self, rate, basis="estimate"):
         from benchmark_scoring import score_benchmark
         from fetch_benchmarks import Benchmark
 
@@ -357,6 +357,7 @@ class TestItemQuality:
                 key="t", name="T", category="code generation",
                 release_date="2026-01-01", independent_evaluators=3,
                 task_specificity=0.8, item_error_rate=rate,
+                item_error_rate_basis=basis,
             )
         )
 
@@ -393,6 +394,52 @@ class TestItemQuality:
         # A floor derived from OpenAI's partial audit, not a point estimate:
         # 59.4% of an audited 27.6% is ~16.4% of the whole benchmark.
         assert find_benchmark("SWE-Bench Verified").item_error_rate == pytest.approx(0.164)
+
+    def test_an_estimate_reads_as_a_point_value(self):
+        trust = self._rate(0.164, basis="estimate")
+        assert any(p == "16% of items are mislabelled or misgraded" for p in trust.penalties), (
+            trust.penalties
+        )
+
+    def test_a_lower_bound_reads_as_at_least(self):
+        trust = self._rate(0.164, basis="lower_bound")
+        assert any(
+            p == "at least 16% of items are mislabelled or misgraded"
+            for p in trust.penalties
+        ), trust.penalties
+
+    def test_the_basis_changes_wording_but_never_the_score(self):
+        """
+        A floor of 16% and an estimate of 16% are the same amount of
+        demonstrated breakage. Scoring the bound harder would mean
+        inventing a severity the audit did not establish.
+        """
+        for rate in (0.03, 0.164, 0.45):
+            assert self._rate(rate, "lower_bound").trust_score == pytest.approx(
+                self._rate(rate, "estimate").trust_score
+            )
+
+    def test_the_default_basis_is_estimate(self):
+        from fetch_benchmarks import Benchmark, load_benchmark_catalog
+
+        assert Benchmark(key="t", name="T", category="code generation").item_error_rate_basis == (
+            "estimate"
+        )
+        bounded = [
+            b.name for b in load_benchmark_catalog()
+            if b.item_error_rate_basis == "lower_bound"
+        ]
+        assert bounded == ["SWE-Bench Verified"], bounded
+
+    def test_every_basis_is_one_of_the_two_allowed_values(self):
+        from fetch_benchmarks import load_benchmark_catalog
+
+        for b in load_benchmark_catalog():
+            assert b.item_error_rate_basis in ("estimate", "lower_bound"), b.name
+
+    def test_swe_bench_states_its_floor_in_the_breakdown(self):
+        trust = score_benchmark(find_benchmark("SWE-Bench Verified"))
+        assert any(p.startswith("at least 16%") for p in trust.penalties), trust.penalties
 
     def test_unaudited_benchmarks_stay_none(self):
         """Most of the catalog has never been audited; that must show as None."""

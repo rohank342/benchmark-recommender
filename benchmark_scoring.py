@@ -449,8 +449,16 @@ def score_benchmark(
     ):
         severity = min(benchmark.item_error_rate / FULL_ITEM_ERROR_RATE, 1.0)
         raw *= 1.0 - (1.0 - ITEM_ERROR_PENALTY) * severity
+        # The basis changes the wording only. A demonstrated floor of 16%
+        # and a measured 16% are the same amount of known breakage, and
+        # scoring a bound more harshly would mean assigning a severity the
+        # audit never established. See Benchmark.item_error_rate_basis.
+        qualifier = (
+            "at least " if benchmark.item_error_rate_basis == "lower_bound" else ""
+        )
         penalties.append(
-            f"{benchmark.item_error_rate:.0%} of items are mislabelled or misgraded"
+            f"{qualifier}{benchmark.item_error_rate:.0%} of items are "
+            "mislabelled or misgraded"
         )
 
     if (
