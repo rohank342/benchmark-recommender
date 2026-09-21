@@ -38,6 +38,19 @@ CODE_KEYWORDS = ["code", "coder", "codegen", "coding"]
 # raise once you want broader coverage.
 MODELS_PER_QUERY = 50
 
+# Properties to request from the Hub. `full=True` does NOT include card
+# metadata or safetensors param counts, so ask for them explicitly.
+# (`expand` can't be combined with `full` / `cardData`.)
+EXPAND_PROPERTIES = [
+    "cardData",
+    "safetensors",
+    "downloads",
+    "likes",
+    "lastModified",
+    "tags",
+    "pipeline_tag",
+]
+
 
 @dataclass
 class RawModel:
@@ -81,6 +94,19 @@ def _extract_params_billion(model_info) -> Optional[float]:
     return _estimate_params_from_id(model_info.id)
 
 
+def _extract_license(card_dict: dict[str, Any], tags: list[str]) -> Optional[str]:
+    """Card metadata license, falling back to the Hub's `license:<id>` tag."""
+    license_value = card_dict.get("license")
+    if isinstance(license_value, list):
+        license_value = license_value[0] if license_value else None
+    if license_value:
+        return str(license_value)
+    for tag in tags:
+        if tag.startswith("license:"):
+            return tag.split(":", 1)[1]
+    return None
+
+
 def _extract_eval_results(card_data: dict[str, Any] | None) -> list[dict[str, Any]]:
     """
     The Hub's model card metadata can carry a standard `model-index` /
@@ -94,14 +120,25 @@ def _extract_eval_results(card_data: dict[str, Any] | None) -> list[dict[str, An
     model_index = card_data.get("model-index") or card_data.get("model_index")
     if not model_index:
         return results
+    # Card metadata is user-written YAML, so any level may be missing/null
+    # or the wrong type — skip anything that isn't shaped as expected.
+    if not isinstance(model_index, list):
+        return results
     for entry in model_index:
-        for result_group in entry.get("results", []):
-            metrics = result_group.get("metrics", [])
-            dataset = result_group.get("dataset", {})
+        if not isinstance(entry, dict):
+            continue
+        for result_group in entry.get("results") or []:
+            if not isinstance(result_group, dict):
+                continue
+            metrics = result_group.get("metrics") or []
+            dataset = result_group.get("dataset") or {}
+            task = result_group.get("task") or {}
             for metric in metrics:
+                if not isinstance(metric, dict):
+                    continue
                 results.append(
                     {
-                        "task": result_group.get("task", {}).get("type"),
+                        "task": task.get("type") if isinstance(task, dict) else None,
                         "dataset": dataset.get("name"),
                         "metric_name": metric.get("type"),
                         "metric_value": metric.get("value"),
@@ -125,24 +162,27 @@ def fetch_code_gen_models(limit_per_query: int = MODELS_PER_QUERY) -> list[RawMo
             sort="downloads",
             direction=-1,
             limit=limit_per_query,
-            full=True,  # pulls cardData/siblings so we can read eval results + license
+            expand=EXPAND_PROPERTIES,
         )
         for m in models:
             if m.id in seen:
                 continue
             card_data = getattr(m, "card_data", None)
             card_dict = card_data.to_dict() if hasattr(card_data, "to_dict") else (card_data or {})
-            license_value = card_dict.get("license") if isinstance(card_dict, dict) else None
+            if not isinstance(card_dict, dict):
+                card_dict = {}
+            tags = list(getattr(m, "tags", []) or [])
+            last_modified = getattr(m, "last_modified", None)
 
             seen[m.id] = RawModel(
                 model_id=m.id,
                 params_billion=_extract_params_billion(m),
-                license=license_value,
-                eval_results=_extract_eval_results(card_dict if isinstance(card_dict, dict) else None),
+                license=_extract_license(card_dict, tags),
+                eval_results=_extract_eval_results(card_dict),
                 downloads=getattr(m, "downloads", 0) or 0,
                 likes=getattr(m, "likes", 0) or 0,
-                last_modified=str(getattr(m, "last_modified", None)),
-                tags=list(getattr(m, "tags", []) or []),
+                last_modified=last_modified.isoformat() if last_modified else None,
+                tags=tags,
                 pipeline_tag=getattr(m, "pipeline_tag", None),
             )
 

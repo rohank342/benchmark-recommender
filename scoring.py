@@ -82,19 +82,39 @@ def _normalize_value(value: float, scale: str) -> Optional[float]:
         return None
 
 
+def _parse_card_value(value: Any) -> tuple[Optional[float], Optional[str]]:
+    """
+    Model-card metric values are free-form YAML, so they can be numbers
+    or strings like "45.2" / "7.84%". Returns (number, scale), where scale
+    is "0-100" for percent strings and None when it has to be guessed.
+    """
+    if isinstance(value, bool):
+        return None, None
+    if isinstance(value, (int, float)):
+        return float(value), None
+    if isinstance(value, str):
+        text = value.strip()
+        is_percent = text.endswith("%")
+        try:
+            number = float(text.rstrip("%").strip())
+        except ValueError:
+            return None, None
+        return number, "0-100" if is_percent else None
+    return None, None
+
+
 def _days_since(date_str: Optional[str]) -> Optional[float]:
     if not date_str:
         return None
-    for fmt in ("%Y-%m-%d", "%Y-%m-%dT%H:%M:%S%z", "%Y-%m-%d %H:%M:%S%z"):
-        try:
-            parsed = datetime.strptime(date_str, fmt)
-            if parsed.tzinfo is None:
-                parsed = parsed.replace(tzinfo=timezone.utc)
-            delta = datetime.now(timezone.utc) - parsed
-            return delta.days
-        except ValueError:
-            continue
-    return None
+    try:
+        # Accepts "2025-01-10", "2025-01-12T02:03:41+00:00", with or without
+        # microseconds. fromisoformat() on Python < 3.11 rejects a trailing "Z".
+        parsed = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return (datetime.now(timezone.utc) - parsed).days
 
 
 def _recency_factor(age_days: Optional[float]) -> float:
@@ -155,10 +175,10 @@ def score_model(raw_model: dict[str, Any], external_scores: Optional[list[Extern
 
     # 1. Points from the Hub card's model-index eval_results.
     for point in raw_model.get("eval_results", []):
-        value = point.get("metric_value")
+        value, scale = _parse_card_value(point.get("metric_value"))
         if value is None:
             continue
-        norm = _normalize_value(float(value), "0-100" if value > 1 else "0-1")
+        norm = _normalize_value(value, scale or ("0-100" if value > 1 else "0-1"))
         if norm is not None:
             normalized_points.append(norm)
             sources_seen.add("huggingface_hub_card")
