@@ -1,31 +1,53 @@
-# OpenModel Recommender (v1)
+# Benchmark Recommender
 
-Recommends the best open-weight Hugging Face **code generation** model for a
-given GPU VRAM budget, combining benchmark scores with a "trust score" that
-discounts scores backed by few independent sources or that are stale
-(inspired by Epoch AI's benchmark-reliability flagging).
+**Which benchmark should you trust?** A benchmark's popularity is not evidence
+that it still works. Labs optimize against well-known benchmarks until the
+leaderboard stops separating models, and public test sets leak into training
+data — so HumanEval and MMLU keep getting quoted long after they stopped
+discriminating.
 
-## Scope (v1)
+This scores *benchmarks* first: saturation measured from real score
+distributions, plus age, reproducibility and task specificity, into a 0-100
+trust score with a breakdown of what limits it. Model recommendations are
+downstream — a model's result counts for as much as the benchmark that
+produced it is worth.
 
-- Task type: code generation only.
-- Filter: GPU VRAM budget at a chosen context length.
+## Scope
+
+- **Benchmark trust**: 22 benchmarks across 9 task categories.
+- **Model ranking** (downstream): open-weight Hub models, filtered by memory
+  budget at a chosen context length, for a chosen device.
 
 VRAM is estimated as weights + KV cache + workspace, where the KV cache is
 computed from the model's own layer/head dimensions and grows linearly with
 context: a 7B model needs ~0.2 GB of cache at 4K and ~7 GB at 128K. Repos
-that ship pre-quantized (AWQ, FP8, NVFP4, GGUF) are only offered at the
+that ship pre-quantized (AWQ, FP8, NVFP4, GGUF, MLX) are only offered at the
 precision they actually contain.
+
+**Device matters as much as memory.** A repo is packaged for a runtime:
+AWQ and GPTQ ship CUDA kernels, MLX is Apple-only, FP8 needs Ada or newer,
+NVFP4 needs Blackwell. Load-time quantization is device-specific too —
+`bitsandbytes` has no working MPS backend, so on Apple Silicon a
+full-precision repo means fp16 or a GGUF/MLX build of the same weights,
+never an 8-bit load. [`device_profiles.py`](device_profiles.py) encodes
+this; artifacts the selected device can't run are dropped rather than
+ranked, and the memory budget is discounted (~70% of unified memory on a
+Mac, ~95% of discrete VRAM).
 
 ## Project layout
 
 | File | Purpose |
 |---|---|
+| [`fetch_benchmarks.py`](fetch_benchmarks.py) | The benchmark catalog: categories, release dates, contamination/saturation flags. Curated fields marked `CURATE(you)`. |
+| [`benchmark_scoring.py`](benchmark_scoring.py) | Benchmark trust score (0-100): discrimination, freshness, reproducibility, specificity. |
+| [`task_matcher.py`](task_matcher.py) | Maps a free-text task description to a benchmark category. |
 | [`fetch_models.py`](fetch_models.py) | Pulls code-gen models from the HF Hub, caches to `data/models_raw.json`. |
 | [`enrich_scores.py`](enrich_scores.py) | Loads external benchmark catalogs (Artificial Analysis API, Epoch AI CSV) in bulk and indexes them for lookup. |
 | [`model_matching.py`](model_matching.py) | Reduces Hub repo ids and external sources' model labels to a common match key. |
-| [`scoring.py`](scoring.py) | Normalizes benchmark numbers, applies the trust discount, outputs a composite score. |
+| [`scoring.py`](scoring.py) | Model scoring: normalizes benchmark numbers, weights them by benchmark trust, applies the source-trust discount. |
 | [`hardware_filter.py`](hardware_filter.py) | Estimates VRAM (weights + KV cache at a given context length) and filters by budget. |
-| [`app.py`](app.py) | Gradio UI tying it all together. |
+| [`device_profiles.py`](device_profiles.py) | What each device can actually run: quant formats, load-time quantization, usable memory. |
+| [`app.py`](app.py) | Gradio UI: "Which benchmark should I trust?" and "Which model should I use?" |
 
 ## Setup
 

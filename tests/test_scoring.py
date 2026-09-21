@@ -203,3 +203,75 @@ class TestProvenance:
     def test_models_default_to_verified(self):
         """Tag-search models aren't name-matched, so provenance isn't in doubt."""
         assert score_model(_raw([]), []).provenance_verified is True
+
+
+class TestBenchmarkWeighting:
+    """Model scores are downstream of benchmark trust."""
+
+    def test_saturated_benchmark_counts_for_less(self):
+        from scoring import score_model
+
+        # Same score, different benchmarks: HumanEval (saturated, old) vs
+        # SWE-Bench Verified (recent, task-shaped).
+        on_humaneval = score_model(
+            _raw([{"dataset": "HumanEval", "metric_value": 90.0}]), []
+        )
+        on_swebench = score_model(
+            _raw([{"dataset": "SWE-bench Verified", "metric_value": 90.0}]), []
+        )
+        # Raw score is the same number...
+        assert on_humaneval.raw_benchmark_score == on_swebench.raw_benchmark_score
+        # ...but the breakdown records very different benchmark trust.
+        assert (
+            on_humaneval.benchmark_breakdown[0]["trust"]
+            < on_swebench.benchmark_breakdown[0]["trust"]
+        )
+
+    def test_weighted_mean_favors_the_trusted_benchmark(self):
+        """A model strong on a trusted benchmark beats one strong on a stale one."""
+        from scoring import score_model
+
+        strong_where_it_counts = score_model(
+            _raw(
+                [
+                    {"dataset": "SWE-bench Verified", "metric_value": 80.0},
+                    {"dataset": "HellaSwag", "metric_value": 20.0},
+                ]
+            ),
+            [],
+        )
+        strong_where_it_doesnt = score_model(
+            _raw(
+                [
+                    {"dataset": "SWE-bench Verified", "metric_value": 20.0},
+                    {"dataset": "HellaSwag", "metric_value": 80.0},
+                ]
+            ),
+            [],
+        )
+        assert (
+            strong_where_it_counts.raw_benchmark_score
+            > strong_where_it_doesnt.raw_benchmark_score
+        )
+
+    def test_unrecognized_benchmark_gets_a_middling_weight(self):
+        from scoring import UNKNOWN_BENCHMARK_TRUST, score_model
+
+        result = score_model(
+            _raw([{"dataset": "SomeInternalEval", "metric_value": 70.0}]), []
+        )
+        entry = result.benchmark_breakdown[0]
+        assert entry["recognized"] is False
+        assert entry["trust"] == UNKNOWN_BENCHMARK_TRUST
+
+    def test_breakdown_names_what_drove_the_score(self):
+        from scoring import score_model
+
+        result = score_model(
+            _raw([{"dataset": "MMLU", "metric_value": 70.0}]),
+            [_external(score=60.0)],
+        )
+        assert len(result.benchmark_breakdown) == 2
+        # Sorted by trust, so the reader sees the strongest evidence first.
+        trusts = [b["trust"] for b in result.benchmark_breakdown]
+        assert trusts == sorted(trusts, reverse=True)
