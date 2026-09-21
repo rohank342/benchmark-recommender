@@ -87,6 +87,13 @@ class Benchmark:
     # but its inflation is severe, because 164 short functions leave
     # little room for partial memorization to not help.
     contamination_effect: Optional[float] = None
+    # Fraction of items whose grading is wrong: mislabelled answers, tests
+    # that reject correct solutions, questions with no correct option.
+    # Distinct from contamination and saturation — a benchmark can be
+    # fresh, unleaked, discriminating, and still scoring against a wrong
+    # answer key. Populate only from a study that counted; None means
+    # nobody has looked, NOT that the benchmark is clean.
+    item_error_rate: Optional[float] = None
     # Publicly discussed as saturated. Note this is the *reported* status;
     # benchmark_scoring.py also measures saturation where data allows, and
     # the two disagreeing is itself informative.
@@ -172,6 +179,7 @@ BENCHMARK_CATALOG: tuple[Benchmark, ...] = (
         dataset_size=15908,
         contamination_flagged=True,
         contamination_rate=0.277,
+        item_error_rate=0.0649,  # Gema et al., NAACL 2025
         saturation_flagged=True,
         independent_evaluators=6,
         task_specificity=0.2,
@@ -180,7 +188,9 @@ BENCHMARK_CATALOG: tuple[Benchmark, ...] = (
             "DCLM-baseline. Quality: Gema et al., 'Are We Done with MMLU?' "
             "(NAACL 2025) hand-checked 5,700 questions and found a 6.49% label "
             "error rate — 57% in the Virology subset — and showed that fixing "
-            "labels changes model rankings, so the noise is not symmetric. "
+            "labels changes model rankings, so the noise is not symmetric — now "
+            "recorded as item_error_rate=0.0649 and penalized rather than just "
+            "noted. "
             "Saturation: retired from HF's Open LLM Leaderboard in June 2024 "
             "along with ARC/HellaSwag/TruthfulQA/Winogrande/GSM8K because the "
             "set had saturated. https://aclanthology.org/2025.naacl-long.262/ | "
@@ -293,6 +303,9 @@ BENCHMARK_CATALOG: tuple[Benchmark, ...] = (
         release_date="2024-08-13",
         dataset_size=500,
         contamination_flagged=False,
+        # Upper end of the creators' own 5-10% estimate of flawed instances.
+        # Deliberately the conservative reading — see notes.
+        item_error_rate=0.10,
         saturation_flagged=False,
         independent_evaluators=5,
         task_specificity=0.95,
@@ -304,7 +317,22 @@ BENCHMARK_CATALOG: tuple[Benchmark, ...] = (
             "CURATE(you): the underlying repositories are public, so both the issues "
             "and their accepted patches are crawlable. No contamination flag yet "
             "because I found no study quantifying it — that absence is the thing to "
-            "check, not evidence of cleanliness."
+            "check, not evidence of cleanliness. "
+            "ITEM QUALITY (added 2026-09-20), and the evidence here diverges wildly. "
+            "The creators estimate 5-10% of instances are flawed; item_error_rate "
+            "records 0.10, the top of their own range. But an independent audit of a "
+            "27.6% subset (UTBoost, arXiv 2506.09289) found at least 59.4% of the "
+            "problems it examined had test cases that REJECT functionally correct "
+            "submissions, and a parser defect touched 271 of the 500 instances. "
+            "DeepSWE's authors corroborate the mechanism from another angle: an "
+            "independent judge disagreed with SWE-bench Pro's inherited tests 32.4% "
+            "of the time against 1.4% for hand-written verifiers. "
+            "CURATE(you): the 0.10 here is the conservative choice because the "
+            "audit's definition (tests that can reject a correct patch) is broader "
+            "than 'wrong answer key' and covers a subset. Using the audit figure "
+            "instead would roughly halve this benchmark's trust score. Deciding "
+            "which definition belongs in this field is a real call, and this is the "
+            "most consequential open question in the catalog."
         ),
         epoch_source_file="swe_bench_verified.csv",
     ),
@@ -316,6 +344,7 @@ BENCHMARK_CATALOG: tuple[Benchmark, ...] = (
         release_date="2019-05-19",
         dataset_size=10042,
         contamination_flagged=True,
+        item_error_rate=0.36,  # Surge AI audit
         saturation_flagged=True,
         independent_evaluators=5,
         task_specificity=0.2,
@@ -324,7 +353,14 @@ BENCHMARK_CATALOG: tuple[Benchmark, ...] = (
             "2024, explicitly because the v1 set had saturated — models scored high "
             "enough that it stopped separating them. 2019 vintage, so assume it is "
             "in every crawl. Kept here as the calibration point for 'do not trust'. "
-            "https://huggingface.co/docs/leaderboards/en/open_llm_leaderboard/archive"
+            "ITEM QUALITY (added 2026-09-20): a Surge AI audit found errors in 36% "
+            "of rows — mislabelled endings, ungrammatical text, items with no "
+            "correct answer. Recorded as item_error_rate=0.36. A later academic "
+            "analysis ('What the HellaSwag?', arXiv 2504.07825) is harsher still, "
+            "reporting under 10% of a sample as fully valid; the 36% figure is used "
+            "as the better-attested and more conservative of the two. "
+            "https://huggingface.co/docs/leaderboards/en/open_llm_leaderboard/archive | "
+            "https://surgehq.ai/blog/hellaswag-or-hellabad-36-of-this-popular-llm-benchmark-contains-errors"
         ),
         epoch_source_file="hella_swag_external.csv",
     ),

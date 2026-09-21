@@ -87,6 +87,21 @@ FULL_CONTAMINATION_RATE = 0.30
 FULL_CONTAMINATION_EFFECT = 0.40
 REPORTED_SATURATION_PENALTY = 0.80
 
+# Item quality is a penalty, not a fifth factor. The four factors ask
+# how much a benchmark's *scores* are worth; a wrong answer key is a
+# defect that undermines all four at once, the same shape as
+# contamination. A benchmark cannot compensate for scoring against
+# wrong labels by being fresh or task-specific.
+#
+# Rate at which the full penalty applies, and the floor it applies. 20%
+# is deliberately short of "most items are wrong": at that level the
+# ranking a benchmark produces is substantially an artifact of its
+# errors, and Gema et al. showed that fixing MMLU's 6.49% was already
+# enough to reorder models.
+# TODO(you): both numbers are judgement calls, like the other knobs here.
+FULL_ITEM_ERROR_RATE = 0.20
+ITEM_ERROR_PENALTY = 0.60
+
 # Evaluator count at which reproducibility is considered fully
 # established — more than this adds nothing.
 EVALUATORS_FOR_FULL_CREDIT = 5
@@ -392,6 +407,15 @@ def score_benchmark(benchmark: Benchmark) -> BenchmarkTrust:
             multiplier = CONTAMINATION_PENALTY
             penalties.append("reported contamination")
         raw *= multiplier
+    # None means nobody has audited this benchmark, which is not the same
+    # as a clean audit — so it must not be read as zero.
+    if benchmark.item_error_rate is not None:
+        severity = min(benchmark.item_error_rate / FULL_ITEM_ERROR_RATE, 1.0)
+        raw *= 1.0 - (1.0 - ITEM_ERROR_PENALTY) * severity
+        penalties.append(
+            f"{benchmark.item_error_rate:.0%} of items are mislabelled or misgraded"
+        )
+
     if benchmark.saturation_flagged and scores is None:
         # With score data the measurement already reflects this; without
         # it, the flag is all we have.

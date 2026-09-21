@@ -343,3 +343,68 @@ class TestPartialHoldout:
                 assert "held out" in notes or "held-out" in notes or "unpublished" in notes, (
                     f"{b.name} claims partial_holdout with no evidence in its notes"
                 )
+
+
+class TestItemQuality:
+    """A wrong answer key is a defect, not a dimension."""
+
+    def _rate(self, rate):
+        from benchmark_scoring import score_benchmark
+        from fetch_benchmarks import Benchmark
+
+        return score_benchmark(
+            Benchmark(
+                key="t", name="T", category="code generation",
+                release_date="2026-01-01", independent_evaluators=3,
+                task_specificity=0.8, item_error_rate=rate,
+            )
+        )
+
+    def test_errors_lower_the_score_in_proportion(self):
+        clean = self._rate(None)
+        mild = self._rate(0.05)
+        severe = self._rate(0.30)
+        assert clean.trust_score > mild.trust_score > severe.trust_score
+
+    def test_unaudited_is_not_treated_as_clean_or_as_zero(self):
+        """None means nobody looked — no penalty, and no credit either."""
+        unaudited = self._rate(None)
+        assert not any("mislabelled" in p for p in unaudited.penalties)
+        # An explicit 0.0 is a *clean audit* and should also not be penalized.
+        audited_clean = self._rate(0.0)
+        assert audited_clean.trust_score == unaudited.trust_score
+
+    def test_penalty_saturates_rather_than_going_negative(self):
+        from benchmark_scoring import ITEM_ERROR_PENALTY
+
+        catastrophic = self._rate(0.95)
+        floor = self._rate(0.20)
+        assert catastrophic.trust_score == pytest.approx(floor.trust_score, abs=0.05)
+        assert catastrophic.trust_score > 0
+        assert ITEM_ERROR_PENALTY > 0
+
+    def test_penalty_is_named_in_the_breakdown(self):
+        trust = self._rate(0.36)
+        assert any("36% of items" in p for p in trust.penalties)
+
+    def test_real_entries_carry_their_audited_rates(self):
+        assert find_benchmark("MMLU").item_error_rate == pytest.approx(0.0649)
+        assert find_benchmark("HellaSwag").item_error_rate == pytest.approx(0.36)
+        assert find_benchmark("SWE-Bench Verified").item_error_rate == pytest.approx(0.10)
+
+    def test_unaudited_benchmarks_stay_none(self):
+        """Most of the catalog has never been audited; that must show as None."""
+        from fetch_benchmarks import load_benchmark_catalog
+
+        unaudited = [b for b in load_benchmark_catalog() if b.item_error_rate is None]
+        assert len(unaudited) >= 15, "suspiciously many benchmarks claim an audited rate"
+
+    def test_every_audited_rate_cites_a_source(self):
+        from fetch_benchmarks import load_benchmark_catalog
+
+        for b in load_benchmark_catalog():
+            if b.item_error_rate is not None:
+                notes = b.curation_notes.lower()
+                assert "item" in notes or "label error" in notes, (
+                    f"{b.name} has an item_error_rate with no explanation"
+                )
