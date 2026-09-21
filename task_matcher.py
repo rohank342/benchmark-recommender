@@ -67,6 +67,10 @@ CATEGORY_KEYWORDS: dict[str, tuple[str, ...]] = {
         "commonsense", "common sense", "reasoning", "inference", "logic",
         "everyday", "narrative", "reading comprehension",
     ),
+    "instruction following": (
+        "instruction following", "follow instructions", "formatting", "format",
+        "constraint", "constraints", "output format", "json output", "structured output", "style guide", "word count", "obey", "compliance",
+    ),
     "factual accuracy": (
         "factual", "factuality", "hallucination", "truthful", "accuracy",
         "citation", "grounding", "verification", "fact check",

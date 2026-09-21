@@ -410,3 +410,62 @@ class TestItemQuality:
                 assert "item" in notes or "label error" in notes, (
                     f"{b.name} has an item_error_rate with no explanation"
                 )
+
+
+class TestNewlyAddedBenchmarks:
+    """The four added to complete HF's June 2024 retirement decision."""
+
+    def test_all_six_retired_benchmarks_are_catalogued(self):
+        for name in ("ARC (AI2 Reasoning Challenge)", "HellaSwag", "MMLU",
+                     "TruthfulQA", "Winogrande", "GSM8K"):
+            benchmark = find_benchmark(name)
+            assert benchmark is not None, f"{name} missing"
+            assert benchmark.saturation_flagged, f"{name} not flagged"
+            assert benchmark.evidence_dates.get("saturation_flagged") == "2024-06-26"
+
+    def test_all_six_replacements_are_catalogued(self):
+        for name in ("MMLU-Pro", "GPQA Diamond", "BIG-Bench Hard",
+                     "MATH Level 5", "MuSR", "IFEval"):
+            assert find_benchmark(name) is not None, f"{name} missing"
+
+    def test_the_new_entries_have_measured_saturation(self):
+        for name in ("Winogrande", "GSM8K", "MuSR", "IFEval"):
+            trust = score_benchmark(find_benchmark(name))
+            assert trust.measured_saturation is not None, name
+            assert trust.models_measured > 100, name
+
+    def test_musr_reads_the_raw_column_not_the_rescaled_one(self):
+        """
+        The GPQA trap, and MuSR is its worst case: raw runs 0.29-0.60 while
+        the rescaled column runs 0-38.7. Reading the wrong one would make
+        every model look near-random.
+        """
+        from fetch_benchmarks import load_score_sets
+
+        scores = load_score_sets(find_benchmark("MuSR"))[0]
+        assert scores.normalization == "none"
+        assert 0.2 < min(scores.scores) and max(scores.scores) < 0.7
+
+    def test_unverified_figures_are_not_recorded(self):
+        """MuSR's widely-quoted 756 could not be confirmed, so it stays None."""
+        musr = find_benchmark("MuSR")
+        assert musr.dataset_size is None
+        assert "could not confirm" in musr.curation_notes
+
+    def test_gsm8k_does_not_record_a_maximum_as_an_effect(self):
+        """
+        GSM1k reports drops of "up to 13%" — a maximum. Every other
+        contamination_effect here is a mean, so storing it would compare
+        different quantities.
+        """
+        gsm8k = find_benchmark("GSM8K")
+        assert gsm8k.contamination_flagged
+        assert gsm8k.contamination_effect is None
+        assert "MAXIMUM" in gsm8k.curation_notes
+
+    def test_instruction_following_category_is_matchable(self):
+        from task_matcher import match_task
+
+        assert match_task("does it follow output formatting constraints").category == (
+            "instruction following"
+        )
