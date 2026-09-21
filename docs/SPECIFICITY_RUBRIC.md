@@ -139,3 +139,159 @@ rubric. **All 26 benchmarks were scored only after this document was
 committed**, and no backtest was run with the resulting values — the
 decision to adopt should be made on the rubric's merits, not on what it
 does to a twelve-point test.
+
+---
+
+# Scoring pass: all 26 benchmarks
+
+Scored after the rubric above was committed. **Still a proposal — no
+catalog value was changed, and the backtest was not run with these
+numbers.**
+
+Columns A–F are the six dimensions, each 0–2. `rubric` is the total ÷ 12.
+`current` is what the catalog holds today. ⚑ marks a divergence over 0.2.
+
+| benchmark | A | B | C | D | E | F | total | rubric | current | Δ |
+|---|:-:|:-:|:-:|:-:|:-:|:-:|:-:|---:|---:|---:|
+| GSO-Bench | 2 | 2 | 2 | 2 | 2 | 2 | 12 | 1.00 | 0.90 | +0.10 |
+| SWE-Bench Verified | 2 | 2 | 2 | 2 | 2 | 2 | 12 | 1.00 | 0.95 | +0.05 |
+| FrontierCode | 2 | 2 | 2 | 2 | 2 | 2 | 12 | 1.00 | 0.95 | +0.05 |
+| MirrorCode | 2 | 2 | 2 | 2 | 1 | 2 | 11 | 0.92 | 0.80 | +0.12 |
+| The Agent Company | 1 | 2 | 2 | 2 | 2 | 2 | 11 | 0.92 | 0.85 | +0.07 |
+| Terminal Bench | 1 | 2 | 2 | 2 | 2 | 2 | 11 | 0.92 | 0.90 | +0.02 |
+| DeepSWE | 1 | 2 | 2 | 2 | 2 | 2 | 11 | 0.92 | 0.90 | +0.02 |
+| OSWorld | 1 | 2 | 2 | 2 | 2 | 2 | 11 | 0.92 | 0.90 | +0.02 |
+| LiveCodeBench | 2 | 2 | 2 | 2 | 1 | 0 | 9 | 0.75 | 0.70 | +0.05 |
+| Aider polyglot | 1 | 2 | 2 | 2 | 1 | 1 | 9 | 0.75 | 0.70 | +0.05 |
+| **HumanEval** ⚑ | 1 | 2 | 2 | 2 | 1 | 0 | 8 | 0.67 | 0.45 | **+0.22** |
+| IFEval | 1 | 2 | 2 | 2 | 1 | 0 | 8 | 0.67 | 0.65 | +0.02 |
+| MATH Level 5 | 2 | 1 | 1 | 1 | 0 | 1 | 6 | 0.50 | 0.50 | +0.00 |
+| TriviaQA | 2 | 1 | 1 | 1 | 0 | 0 | 5 | 0.42 | 0.30 | +0.12 |
+| GSM8K | 1 | 1 | 1 | 1 | 0 | 1 | 5 | 0.42 | 0.40 | +0.02 |
+| **SimpleQA Verified** ⚑ | 1 | 1 | 1 | 1 | 0 | 0 | 4 | 0.33 | 0.60 | **−0.27** |
+| BIG-Bench Hard | 1 | 1 | 1 | 0 | 0 | 1 | 4 | 0.33 | 0.30 | +0.03 |
+| Humanity's Last Exam | 1 | 1 | 1 | 0 | 0 | 0 | 3 | 0.25 | 0.35 | −0.10 |
+| ARC | 2 | 0 | 0 | 1 | 0 | 0 | 3 | 0.25 | 0.25 | +0.00 |
+| **GPQA Diamond** ⚑ | 1 | 0 | 0 | 1 | 0 | 0 | 2 | 0.17 | 0.60 | **−0.43** |
+| **TruthfulQA** ⚑ | 1 | 0 | 0 | 1 | 0 | 0 | 2 | 0.17 | 0.40 | **−0.23** |
+| MuSR | 0 | 0 | 0 | 1 | 0 | 1 | 2 | 0.17 | 0.30 | −0.13 |
+| MMLU-Pro | 2 | 0 | 0 | 0 | 0 | 0 | 2 | 0.17 | 0.25 | −0.08 |
+| MMLU | 2 | 0 | 0 | 0 | 0 | 0 | 2 | 0.17 | 0.20 | −0.03 |
+| Winogrande | 1 | 0 | 0 | 1 | 0 | 0 | 2 | 0.17 | 0.20 | −0.03 |
+| HellaSwag | 0 | 0 | 0 | 1 | 0 | 0 | 1 | 0.08 | 0.20 | −0.12 |
+
+## How much would actually change
+
+| | current | rubric |
+|---|---:|---:|
+| mean | 0.558 | 0.540 |
+| median | 0.550 | 0.460 |
+| standard deviation | 0.272 | 0.335 |
+
+- Mean absolute change **0.092**. 18 of 26 move by ≤0.1; 22 of 26 by ≤0.2.
+- Correlation with the current values: Pearson **+0.92**, Spearman **+0.91**.
+
+**The honest reading of that is unflattering to the rubric, not
+flattering.** It mostly reproduces the values it was written to replace.
+It adds auditability — every number now decomposes into six checkable
+judgements — but it does not discover that the existing values were
+wrong. Anyone hoping this would settle the specificity problem should
+note that a rubric agreeing with the guesses at ρ = 0.91 is evidence that
+either the guesses were reasonable, or that the same person's intuitions
+went into both. **Both were written by Claude Code, so the second cannot
+be ruled out**, and that is the strongest argument for the owner scoring
+a sample independently before adopting anything.
+
+The rubric does spread the distribution (σ 0.27 → 0.34), pushing
+multiple-choice benchmarks down and execution-graded ones up:
+
+| grading style | n | mean Δ |
+|---|---:|---:|
+| executed / programmatic checker | 12 | **+0.066** |
+| reference answer or fixed options | 14 | **−0.089** |
+
+That is the B/C correlation weakness listed above, showing up exactly as
+predicted. Whether it is a bias or the correct signal is the main thing to
+decide: the rubric says a benchmark graded by running the result is closer
+to real work than one graded by matching a stored string, and that claim
+is doing a lot of work across 26 rows.
+
+## The four divergences over 0.2
+
+**GPQA Diamond: 0.60 → 0.17 (−0.43).** The largest disagreement in the
+catalog and the one most worth arguing about. The current 0.60 rewards
+the fact that PhD-level experts wrote the questions and that non-experts
+with Google cannot answer them. The rubric refuses that: it is four-option
+multiple choice, graded by picking a letter, with no artifact produced and
+no one whose job this is. **The rubric is asserting that expert-authored
+difficulty is not specificity — it is difficulty, which discrimination
+already prices.** If that argument is wrong, the rubric is wrong, because
+this follows directly from its design rather than from a marginal call.
+
+**SimpleQA Verified: 0.60 → 0.33 (−0.27).** The catalog notes already
+concede the point — "short-form parametric factuality is a real property
+of a model but not a task a user performs" — and then record 0.60 anyway.
+The rubric makes E0 count. This looks like the current value drifting
+upward because the benchmark is *well built*, which is a different virtue.
+
+**TruthfulQA: 0.40 → 0.17 (−0.23).** Scored here as the v1 leaderboard
+runs it: multiple choice over supplied options, adversarially written to
+elicit known misconceptions. Nobody performs this task. The current 0.40
+appears to credit the *importance* of truthfulness rather than the task
+shape.
+
+**HumanEval: 0.45 → 0.67 (+0.22).** The only large upward move. The
+rubric credits real code, executed tests, and one identifiable task type;
+it can only dock HumanEval on F (164 single short functions) and on A
+(hand-written for the benchmark). **This is where the rubric is most
+likely to be wrong**, because HumanEval's problem is widely understood to
+be triviality, and triviality is what F alone cannot carry. The rubric's
+refusal to price difficulty is a deliberate choice, and HumanEval is the
+case that makes it uncomfortable.
+
+## Where the rubric was hard to apply
+
+1. **Dimension E, on nearly every knowledge benchmark.** "Is answering
+   graduate-level science questions a component of somebody's work?" is
+   genuinely arguable — researchers know these things, they just don't
+   answer multiple-choice questions about them. E0 was chosen
+   consistently for MC knowledge tests, and that single call drives most
+   of the downward moves. A reviewer who reads E1 into those instead
+   would raise MMLU, GPQA, TruthfulQA and HLE by 0.08 each.
+2. **Dimension D for single-task-type-but-not-a-job benchmarks.**
+   Winogrande measures exactly one thing (pronoun disambiguation), which
+   argues for D2, but "could be named in a job description" argues for
+   D1. D1 was used throughout for this pattern — HellaSwag, Winogrande,
+   MuSR, TruthfulQA — but the rule needs tightening before anyone else
+   applies it.
+3. **Dimension A when the task is constructed around real material.**
+   MirrorCode asks models to reimplement real Unix utilities: the
+   *program* is real, the *task* is invented. A2 was used because A asks
+   about item provenance, but that reading makes A generous to any
+   benchmark that points at something real.
+4. **Dimension F for reasoning benchmarks.** GSM8K's 2–8 arithmetic steps
+   and MuSR's 1,000-word narratives both got F1, which is unsatisfying —
+   they are not comparable units of work. This is the softest dimension,
+   as predicted.
+5. **BIG-Bench Hard resists the rubric entirely.** It is 23 heterogeneous
+   tasks with different formats and graders; scoring it as one benchmark
+   averages across things the rubric wants to distinguish.
+
+## What adopting this would and would not do
+
+It would make every specificity value decomposable and checkable, replace
+four unreviewed Claude Code judgements with four reviewable ones, and
+force the difficulty-versus-task-shape distinction to be made explicitly
+rather than absorbed silently.
+
+It would not make specificity *measured*. Six judgements are still six
+judgements; the rubric moves the subjectivity from one number to six
+smaller ones and makes it auditable. It should not be described as
+measurement in the README if adopted.
+
+One fact the owner should have before deciding, stated because omitting
+it would be the more manipulable choice: **the rubric moves MuSR from
+0.30 to 0.17, i.e. downward, away from the 0.34 that would make the
+backtest pass.** No backtest was run with these values and none should be
+before the adoption decision — but nobody should be able to claim the
+rubric was reverse-engineered to fix the test, and it plainly was not.
