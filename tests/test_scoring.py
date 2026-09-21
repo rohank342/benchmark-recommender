@@ -227,42 +227,37 @@ class TestBenchmarkWeighting:
             < on_mirrorcode.benchmark_breakdown[0]["trust"]
         )
 
-    def test_swe_bench_verified_now_scores_below_humaneval(self):
+    def test_swe_bench_verified_no_longer_scores_below_humaneval(self):
         """
-        Pinned because it is counter-intuitive and was previously asserted
-        the other way round.
+        The inversion is gone, and the reason is worth recording.
 
-        Until 2026-09-21 this test claimed SWE-Bench Verified — recent and
-        task-shaped — must outrank HumanEval. Flagging its contamination on
-        OpenAI's own report inverted that: 26.4 vs 28.7.
+        Until 2026-09-21 SWE-Bench Verified scored 26.4 against HumanEval's
+        28.7. The cause was never that SWE-Bench is worse: it was that an
+        unquantified contamination flag took the full flat penalty, which
+        equalled what severity=1 produces. The owner adopted treatment (c)
+        — an unmeasured flag is a warning carrying no numeric penalty — and
+        SWE-Bench moved to 41.3 while HumanEval, whose contamination IS
+        measured, did not move at all.
 
-        The cause is not that SWE-Bench is worse than HumanEval. It is that
-        SWE-Bench takes TWO multiplicative penalties from ONE audit
-        (memorized gold patches, misgraded items), and the contamination
-        flag is unquantified, which the scorer charges at full severity —
-        see docs/METHODOLOGY.md on the flat 0.65. HumanEval's contamination
-        IS quantified, and a 13% rate with a 39% effect lands in almost the
-        same place as "flagged, no numbers at all".
-
-        That is a property of the penalty design, not a finding about the
-        two benchmarks, and this test exists so nobody reads the ranking as
-        the latter. Not fixed by tuning.
+        That asymmetry is the point of the decision: measuring now changes
+        the score, and not measuring no longer costs the maximum.
         """
         from benchmark_scoring import score_benchmark
         from fetch_benchmarks import find_benchmark
 
         swe = score_benchmark(find_benchmark("SWE-Bench Verified"))
         humaneval = score_benchmark(find_benchmark("HumanEval"))
-        assert swe.trust_score < humaneval.trust_score
-        # ...on two penalties versus one.
-        assert len(swe.penalties) == 2, swe.penalties
-        assert len(humaneval.penalties) == 1, humaneval.penalties
+        assert swe.trust_score > humaneval.trust_score
+        # SWE-Bench still carries its evidence-backed item-quality penalty.
+        assert any("mislabelled" in p for p in swe.penalties), swe.penalties
+        # ...and the unquantified flag is still SAID, just not charged.
+        assert any(p.startswith("WARNING:") for p in swe.penalties), swe.penalties
 
-    def test_an_unquantified_flag_is_charged_at_full_severity(self):
+    def test_an_unquantified_flag_warns_without_charging(self):
         """
-        The design issue the test above depends on, stated directly: a
-        benchmark nobody has measured is penalized exactly as hard as one
-        measured to be maximally contaminated. Documented, not endorsed.
+        Decision 2026-09-21. An unmeasured flag must cost nothing, and a
+        measured one must still cost something — otherwise the catalog
+        rewards never looking.
         """
         from dataclasses import replace
 
@@ -270,11 +265,19 @@ class TestBenchmarkWeighting:
         from fetch_benchmarks import find_benchmark
 
         swe = find_benchmark("SWE-Bench Verified")
+        assert swe.contamination_flagged
+        assert swe.contamination_rate is None and swe.contamination_effect is None
+
         flagged_only = score_benchmark(swe).trust_score
-        worst_case = score_benchmark(
-            replace(swe, contamination_rate=0.99, contamination_effect=0.99)
-        ).trust_score
-        assert flagged_only == pytest.approx(worst_case)
+        unflagged = score_benchmark(replace(swe, contamination_flagged=False))
+        # The flag costs nothing...
+        assert flagged_only == pytest.approx(unflagged.trust_score)
+        # ...but it is not silent.
+        assert not any(p.startswith("WARNING:") for p in unflagged.penalties)
+
+        # A measured rate still bites.
+        measured = score_benchmark(replace(swe, contamination_rate=0.30)).trust_score
+        assert measured < flagged_only
 
     def test_weighted_mean_favors_the_trusted_benchmark(self):
         """A model strong on a trusted benchmark beats one strong on a stale one."""

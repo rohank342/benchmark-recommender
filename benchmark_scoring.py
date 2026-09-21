@@ -439,8 +439,31 @@ def score_benchmark(
             multiplier = 1.0 - (1.0 - CONTAMINATION_PENALTY) * max(severities)
             penalties.append("; ".join(descriptions))
         else:
-            multiplier = CONTAMINATION_PENALTY
-            penalties.append("reported contamination")
+            # DECISION 2026-09-21 (owner): a flag with no measured rate and
+            # no measured effect carries NO numeric penalty. It is surfaced
+            # as a warning instead.
+            #
+            # The flat penalty this replaces was CONTAMINATION_PENALTY,
+            # which is identical to what severity = 1 produces — so an
+            # unmeasured flag cost as much as contamination measured at the
+            # worst level in the catalog, and measuring bought nothing.
+            # HumanEval, with a 13% overlap rate and a 39.4% observed
+            # effect, landed on 0.655 against an unmeasured flag's 0.650.
+            #
+            # The alternative was a half-severity charge, which would have
+            # required inventing a severity the evidence does not contain.
+            # This route keeps the scoring path free of unsourced numbers
+            # and matches how item_error_rate=None is already treated:
+            # absence of measurement is not a finding.
+            #
+            # It understates real harm where the harm is real but nobody
+            # has counted it — SWE-Bench Verified is the live example — so
+            # the warning has to be loud rather than quiet.
+            multiplier = 1.0
+            penalties.append(
+                "WARNING: contamination reported but never quantified "
+                "— no penalty applied"
+            )
         raw *= multiplier
     # None means nobody has audited this benchmark, which is not the same
     # as a clean audit — so it must not be read as zero.

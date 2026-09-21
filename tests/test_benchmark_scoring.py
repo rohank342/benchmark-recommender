@@ -54,7 +54,10 @@ class TestTrustScore:
         """HellaSwag (2019, flagged) is the calibration case for 'do not trust'."""
         trust = score_benchmark(find_benchmark("HellaSwag"))
         assert trust.trust_score < 35
-        assert "reported contamination" in trust.penalties
+        # Its contamination has never been quantified, so since 2026-09-21
+        # the flag warns rather than charges. The score stays low on the
+        # measured factors, which is the point: it did not need the penalty.
+        assert any(p.startswith("WARNING:") for p in trust.penalties), trust.penalties
 
     def test_recent_task_specific_benchmark_scores_higher(self):
         swe = score_benchmark(find_benchmark("SWE-Bench Verified"))

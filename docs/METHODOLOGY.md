@@ -102,13 +102,30 @@ GPQA's median delta read 24.5 points when the true figure was 7.9.
 Falls back to `independent_evaluators / 5`, capped at 1.0, with `basis` set
 to `curated` and an explanation naming why the measurement was unavailable.
 
-### specificity — judgement
+### specificity — auditable judgement, NOT measurement
 
-A 0–1 hand-assigned estimate of how narrowly a benchmark maps to real work.
-1.0 is "resolve this GitHub issue"; 0.2 is "answer multiple-choice questions
-across 57 subjects". Every value is argued in that benchmark's
-`curation_notes`. This is the least defensible factor and it is 20% of the
-score.
+How narrowly a benchmark maps to real work, 0–1. 1.0 is "resolve this
+GitHub issue"; 0.2 is "answer multiple-choice questions across 57
+subjects".
+
+Since 2026-09-21 this is **not a free-standing number**. Each benchmark
+carries five rubric dimension scores of 0/1/2 — item provenance, output
+and check, scope, who does this, scale — and specificity is computed as
+their sum ÷ 10. See [SPECIFICITY_RUBRIC.md](SPECIFICITY_RUBRIC.md) (v2,
+adopted by the owner). There is no default: an unscored benchmark raises
+rather than quietly becoming 0.5.
+
+**This is still judgement.** The rubric makes it decomposable, checkable,
+and impossible to edit without editing a stated reason — it does not make
+it measured, and it must not be described as measured. Five judgements
+have replaced one.
+
+**It has not been independently checked.** Both the pre-rubric values and
+the rubric itself were written by Claude Code. A second reviewer scoring a
+sample against the criteria is the validation, and that has not happened.
+The rubric's own guidance is that differences below ~0.2 are noise — which
+is roughly one reviewer disagreeing on two dimensions, and is enough to
+flip the backtest's verdict (see [BACKTEST.md](BACKTEST.md)).
 
 ---
 
@@ -135,28 +152,62 @@ The worse of the two wins. HumanEval is why: a modest 13% overlap rate, but
 scores fall 39.4% when decontaminated. Rate alone would have understated it
 by a wide margin.
 
-With the flag set but neither quantity known, the flat 0.65 applies.
+**With the flag set but neither quantity known, there is NO numeric
+penalty.** The flag is surfaced as a warning in the penalty text and the
+UI instead:
 
-**This is a known flaw, not a design choice.** 0.65 is also what
-`severity = 1` produces, so *"contamination reported, nobody has measured
-it"* is charged **exactly as hard as "measured to be maximally
-contaminated"**. Ignorance gets the worst case. That contradicts the rule
-this project applies everywhere else — `item_error_rate=None` means
-unaudited and costs nothing, precisely so that absence of measurement is
-not read as a finding.
+> WARNING: contamination reported but never quantified — no penalty applied
 
-It bites hardest on SWE-Bench Verified, whose contamination evidence
+**Owner's decision, 2026-09-21 (treatment (c) in the diagnosis below).**
+What it replaced was a flat 0.65, which is identical to what
+`severity = 1` produces — so *"contamination reported, nobody measured
+it"* was charged **exactly as hard as "measured to be maximally
+contaminated"**. Ignorance got the worst case, and measuring bought
+nothing: HumanEval's 13% rate and 39.4% effect land on 0.655 against an
+unmeasured flag's 0.650.
+
+The rejected alternative was half severity, which would have required
+inventing a severity the evidence does not contain. This route keeps
+unsourced numbers out of the scoring path and matches how
+`item_error_rate=None` is already treated: absence of measurement is not
+a finding.
+
+**What it costs:** the scorer now understates real harm wherever the harm
+is real but nobody has counted it. SWE-Bench Verified is the live
+example — frontier models demonstrably reproduce its gold patches, and
+that now costs it nothing. The warning has to carry that weight alone.
+
+Nine benchmarks were affected; scores moved as follows (today):
+
+| benchmark | before | after |
+|---|---:|---:|
+| SWE-Bench Verified | 26.9 | 41.3 |
+| ARC | 29.9 | 45.9 |
+| BIG-Bench Hard | 26.7 | 41.0 |
+| Winogrande | 22.6 | 34.8 |
+| MATH Level 5 | 18.9 | 29.1 |
+| TruthfulQA | 18.5 | 28.5 |
+| TriviaQA | 16.9 | 26.1 |
+| HellaSwag | 16.6 | 25.6 |
+| GSM8K | 14.4 | 22.1 |
+
+As of 2024-06-01 only **GSM8K** changes (40.6 → 62.5): every other
+flag either was not yet public at that date or had a measured rate by
+then. A retired benchmark gaining 22 points at the backtest cutoff is
+not a neutral change, and it was committed before the backtest was rerun.
+
+It bit hardest on SWE-Bench Verified, whose contamination evidence
 (OpenAI's report that frontier models reproduce gold patches verbatim) is
-qualitative and therefore unquantifiable at present. Flagging it dropped
-it from 40.7 to 26.4 and put it *below* HumanEval, whose contamination is
-quantified and severe. `tests/test_scoring.py` pins both the inversion and
-its cause.
+qualitative and therefore unquantifiable at present. Under the old rule
+that flag dropped it from 40.7 to 26.4 and put it *below* HumanEval, whose
+contamination is quantified and severe. `tests/test_scoring.py` now pins
+the corrected behaviour: the flag warns, the score does not move, and a
+*measured* rate still bites.
 
-Fixing it means choosing a penalty for "flagged, unmeasured" that sits
-between 1.0 and 0.65 — a new free parameter, chosen with no evidence, on a
-scorer that already has more parameters than validation. It is recorded
-here rather than patched, and any fix should be decided on its own merits
-rather than by what it does to the backtest.
+The options were: keep full severity, pick something between 1.0 and 0.65
+(a new free parameter with no evidence behind it), or charge nothing and
+warn. The owner chose the third on 2026-09-21. The diagnosis that informed
+that choice follows.
 
 #### Diagnosis: where the SWE-Bench / HumanEval inversion actually comes from
 
@@ -203,9 +254,9 @@ quantified, so its 28.7 is identical in all three rows.
 
 | treatment | contamination multiplier | SWE-Bench | HumanEval | gap | SWE rank |
 |---|---:|---:|---:|---:|---|
-| **(a) full severity — current** | 0.650 | **26.4** | 28.7 | **−2.2** | 18/26 |
+| (a) full severity — *the old behaviour* | 0.650 | 26.4 | 28.7 | −2.2 | 18/26 |
 | (b) half severity | 0.825 | 33.5 | 28.7 | +4.9 | 15/26 |
-| (c) warning only, no numeric penalty | 1.000 | 40.7 | 28.7 | +12.0 | 14/26 |
+| **(c) warning only — ADOPTED 2026-09-21** | **1.000** | **40.7** | **28.7** | **+12.0** | **14/26** |
 
 **How much of the gap comes from the full-severity charge? All of it.**
 The flag costs SWE-Bench **14.2 points**; the inversion is 2.2 points
@@ -232,7 +283,10 @@ the factors, which favour SWE-Bench by 16.75 before penalties.
   most likely to understate real harm — SWE-Bench would sit at 40.7 with
   frontier models demonstrably able to reproduce its gold patches.
 
-Not picked here. This is the owner's call.
+**The owner chose (c) on 2026-09-21.** The figures in this table were
+computed before rubric v2 landed, so the absolute numbers have since
+moved (SWE-Bench Verified is 41.3 today, not 40.7); the comparison
+between treatments is unaffected.
 
 ### Item quality
 
@@ -332,7 +386,11 @@ after any reasonable penalty.
 
 Honest list of where the methodology is weakest:
 
-1. **Specificity** is 20% of every score and is entirely judgement.
+1. **Specificity** is 20% of every score and is entirely judgement. It is
+   now decomposed into five rubric dimensions per benchmark
+   (docs/SPECIFICITY_RUBRIC.md v2), which makes it auditable and
+   uneditable-without-a-reason. **That is not the same as measured**, and
+   no second reviewer has scored anything against the rubric.
 2. **Reproducibility** is measured for 6 of 26; the fallback proxy can
    contradict the measurement outright (GPQA). The backtest uses the proxy
    for all twelve, because as-of scoring has no cross-source data.
@@ -347,8 +405,10 @@ Honest list of where the methodology is weakest:
    have never been examined, so the true rate is unbounded above. A
    separate 2026 preprint reports the opposite error (28.5% of a 49-task
    sample accept an incorrect patch), which a single rate cannot express.
-6. **An unquantified contamination flag is charged at full severity**, and
-   it is the sole cause of SWE-Bench Verified scoring below HumanEval.
-   Diagnosed in full under "Contamination" above, with three treatments
-   computed. Unresolved by design: every fix requires a number with no
-   evidence behind it.
+6. **RESOLVED 2026-09-21.** An unquantified contamination flag used to be
+   charged at full severity, which was the sole cause of SWE-Bench
+   Verified scoring below HumanEval. The owner adopted treatment (c): the
+   flag warns and carries no numeric penalty. The cost of that choice is
+   that unmeasured-but-real contamination is now free.
+7. **Specificity is rubric-based since 2026-09-21** — auditable judgement,
+   NOT measurement, and not independently checked. See below.
