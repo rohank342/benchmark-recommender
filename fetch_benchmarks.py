@@ -30,7 +30,9 @@ add a benchmark.
 from __future__ import annotations
 
 import csv
+import json
 from dataclasses import dataclass, field
+from functools import lru_cache
 from pathlib import Path
 from typing import Any, Optional
 
@@ -40,6 +42,7 @@ EPOCH_METADATA_FILE = "benchmark_metadata.csv"
 # Score sets pulled by fetch_benchmark_scores.py, named
 # "<benchmark key>__<source>.csv" with columns model,score (0-1).
 SCORES_DIR = DATA_DIR / "benchmark_scores"
+SCORES_MANIFEST = SCORES_DIR / "manifest.json"
 
 # Task categories. task_matcher.py maps free-text task descriptions onto
 # these, so adding a category means teaching the matcher its vocabulary.
@@ -735,6 +738,9 @@ class BenchmarkScores:
     ceiling: float = 1.0
     random_baseline: float = 0.0
     source: str = "epoch_ai"
+    # "none" | "baseline" | "length" — see fetch_benchmark_scores. Only
+    # sets sharing a normalization are comparable model-for-model.
+    normalization: str = "none"
 
 
 def _epoch_metadata(path: Path = EPOCH_DIR) -> dict[str, dict[str, str]]:
@@ -748,6 +754,16 @@ def _epoch_metadata(path: Path = EPOCH_DIR) -> dict[str, dict[str, str]]:
             for row in csv.DictReader(handle)
             if (row.get("source_file") or "").strip()
         }
+
+
+def _scores_manifest(path: Path = SCORES_MANIFEST) -> dict[str, dict]:
+    """Per-set provenance written by fetch_benchmark_scores.py."""
+    if not path.exists():
+        return {}
+    try:
+        return (json.loads(path.read_text()) or {}).get("sets", {})
+    except (json.JSONDecodeError, OSError):
+        return {}
 
 
 def load_external_score_sets(
@@ -775,26 +791,50 @@ def load_external_score_sets(
                     continue
                 names.append((row.get("model") or "").strip())
         if scores:
+            # The manifest carries the random baseline and which
+            # normalization (if any) the column used. Without it every set
+            # would be treated as a plain 0-1 accuracy, which is how
+            # baseline-normalized GPQA scores once got read as raw ones.
+            meta = _scores_manifest().get(f"{benchmark.key}__{source}", {})
             sets.append(
                 BenchmarkScores(
                     benchmark_key=benchmark.key,
                     scores=scores,
                     model_names=names,
-                    ceiling=1.0,
-                    random_baseline=0.0,
+                    ceiling=float(meta.get("ceiling", 1.0)),
+                    random_baseline=float(meta.get("random_baseline", 0.0)),
                     source=source,
+                    normalization=str(meta.get("normalization", "none")),
                 )
             )
     return sets
 
 
-def load_score_sets(benchmark: Benchmark) -> list[BenchmarkScores]:
-    """Every score distribution available for this benchmark, any source."""
+@lru_cache(maxsize=None)
+def _cached_score_sets(key: str) -> tuple:
+    """
+    Score sets by benchmark key, read once per process.
+
+    The leaderboard exports run to thousands of rows and every factor
+    that touches them would otherwise re-parse the CSV. Callers treat
+    these as read-only; mutating a returned set would corrupt the cache.
+    """
+    benchmark = find_benchmark(key)
+    if benchmark is None:
+        return ()
     sets = load_external_score_sets(benchmark)
     epoch = load_epoch_scores(benchmark)
     if epoch is not None:
         sets.insert(0, epoch)
-    return sets
+    return tuple(sets)
+
+
+def load_score_sets(benchmark: Benchmark) -> list[BenchmarkScores]:
+    """Every score distribution available for this benchmark, any source."""
+    return list(_cached_score_sets(benchmark.key))
+
+
+
 
 
 # What population each score source covers. This decides what a

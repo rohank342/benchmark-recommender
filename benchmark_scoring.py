@@ -41,6 +41,7 @@ from dataclasses import dataclass, field
 from datetime import date, datetime
 from typing import Optional
 
+from cross_source import agreement_for, reproducibility_from_agreement
 from fetch_benchmarks import (
     Benchmark,
     BenchmarkScores,
@@ -118,6 +119,7 @@ class BenchmarkTrust:
     # populations: {source: (saturation, n_models)}.
     saturation_by_source: dict = field(default_factory=dict)
     primary_source: Optional[str] = None
+    agreement: Optional[object] = None  # cross_source.AgreementReport, when any
 
     @property
     def dominant_factor(self) -> Optional[Factor]:
@@ -304,14 +306,41 @@ def _freshness_factor(benchmark: Benchmark) -> Factor:
 
 
 def _reproducibility_factor(benchmark: Benchmark) -> Factor:
+    """
+    Whether independent evaluators agree, measured where two comparable
+    sources cover the benchmark and counted where they don't.
+
+    The curated evaluator count is a proxy: it says how many groups
+    publish a number, not whether those numbers match. Where the data
+    allows, the measurement replaces it — and the two can point opposite
+    ways. GPQA Diamond has several evaluators (a high proxy) and 8 points
+    of unexplained scatter between two of them (a low measurement).
+    """
+    report = agreement_for(benchmark)
+    measured = reproducibility_from_agreement(report) if report else None
+
+    if measured is not None:
+        return Factor(
+            name="reproducibility",
+            value=measured,
+            weight=FACTOR_WEIGHTS["reproducibility"],
+            basis="measured",
+            explanation=report.describe(),
+        )
+
     count = max(benchmark.independent_evaluators, 0)
     value = min(count / EVALUATORS_FOR_FULL_CREDIT, 1.0)
+    explanation = f"{count} independent evaluator(s) publish scores on it"
+    if report is not None and not report.comparable:
+        # Say why the better measurement wasn't available, rather than
+        # letting the count quietly stand in for it.
+        explanation += f" — cross-source check unavailable ({report.reason})"
     return Factor(
         name="reproducibility",
         value=value,
         weight=FACTOR_WEIGHTS["reproducibility"],
         basis="curated",
-        explanation=f"{count} independent evaluator(s) publish scores on it",
+        explanation=explanation,
     )
 
 
@@ -381,6 +410,7 @@ def score_benchmark(benchmark: Benchmark) -> BenchmarkTrust:
             for s in load_score_sets(benchmark)
         },
         primary_source=scores.source if scores else None,
+        agreement=agreement_for(benchmark),
     )
 
 

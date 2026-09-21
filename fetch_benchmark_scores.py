@@ -38,7 +38,8 @@ from __future__ import annotations
 
 import csv
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable, Optional
 
@@ -46,23 +47,65 @@ import requests
 
 DATA_DIR = Path(__file__).parent / "data"
 SCORES_DIR = DATA_DIR / "benchmark_scores"
+# Per-set metadata: which column was read, whether it is baseline-normalized,
+# and the random baseline. Without this a reader cannot tell a raw accuracy
+# from a normalized one, and the two are not comparable — see below.
+MANIFEST_PATH = SCORES_DIR / "manifest.json"
 
 OPEN_LLM_V2_DATASET = "open-llm-leaderboard/contents"
 OPEN_LLM_V1_DATASET = "open-llm-leaderboard-old/contents"
 EVALPLUS_RESULTS_URL = "https://evalplus.github.io/results.json"
 
 # Leaderboard column -> benchmark key in fetch_benchmarks.BENCHMARK_CATALOG.
+#
+# v2 publishes each benchmark twice: "<name> Raw" is the accuracy, "<name>"
+# is rescaled so the random baseline sits at 0. The RAW columns are the ones
+# to read. An earlier version of this file took the normalized ones, which
+# made GPQA look like models were scoring 1-5% (raw 0.26 -> normalized 1.2,
+# because (0.26-0.25)/0.75 is tiny) and made cross-source comparison against
+# Epoch measure the rescaling rather than any disagreement.
 OPEN_LLM_V2_COLUMNS = {
-    "MMLU-PRO": "mmlu_pro",
-    "BBH": "bbh",
-    "GPQA": "gpqa_diamond",
-    "MATH Lvl 5": "math_level_5",
+    "MMLU-PRO Raw": "mmlu_pro",
+    "BBH Raw": "bbh",
+    "GPQA Raw": "gpqa_diamond",
+    "MATH Lvl 5 Raw": "math_level_5",
 }
+# v1 has no raw/normalized split, but it is not uniform either: ARC and
+# HellaSwag were reported as normalized accuracy (acc_norm) while MMLU and
+# TruthfulQA were plain accuracy. Recorded per set in the manifest so a
+# reader can see which is which.
 OPEN_LLM_V1_COLUMNS = {
     "TruthfulQA": "truthfulqa",
     "MMLU": "mmlu",
     "ARC": "arc",
     "HellaSwag": "hellaswag",
+}
+# Two different normalizations are in play, and calling both "normalized"
+# would hide the difference:
+#   "baseline" — v2 rescales so random chance sits at 0. GPQA raw 0.26
+#                becomes 1.2 because (0.26-0.25)/0.75 is tiny.
+#   "length"   — v1 reported ARC and HellaSwag as acc_norm, accuracy
+#                normalized by the byte length of the answer choices.
+#   "none"     — plain accuracy, comparable with Epoch's numbers.
+# Only "none" is comparable across sources without further work.
+V1_NORMALIZATION = {"ARC": "length", "HellaSwag": "length"}
+# CURATE(you): the acc/acc_norm split is from the v1 leaderboard's task
+# config. Worth re-verifying against the archived "About" page if a
+# comparison ever hinges on it.
+
+# Random baselines, taken from Epoch's benchmark_metadata.csv so that the two
+# sources agree on the usable score range. Not invented here.
+RANDOM_BASELINES = {
+    "mmlu": 0.25,
+    "arc": 0.25,
+    "hellaswag": 0.25,
+    "bbh": 0.25,
+    "gpqa_diamond": 0.25,
+    "math_level_5": 0.0,
+    "truthfulqa": 0.0,  # generative/MC2 scoring, no clean chance baseline
+    "mmlu_pro": 0.1,  # ten options
+    "humaneval": 0.0,
+    "humaneval_plus": 0.0,
 }
 
 
@@ -71,6 +114,28 @@ class ScoreSet:
     benchmark_key: str
     source: str
     rows: list[tuple[str, float]]  # (model name, score 0-1)
+    column: str = ""  # the column this came from, verbatim
+    normalization: str = "none"  # "none" | "baseline" | "length"
+
+    @property
+    def random_baseline(self) -> float:
+        # A baseline-normalized column already has chance removed, so its
+        # usable range starts at 0 whatever the benchmark's chance level.
+        if self.normalization == "baseline":
+            return 0.0
+        return RANDOM_BASELINES.get(self.benchmark_key, 0.0)
+
+    @property
+    def manifest_entry(self) -> dict:
+        return {
+            "benchmark_key": self.benchmark_key,
+            "source": self.source,
+            "column": self.column,
+            "normalization": self.normalization,
+            "random_baseline": self.random_baseline,
+            "ceiling": 1.0,
+            "models": len(self.rows),
+        }
 
     @property
     def path(self) -> Path:
@@ -101,7 +166,12 @@ def _load_leaderboard_frame(dataset: str):
     return pd.read_parquet(hf_hub_download(dataset, parquet_files[0], repo_type="dataset"))
 
 
-def _from_leaderboard(dataset: str, columns: dict[str, str], source: str) -> list[ScoreSet]:
+def _from_leaderboard(
+    dataset: str,
+    columns: dict[str, str],
+    source: str,
+    normalization: Optional[dict[str, str]] = None,
+) -> list[ScoreSet]:
     """
     Turn one leaderboard table into per-benchmark score sets.
 
@@ -132,14 +202,31 @@ def _from_leaderboard(dataset: str, columns: dict[str, str], source: str) -> lis
             print(f"    ! column {column!r} missing — skipping {benchmark_key}")
             continue
         subset = frame[[name_column, column]].dropna()
-        rows = [
-            (str(name), float(value) / 100.0)
-            for name, value in subset.itertuples(index=False)
-            if 0.0 <= float(value) <= 100.0
-        ]
+        # Raw columns are already fractions (0.26); normalized ones are
+        # percentages (1.23). Detect rather than assume, so a change in the
+        # leaderboard's units doesn't silently divide everything by 100.
+        values = subset[column].astype(float)
+        looks_fractional = float(values.max()) <= 1.0
+        divisor = 1.0 if looks_fractional else 100.0
+
+        rows = []
+        for name, value in subset.itertuples(index=False):
+            score = float(value) / divisor
+            if 0.0 <= score <= 1.0:
+                rows.append((str(name), score))
+
         if rows:
-            sets.append(ScoreSet(benchmark_key, source, rows))
-            print(f"    {benchmark_key:<16} {len(rows)} scores")
+            # Stated per column, not guessed from magnitude: v1 reports
+            # percentages that are still plain accuracy, so "not fractional"
+            # says nothing about whether a score has been normalized.
+            kind = (normalization or {}).get(column, "none")
+            sets.append(
+                ScoreSet(benchmark_key, source, rows, column=column, normalization=kind)
+            )
+            print(
+                f"    {benchmark_key:<16} {len(rows)} scores from {column!r} "
+                f"(normalization: {kind})"
+            )
     return sets
 
 
@@ -148,7 +235,12 @@ def fetch_open_llm_v2() -> list[ScoreSet]:
 
 
 def fetch_open_llm_v1() -> list[ScoreSet]:
-    return _from_leaderboard(OPEN_LLM_V1_DATASET, OPEN_LLM_V1_COLUMNS, "open_llm_leaderboard_v1")
+    return _from_leaderboard(
+        OPEN_LLM_V1_DATASET,
+        OPEN_LLM_V1_COLUMNS,
+        "open_llm_leaderboard_v1",
+        normalization=V1_NORMALIZATION,
+    )
 
 
 def fetch_evalplus(timeout: int = 30) -> list[ScoreSet]:
@@ -208,7 +300,16 @@ def main() -> None:
 
     for score_set in all_sets:
         score_set.save()
-    print(f"\nSaved {len(all_sets)} score sets to {SCORES_DIR}")
+
+    manifest = {
+        "fetched_at": datetime.now(timezone.utc).isoformat(),
+        "sets": {
+            f"{s.benchmark_key}__{s.source}": s.manifest_entry for s in all_sets
+        },
+    }
+    SCORES_DIR.mkdir(parents=True, exist_ok=True)
+    MANIFEST_PATH.write_text(json.dumps(manifest, indent=2))
+    print(f"\nSaved {len(all_sets)} score sets + manifest to {SCORES_DIR}")
 
 
 if __name__ == "__main__":

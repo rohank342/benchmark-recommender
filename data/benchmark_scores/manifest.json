@@ -1,0 +1,95 @@
+{
+  "fetched_at": "2026-09-21T03:18:38.352399+00:00",
+  "sets": {
+    "mmlu_pro__open_llm_leaderboard_v2": {
+      "benchmark_key": "mmlu_pro",
+      "source": "open_llm_leaderboard_v2",
+      "column": "MMLU-PRO Raw",
+      "normalization": "none",
+      "random_baseline": 0.1,
+      "ceiling": 1.0,
+      "models": 4575
+    },
+    "bbh__open_llm_leaderboard_v2": {
+      "benchmark_key": "bbh",
+      "source": "open_llm_leaderboard_v2",
+      "column": "BBH Raw",
+      "normalization": "none",
+      "random_baseline": 0.25,
+      "ceiling": 1.0,
+      "models": 4575
+    },
+    "gpqa_diamond__open_llm_leaderboard_v2": {
+      "benchmark_key": "gpqa_diamond",
+      "source": "open_llm_leaderboard_v2",
+      "column": "GPQA Raw",
+      "normalization": "none",
+      "random_baseline": 0.25,
+      "ceiling": 1.0,
+      "models": 4575
+    },
+    "math_level_5__open_llm_leaderboard_v2": {
+      "benchmark_key": "math_level_5",
+      "source": "open_llm_leaderboard_v2",
+      "column": "MATH Lvl 5 Raw",
+      "normalization": "none",
+      "random_baseline": 0.0,
+      "ceiling": 1.0,
+      "models": 4575
+    },
+    "truthfulqa__open_llm_leaderboard_v1": {
+      "benchmark_key": "truthfulqa",
+      "source": "open_llm_leaderboard_v1",
+      "column": "TruthfulQA",
+      "normalization": "none",
+      "random_baseline": 0.0,
+      "ceiling": 1.0,
+      "models": 7170
+    },
+    "mmlu__open_llm_leaderboard_v1": {
+      "benchmark_key": "mmlu",
+      "source": "open_llm_leaderboard_v1",
+      "column": "MMLU",
+      "normalization": "none",
+      "random_baseline": 0.25,
+      "ceiling": 1.0,
+      "models": 7260
+    },
+    "arc__open_llm_leaderboard_v1": {
+      "benchmark_key": "arc",
+      "source": "open_llm_leaderboard_v1",
+      "column": "ARC",
+      "normalization": "length",
+      "random_baseline": 0.25,
+      "ceiling": 1.0,
+      "models": 7260
+    },
+    "hellaswag__open_llm_leaderboard_v1": {
+      "benchmark_key": "hellaswag",
+      "source": "open_llm_leaderboard_v1",
+      "column": "HellaSwag",
+      "normalization": "length",
+      "random_baseline": 0.25,
+      "ceiling": 1.0,
+      "models": 7260
+    },
+    "humaneval__evalplus": {
+      "benchmark_key": "humaneval",
+      "source": "evalplus",
+      "column": "",
+      "normalization": "none",
+      "random_baseline": 0.0,
+      "ceiling": 1.0,
+      "models": 125
+    },
+    "humaneval_plus__evalplus": {
+      "benchmark_key": "humaneval_plus",
+      "source": "evalplus",
+      "column": "",
+      "normalization": "none",
+      "random_baseline": 0.0,
+      "ceiling": 1.0,
+      "models": 125
+    }
+  }
+}
