@@ -28,24 +28,24 @@ committed data:
 
 | | coverage |
 |---|---|
-| Saturation (the `discrimination` factor) | 21 of 22 benchmarks |
-| Cross-source agreement (`reproducibility`) | 4 of 22 |
+| Saturation (the `discrimination` factor) | 25 of 26 benchmarks |
+| Cross-source agreement (`reproducibility`) | 6 of 26 |
 
 **Curated** — read out of papers and reports by a human, cited in each entry's
 `curation_notes` with a date:
 
 | | coverage |
 |---|---|
-| Contamination rate (fraction of items in pretraining corpora) | 3 of 22 |
-| Item error rate (wrong answer keys, broken tests) | 3 of 22 |
-| Release dates, dataset sizes, holdout type | all 22 |
+| Contamination rate (fraction of items in pretraining corpora) | 3 of 26 |
+| Item error rate (wrong answer keys, broken tests) | 4 of 26 |
+| Release dates, dataset sizes, holdout type | all 26 |
 
 **Judgement calls** — defensible, argued in comments, but mine rather than
 anybody's finding:
 
-- `task_specificity` for all 22 benchmarks: how narrowly a benchmark maps to
+- `task_specificity` for all 26 benchmarks: how narrowly a benchmark maps to
   real work, 0–1.
-- `independent_evaluators` for the 18 benchmarks where agreement can't be
+- `independent_evaluators` for the 20 benchmarks where agreement can't be
   measured.
 - Every weight and threshold: the 40/20/20/20 factor split, the two-year
   leakage half-life, the penalty curves.
@@ -62,9 +62,14 @@ The ones that undercut the project, stated plainly:
 
 **The weights are uncalibrated.** 40% discrimination, 20% each for freshness,
 reproducibility and specificity, with a two-year leakage half-life. These are
-judgement calls. [The backtest](docs/BACKTEST.md) shows the ranking survives
-most reweightings and correctly reproduces one real expert decision — but eight
-benchmarks and one decision can falsify the scorer, not validate it.
+judgement calls, and **[the backtest now partially fails](docs/BACKTEST.md)**.
+Scored as of June 2024 against HF's retirement decision it gets 10 of 12 —
+MMLU, which was retired, outranks MuSR, which was kept. The cause is MuSR's
+hand-assigned specificity. Worse, sorting benchmarks by release date and
+calling the newer half "kept" also scores 10 of 12, so on the only test
+available the four weighted factors do not beat ranking by age. Weights that
+would pass exist, but they disagree about which factor is wrong, so none were
+applied.
 
 **Saturation depends on which models you measure.** On GPQA Diamond the
 frontier's top ten sit at 93% of the usable range while the open-community
@@ -90,8 +95,10 @@ about.
 model tab inherits every limitation above plus its own — VRAM estimates are
 derived rather than measured, and nothing models the serving stack.
 
-**Some benchmarks are missing.** Winogrande, GSM8K, MuSR and IFEval are not
-catalogued, which is the cheapest thing that would strengthen the backtest.
+**The catalog is still one decision wide.** All twelve benchmarks from HF's
+June 2024 retirement are now covered, which is what turned the backtest from
+a pass into a partial failure. A second dated decision from another
+leaderboard is the next thing that would tell you something new.
 
 ---
 
@@ -104,7 +111,7 @@ happily pick an end-of-life system Python).
 uv venv --python 3.12
 uv pip install -r requirements.txt pytest
 python app.py          # http://127.0.0.1:7860
-pytest                 # 181 tests
+pytest                 # 193 tests
 ```
 
 The **benchmark tab works offline** from committed data. The **model tab** needs
@@ -144,7 +151,7 @@ internal-use-only and not ours to redistribute.
 
 | file | purpose |
 |---|---|
-| [`fetch_benchmarks.py`](fetch_benchmarks.py) | The catalog: 22 benchmarks across 9 task categories, their curated fields, and the evidence dates behind each claim. |
+| [`fetch_benchmarks.py`](fetch_benchmarks.py) | The catalog: 26 benchmarks across 10 task categories, their curated fields, and the evidence dates behind each claim. |
 | [`benchmark_scoring.py`](benchmark_scoring.py) | The four factors, the penalties, and as-of scoring for the backtest. |
 | [`cross_source.py`](cross_source.py) | Do two evaluators agree about the same models? Offset vs scatter. |
 | [`task_matcher.py`](task_matcher.py) | Free-text task description → benchmark category. |
