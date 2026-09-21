@@ -180,4 +180,7 @@ internal-use-only and not ours to redistribute.
 **Further reading:** [docs/METHODOLOGY.md](docs/METHODOLOGY.md) for how every
 number is computed and what evidence standard it had to meet.
 [docs/BACKTEST.md](docs/BACKTEST.md) for the one real test of whether any of
-this works.
+this works. [docs/BACKTEST_DESIGN.md](docs/BACKTEST_DESIGN.md) for what that
+test can and cannot establish — including the finding that age and measured
+saturation are uncorrelated across the twelve, while age alone predicts the
+retirement decision at r = +0.79.
