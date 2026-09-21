@@ -52,12 +52,18 @@ from fetch_benchmarks import find_benchmark
 
 CUTOFF = "2024-06-01"
 
-# The four retired benchmarks present in this catalog (of six retired).
-# Winogrande and GSM8K are not catalogued, so they sit out.
-RETIRED = ["ARC (AI2 Reasoning Challenge)", "HellaSwag", "MMLU", "TruthfulQA"]
-# The four replacements present in this catalog (of six chosen).
-# MuSR and IFEval are not catalogued.
-REPLACEMENTS = ["MMLU-Pro", "GPQA Diamond", "BIG-Bench Hard", "MATH Level 5"]
+# All six retired benchmarks, and all six replacements. This was a
+# four-and-four test until Winogrande, GSM8K, MuSR and IFEval were
+# catalogued; six-and-six makes chance agreement much less likely (1 in
+# 924 splits rather than 1 in 70).
+RETIRED = [
+    "ARC (AI2 Reasoning Challenge)", "HellaSwag", "MMLU",
+    "TruthfulQA", "Winogrande", "GSM8K",
+]
+REPLACEMENTS = [
+    "MMLU-Pro", "GPQA Diamond", "BIG-Bench Hard",
+    "MATH Level 5", "MuSR", "IFEval",
+]
 
 
 @dataclass
@@ -94,7 +100,8 @@ def confusion(outcomes: list[Outcome]) -> dict[str, int]:
     Treat the scorer's bottom four as its "would have retired" set and
     compare against what HF actually retired.
     """
-    predicted_retire = {o.name for o in sorted(outcomes, key=lambda o: o.score)[:4]}
+    half = len(outcomes) // 2
+    predicted_retire = {o.name for o in sorted(outcomes, key=lambda o: o.score)[:half]}
     matrix = {"true_retire": 0, "false_retire": 0, "true_keep": 0, "false_keep": 0}
     for outcome in outcomes:
         flagged = outcome.name in predicted_retire
@@ -131,7 +138,10 @@ def print_test(outcomes: list[Outcome]) -> None:
     print(f"{'scorer: retire':<22}{matrix['true_retire']:>14}{matrix['false_retire']:>12}")
     print(f"{'scorer: keep':<22}{matrix['false_keep']:>14}{matrix['true_keep']:>12}")
     correct = matrix["true_retire"] + matrix["true_keep"]
-    print(f"\n{correct}/8 correct. Perfect separation: {clean} (gap {gap:+.1f} points)")
+    print(
+        f"\n{correct}/{len(outcomes)} correct. "
+        f"Perfect separation: {clean} (gap {gap:+.1f} points)"
+    )
 
 
 def print_trajectory() -> None:
@@ -183,7 +193,8 @@ def sweep_weights() -> None:
                 clean, gap = separation(outcomes)
                 correct = matrix["true_retire"] + matrix["true_keep"]
                 print(
-                    f"{factor:<18}{weight:>8.2f}{correct:>7}/8{str(clean):>11}{gap:>+8.1f}"
+                    f"{factor:<18}{weight:>8.2f}{correct:>6}/{len(outcomes)}"
+                    f"{str(clean):>11}{gap:>+8.1f}"
                 )
             FACTOR_WEIGHTS.update(original)
     finally:
@@ -213,7 +224,7 @@ def single_factor_analysis() -> None:
             matrix = confusion(outcomes)
             clean, gap = separation(outcomes)
             correct = matrix["true_retire"] + matrix["true_keep"]
-            print(f"{factor:<20}{correct:>7}/8{str(clean):>11}{gap:>+8.1f}")
+            print(f"{factor:<20}{correct:>6}/{len(outcomes)}{str(clean):>11}{gap:>+8.1f}")
     finally:
         FACTOR_WEIGHTS.clear()
         FACTOR_WEIGHTS.update(original)
@@ -225,13 +236,16 @@ def single_factor_analysis() -> None:
         label = "retired" if name in RETIRED else "replacement"
         dated.append((benchmark.release_date or "", name, label))
     dated.sort(reverse=True)
-    newest_four = {name for _, name, _ in dated[:4]}
+    newest_half = {name for _, name, _ in dated[: len(dated) // 2]}
     baseline_correct = sum(
         1
         for _, name, label in dated
-        if (name in newest_four) == (label == "replacement")
+        if (name in newest_half) == (label == "replacement")
     )
-    print(f"\n{'release date alone':<20}{baseline_correct:>7}/8   (no scoring, just age order)")
+    print(
+        f"\n{'release date alone':<20}{baseline_correct:>6}/{len(dated)}"
+        "   (no scoring, just age order)"
+    )
     print("   order: " + ", ".join(f"{n} ({d[:4]})" for d, n, _ in dated))
 
 
@@ -248,8 +262,8 @@ def main() -> None:
         sweep_weights()
 
     print(
-        "\n\nEight benchmarks and one retirement decision. This can falsify the "
-        "scorer, not validate it — see docs/BACKTEST.md."
+        "\n\nTwelve benchmarks and one retirement decision. This can falsify "
+        "the scorer, not validate it — see docs/BACKTEST.md."
     )
 
 
