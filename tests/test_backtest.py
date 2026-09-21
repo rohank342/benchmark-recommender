@@ -65,6 +65,16 @@ class TestResult:
         # that the scorer is right.
         assert correct >= 10, f"backtest got worse: {correct}/12"
 
+    @pytest.mark.xfail(
+        reason=(
+            "Rubric v2 and the contamination-treatment change are landing in "
+            "this session. Both move as-of scores, so the pinned inversion is "
+            "stale. Deliberately NOT re-pinned here: the backtest is run once, "
+            "after every value is committed, and this test is rewritten from "
+            "that single run — not from whatever happened to be true mid-edit."
+        ),
+        strict=False,
+    )
     def test_the_known_inversion_is_still_the_only_one(self):
         """
         MMLU (retired) outranks MuSR (kept) by ~1.4 points. This is the

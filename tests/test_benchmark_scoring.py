@@ -102,11 +102,12 @@ class TestTrustScore:
         recent = Benchmark(
             key="t1", name="T1", category="code generation",
             release_date=date.today().isoformat(), independent_evaluators=5,
+            specificity_dimensions=(1, 1, 1, 1, 1),
         )
         older = Benchmark(
             key="t2", name="T2", category="code generation",
             release_date=(date.today() - timedelta(days=LEAKAGE_HALF_LIFE_DAYS)).isoformat(),
-            independent_evaluators=5,
+            independent_evaluators=5, specificity_dimensions=(1, 1, 1, 1, 1),
         )
         fresh = {f.name: f for f in score_benchmark(recent).factors}["freshness"]
         stale = {f.name: f for f in score_benchmark(older).factors}["freshness"]
@@ -146,29 +147,67 @@ class TestCatalog:
         assert {b.key for b in load_benchmark_catalog()} == set(by_key)
 
 
-class TestUnreviewedJudgements:
+class TestSpecificityRubric:
     """
-    Specificity is the owner's call by design — 20% of every trust score,
-    measured by nothing. Four values were assigned by Claude Code instead.
-    They stand, but the basis field has to say who wrote them.
+    Specificity is the only factor with no measurement behind it, so the
+    rubric decomposition is the whole of its accountability. v2 adopted
+    by the owner 2026-09-21; see docs/SPECIFICITY_RUBRIC.md.
     """
 
-    ASSIGNED_BY_CLAUDE = {
-        "Winogrande": 0.2,
-        "GSM8K": 0.4,
-        "MuSR": 0.3,
-        "IFEval": 0.65,
-    }
+    def test_every_benchmark_carries_its_dimension_scores(self):
+        """A catalog entry with no rubric scoring has no specificity."""
+        for b in load_benchmark_catalog():
+            assert b.specificity_dimensions is not None, b.name
+            assert len(b.specificity_dimensions) == 5, b.name
+            assert all(d in (0, 1, 2) for d in b.specificity_dimensions), b.name
 
-    def test_the_values_are_unchanged(self):
-        for name, value in self.ASSIGNED_BY_CLAUDE.items():
-            assert find_benchmark(name).task_specificity == pytest.approx(value), name
+    def test_the_formula_is_the_sum_over_ten(self):
+        from fetch_benchmarks import SPECIFICITY_MAX, specificity_from
 
-    def test_each_one_admits_who_assigned_it(self):
-        for name in self.ASSIGNED_BY_CLAUDE:
-            notes = find_benchmark(name).curation_notes
-            assert "SPECIFICITY" in notes and "assigned by Claude Code" in notes, name
-            assert "not been reviewed by the owner" in notes, name
+        assert SPECIFICITY_MAX == 10
+        assert specificity_from((0, 0, 0, 0, 0)) == 0.0
+        assert specificity_from((2, 2, 2, 2, 2)) == 1.0
+        assert specificity_from((1, 2, 2, 1, 0)) == pytest.approx(0.6)
+        for b in load_benchmark_catalog():
+            assert b.task_specificity == pytest.approx(
+                sum(b.specificity_dimensions) / 10
+            ), b.name
+
+    def test_specificity_cannot_be_set_without_a_judgement(self):
+        """
+        No default. 0.5 would be a number nobody assigned, which is the
+        exact failure the evidence standard exists to prevent.
+        """
+        from fetch_benchmarks import specificity_from
+
+        with pytest.raises(ValueError):
+            specificity_from(None)
+        with pytest.raises(ValueError):
+            specificity_from((1, 1, 1))
+        with pytest.raises(ValueError):
+            specificity_from((1, 1, 1, 1, 3))
+
+    def test_multiple_choice_benchmarks_score_zero_on_who_does_this(self):
+        """Rubric v2 edit 2: MC is D0 regardless of subject matter."""
+        for name in ("MMLU", "MMLU-Pro", "GPQA Diamond", "HellaSwag",
+                     "Winogrande", "TruthfulQA", "ARC (AI2 Reasoning Challenge)"):
+            assert find_benchmark(name).specificity_dimensions[3] == 0, name
+
+    def test_narrow_but_evaluation_only_tasks_do_not_score_two_on_scope(self):
+        """Rubric v2 edit 3: narrowness alone does not earn a 2."""
+        for name in ("Winogrande", "HellaSwag", "MuSR", "TruthfulQA"):
+            assert find_benchmark(name).specificity_dimensions[2] <= 1, name
+
+    def test_the_basis_names_the_rubric_and_admits_it_is_unchecked(self):
+        for b in load_benchmark_catalog():
+            assert "Rubric v2" in b.curation_notes, b.name
+            assert "Not independently checked" in b.curation_notes, b.name
+
+    def test_no_entry_still_claims_to_be_unreviewed_by_the_owner(self):
+        """The four Claude-assigned values are now covered by the adoption."""
+        for b in load_benchmark_catalog():
+            assert "not yet reviewed by the owner" not in b.curation_notes, b.name
+            assert "not been reviewed by the owner" not in b.curation_notes, b.name
 
 
 class TestEvaluatorCountReach:
@@ -284,10 +323,14 @@ class TestCuratedEvidence:
         from fetch_benchmarks import Benchmark
 
         released = (date.today() - timedelta(days=900)).isoformat()
-        static = Benchmark(key="s", name="S", category="code generation", release_date=released)
+        static = Benchmark(
+            key="s", name="S", category="code generation", release_date=released,
+            specificity_dimensions=(1, 1, 1, 1, 1),
+        )
         refreshed = Benchmark(
             key="r", name="R", category="code generation",
             release_date=released, holdout="refreshed",
+            specificity_dimensions=(1, 1, 1, 1, 1),
         )
         static_freshness = {f.name: f for f in score_benchmark(static).factors}["freshness"]
         refreshed_freshness = {f.name: f for f in score_benchmark(refreshed).factors}["freshness"]
@@ -299,6 +342,7 @@ class TestCuratedEvidence:
         old_private = Benchmark(
             key="p", name="P", category="scientific reasoning",
             release_date="2020-01-01", holdout="private_holdout",
+            specificity_dimensions=(1, 1, 1, 1, 1),
         )
         freshness = {f.name: f for f in score_benchmark(old_private).factors}["freshness"]
         assert freshness.value >= 0.9
@@ -405,6 +449,7 @@ class TestPartialHoldout:
         bench = Benchmark(
             key="t", name="T", category="code generation",
             release_date=released, holdout=holdout,
+            specificity_dimensions=(1, 1, 1, 1, 1),
         )
         return {f.name: f for f in score_benchmark(bench).factors}["freshness"].value
 
@@ -429,7 +474,7 @@ class TestPartialHoldout:
         bench = Benchmark(
             key="t", name="T", category="code generation",
             release_date=(date.today() - timedelta(days=900)).isoformat(),
-            holdout="partial_holdout",
+            holdout="partial_holdout", specificity_dimensions=(1, 1, 1, 1, 1),
         )
         freshness = {f.name: f for f in score_benchmark(bench).factors}["freshness"]
         assert "grading material is withheld" in freshness.explanation
@@ -460,7 +505,8 @@ class TestItemQuality:
             Benchmark(
                 key="t", name="T", category="code generation",
                 release_date="2026-01-01", independent_evaluators=3,
-                task_specificity=0.8, item_error_rate=rate,
+                specificity_dimensions=(2, 2, 2, 1, 1),  # 8/10 = 0.8
+                item_error_rate=rate,
                 item_error_rate_basis=basis,
             )
         )
@@ -526,7 +572,10 @@ class TestItemQuality:
     def test_the_default_basis_is_estimate(self):
         from fetch_benchmarks import Benchmark, load_benchmark_catalog
 
-        assert Benchmark(key="t", name="T", category="code generation").item_error_rate_basis == (
+        assert Benchmark(
+            key="t", name="T", category="code generation",
+            specificity_dimensions=(1, 1, 1, 1, 1),
+        ).item_error_rate_basis == (
             "estimate"
         )
         bounded = [

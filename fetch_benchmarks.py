@@ -122,9 +122,27 @@ class Benchmark:
     saturation_flagged: bool = False
     # Independent evaluators/leaderboards publishing scores on it.
     independent_evaluators: int = 1
-    # 0-1: how narrowly this maps to one real task. 1.0 = measures one
-    # concrete skill (resolving GitHub issues); 0.2 = broad catch-all.
-    task_specificity: float = 0.5
+    # How narrowly this maps to one real task, as five rubric dimensions
+    # scored 0/1/2 — see docs/SPECIFICITY_RUBRIC.md (v2, adopted by the
+    # owner 2026-09-21):
+    #
+    #   A  item provenance    synthetic / written for the test / real artifact
+    #   B  output and check   does success here look like success outside?
+    #                         mixed cases take the LOWER of the two halves
+    #   C  scope              catch-all / one domain / job-nameable task type
+    #   D  who does this      nobody / a component of work / somebody's output
+    #   E  scale              one shot / multi-step / spans files and turns
+    #
+    # `task_specificity` is COMPUTED from these (sum / 10) rather than
+    # stored, so no value can move without a judgement moving that says
+    # why. This is the only factor with no measurement behind it, so the
+    # decomposition is the whole of its accountability.
+    specificity_dimensions: Optional[tuple[int, int, int, int, int]] = None
+
+    @property
+    def task_specificity(self) -> float:
+        """0-1, derived from the rubric. Never stored directly."""
+        return specificity_from(self.specificity_dimensions)
     # How the test set resists leaking into training data:
     #   "public_static"  — published once, public ever since. Decays with age.
     #   "refreshed"      — new items added on a rolling basis (LiveCodeBench's
@@ -189,6 +207,35 @@ def _normalize(label: str) -> str:
     return "".join(ch for ch in label.lower() if ch.isalnum())
 
 
+# The five rubric dimensions, in order, as stored in
+# Benchmark.specificity_dimensions.
+SPECIFICITY_DIMENSIONS = ("provenance", "output_and_check", "scope", "who", "scale")
+SPECIFICITY_MAX = 2 * len(SPECIFICITY_DIMENSIONS)  # 10
+
+
+def specificity_from(dimensions: Optional[tuple[int, ...]]) -> float:
+    """
+    Rubric v2: five dimensions scored 0-2, specificity = sum / 10.
+
+    A missing scoring is an error, not a default. 0.5 would be a number
+    nobody assigned — exactly the kind of invented value the evidence
+    standard exists to prevent — so there is no fallback and a test
+    enforces that every catalog entry carries its five scores.
+    """
+    if dimensions is None:
+        raise ValueError(
+            "specificity_dimensions is unset: score the benchmark against "
+            "docs/SPECIFICITY_RUBRIC.md rather than inventing a value"
+        )
+    if len(dimensions) != len(SPECIFICITY_DIMENSIONS):
+        raise ValueError(
+            f"expected {len(SPECIFICITY_DIMENSIONS)} dimensions, got {len(dimensions)}"
+        )
+    if any(d not in (0, 1, 2) for d in dimensions):
+        raise ValueError(f"rubric dimensions are scored 0, 1 or 2; got {dimensions}")
+    return sum(dimensions) / SPECIFICITY_MAX
+
+
 ########################################################################
 # CURATE(you): THE BENCHMARK CATALOG
 #
@@ -223,7 +270,7 @@ BENCHMARK_CATALOG: tuple[Benchmark, ...] = (
         item_error_rate=0.0649,  # Gema et al., NAACL 2025
         saturation_flagged=True,
         independent_evaluators=6,
-        task_specificity=0.2,
+        specificity_dimensions=(2, 0, 0, 0, 0),
                 evidence_dates={
             # HF's retirement announcement — the backtest's ground truth, so
             # dating it here keeps it out of any pre-June-2024 scoring.
@@ -233,6 +280,7 @@ BENCHMARK_CATALOG: tuple[Benchmark, ...] = (
             "item_error_rate": "2024-06-06",  # MMLU-Redux, arXiv 2406.04127
         },
         curation_notes=(
+            "SPECIFICITY: Rubric v2, applied by Claude Code 2026-09-21, adopted by owner 2026-09-21. Not independently checked: a second reviewer scoring a sample would be the validation. "
             "RESEARCHED 2026-09-20. Contamination: 27.7% of MMLU items appear in "
             "DCLM-baseline. Quality: Gema et al., 'Are We Done with MMLU?' "
             "(NAACL 2025) hand-checked 5,700 questions and found a 6.49% label "
@@ -258,12 +306,13 @@ BENCHMARK_CATALOG: tuple[Benchmark, ...] = (
         contamination_rate=0.162,
         saturation_flagged=False,
         independent_evaluators=3,
-        task_specificity=0.25,
+        specificity_dimensions=(2, 0, 0, 0, 0),
                 evidence_dates={
             "contamination_flagged": "2025-06-13",
             "contamination_rate": "2025-06-13",
         },
         curation_notes=(
+            "SPECIFICITY: Rubric v2, applied by Claude Code 2026-09-21, adopted by owner 2026-09-21. Not independently checked: a second reviewer scoring a sample would be the validation. "
             "RESEARCHED 2026-09-20. Built to de-saturate MMLU (10 options, harder "
             "distractors) and picked for HF's Open LLM Leaderboard v2 in June 2024. "
             "Contamination: 16.2% dirty against DCLM-baseline — better than MMLU's "
@@ -284,12 +333,13 @@ BENCHMARK_CATALOG: tuple[Benchmark, ...] = (
         contamination_flagged=False,
         saturation_flagged=True,
         independent_evaluators=5,
-        task_specificity=0.6,
+        specificity_dimensions=(1, 0, 1, 0, 0),
                 evidence_dates={
             # Flag added from 2026 leaderboard observations, not available earlier.
             "saturation_flagged": "2026-09-01",
         },
         curation_notes=(
+            "SPECIFICITY: Rubric v2, applied by Claude Code 2026-09-21, adopted by owner 2026-09-21. Not independently checked: a second reviewer scoring a sample would be the validation. "
             "RESEARCHED 2026-09-20. Saturation flag added on evidence, and it "
             "matches what this repo measures independently (~89% from Epoch's "
             "score distribution). Frontier scores compressed from below the "
@@ -315,7 +365,7 @@ BENCHMARK_CATALOG: tuple[Benchmark, ...] = (
         contamination_effect=0.394,  # mean score drop across 51 LLMs when decontaminated
         saturation_flagged=True,
         independent_evaluators=6,
-        task_specificity=0.45,
+        specificity_dimensions=(1, 2, 2, 1, 0),
                 evidence_dates={
             "contamination_flagged": "2024-03-06",  # arXiv 2403.04811
             "contamination_rate": "2024-03-06",
@@ -324,6 +374,7 @@ BENCHMARK_CATALOG: tuple[Benchmark, ...] = (
             # single dated source, so it is invisible to as-of scoring.
         },
         curation_notes=(
+            "SPECIFICITY: Rubric v2, applied by Claude Code 2026-09-21, adopted by owner 2026-09-21. Not independently checked: a second reviewer scoring a sample would be the validation. "
             "RESEARCHED 2026-09-20. The canonical case for this project. "
             "Contamination is quantified, not just suspected: 8-18% of items appear "
             "in major open-weight pretraining corpora, and across 51 LLMs scores "
@@ -346,9 +397,10 @@ BENCHMARK_CATALOG: tuple[Benchmark, ...] = (
         contamination_flagged=False,
         saturation_flagged=False,
         independent_evaluators=3,
-        task_specificity=0.7,
+        specificity_dimensions=(2, 2, 2, 1, 0),
         holdout="refreshed",
         curation_notes=(
+            "SPECIFICITY: Rubric v2, applied by Claude Code 2026-09-21, adopted by owner 2026-09-21. Not independently checked: a second reviewer scoring a sample would be the validation. "
             "RESEARCHED 2026-09-20. Marked `refreshed`: problems are drawn "
             "continuously from recent contests and scored in release windows, so "
             "models are largely tested on material published after their training "
@@ -379,7 +431,7 @@ BENCHMARK_CATALOG: tuple[Benchmark, ...] = (
         item_error_rate_basis="lower_bound",
         saturation_flagged=False,
         independent_evaluators=5,
-        task_specificity=0.95,
+        specificity_dimensions=(2, 2, 2, 2, 2),
         evidence_dates={
             "item_error_rate": "2026-02-23",  # OpenAI's audit publication
             # Same post, same date. Postdates the 2024-06-01 backtest
@@ -387,6 +439,7 @@ BENCHMARK_CATALOG: tuple[Benchmark, ...] = (
             "contamination_flagged": "2026-02-23",
         },
         curation_notes=(
+            "SPECIFICITY: Rubric v2, applied by Claude Code 2026-09-21, adopted by owner 2026-09-21. Not independently checked: a second reviewer scoring a sample would be the validation. "
             "RESEARCHED 2026-09-20. Human-validated subset of 500 real GitHub "
             "issues — the closest thing in this catalog to a real task, hence the "
             "0.95 specificity. Measured saturation here is already ~70%, so it is "
@@ -481,12 +534,13 @@ BENCHMARK_CATALOG: tuple[Benchmark, ...] = (
         item_error_rate=0.36,  # Surge AI audit
         saturation_flagged=True,
         independent_evaluators=5,
-        task_specificity=0.2,
+        specificity_dimensions=(0, 0, 1, 0, 0),
                 evidence_dates={
             "saturation_flagged": "2024-06-26",  # HF retirement
             "item_error_rate": "2022-11-30",  # Surge AI audit
         },
         curation_notes=(
+            "SPECIFICITY: Rubric v2, applied by Claude Code 2026-09-21, adopted by owner 2026-09-21. Not independently checked: a second reviewer scoring a sample would be the validation. "
             "RESEARCHED 2026-09-20. Retired from HF's Open LLM Leaderboard in June "
             "2024, explicitly because the v1 set had saturated — models scored high "
             "enough that it stopped separating them. 2019 vintage, so assume it is "
@@ -512,7 +566,7 @@ BENCHMARK_CATALOG: tuple[Benchmark, ...] = (
         contamination_flagged=True,
         saturation_flagged=True,
         independent_evaluators=4,
-        task_specificity=0.3,
+        specificity_dimensions=(1, 1, 0, 0, 1),
                 evidence_dates={
             # Both flags come from this repo's own 2026 measurement. In June
             # 2024 BBH was a *replacement* benchmark, not a suspect one.
@@ -520,6 +574,7 @@ BENCHMARK_CATALOG: tuple[Benchmark, ...] = (
             "contamination_flagged": "2026-09-20",
         },
         curation_notes=(
+            "SPECIFICITY: Rubric v2, applied by Claude Code 2026-09-21, adopted by owner 2026-09-21. Not independently checked: a second reviewer scoring a sample would be the validation. "
             "RESEARCHED 2026-09-20. Worth noting the trajectory: BBH was one of the "
             "HARDER benchmarks chosen for HF's Open LLM Leaderboard v2 in June 2024, "
             "as a replacement for the saturated v1 set — and this repo now measures "
@@ -544,11 +599,12 @@ BENCHMARK_CATALOG: tuple[Benchmark, ...] = (
         # 87%. Caught by a backtest leakage test, not by inspection.
         saturation_flagged=True,
         independent_evaluators=4,
-        task_specificity=0.4,
+        specificity_dimensions=(1, 0, 1, 0, 0),
                 evidence_dates={
             "saturation_flagged": "2024-06-26",  # HF retirement
         },
         curation_notes=(
+            "SPECIFICITY: Rubric v2, applied by Claude Code 2026-09-21, adopted by owner 2026-09-21. Not independently checked: a second reviewer scoring a sample would be the validation. "
             "RESEARCHED 2026-09-20. Retired from HF's Open LLM Leaderboard in June "
             "2024 with the rest of the v1 set — which is why saturation_flagged is "
             "True; it read False until a backtest test noticed the contradiction "
@@ -570,11 +626,12 @@ BENCHMARK_CATALOG: tuple[Benchmark, ...] = (
         contamination_flagged=True,
         saturation_flagged=True,
         independent_evaluators=5,
-        task_specificity=0.25,
+        specificity_dimensions=(2, 0, 1, 0, 0),
                 evidence_dates={
             "saturation_flagged": "2024-06-26",  # HF retirement
         },
         curation_notes=(
+            "SPECIFICITY: Rubric v2, applied by Claude Code 2026-09-21, adopted by owner 2026-09-21. Not independently checked: a second reviewer scoring a sample would be the validation. "
             "RESEARCHED 2026-09-20. 2018 grade-school science questions; retired "
             "from HF's Open LLM Leaderboard alongside HellaSwag/MMLU/TruthfulQA in "
             "June 2024 for saturation. Calibration point for the saturated end. "
@@ -595,9 +652,10 @@ BENCHMARK_CATALOG: tuple[Benchmark, ...] = (
         contamination_flagged=False,
         saturation_flagged=False,
         independent_evaluators=1,
-        task_specificity=0.8,
+        specificity_dimensions=(2, 2, 2, 1, 2),
         holdout="partial_holdout",  # ~34% of tests held out
         curation_notes=(
+            "SPECIFICITY: Rubric v2, applied by Claude Code 2026-09-21, adopted by owner 2026-09-21. Not independently checked: a second reviewer scoring a sample would be the validation. "
             "RESEARCHED 2026-09-20. Epoch AI's long-horizon coding benchmark, "
             "co-developed with METR. Models reimplement CLI programs from "
             "execute-only access plus docs — no source, no internet — across Unix "
@@ -627,8 +685,9 @@ BENCHMARK_CATALOG: tuple[Benchmark, ...] = (
         contamination_flagged=False,
         saturation_flagged=False,
         independent_evaluators=2,
-        task_specificity=0.7,
+        specificity_dimensions=(1, 2, 2, 1, 1),
         curation_notes=(
+            "SPECIFICITY: Rubric v2, applied by Claude Code 2026-09-21, adopted by owner 2026-09-21. Not independently checked: a second reviewer scoring a sample would be the validation. "
             "RESEARCHED 2026-09-20. The 225 hardest of Exercism's 697 exercises — "
             "specifically those solved by 3 or fewer models — in C++, Go, Java, "
             "JavaScript, Python and Rust. Worth noting WHY it exists: aider's "
@@ -653,8 +712,9 @@ BENCHMARK_CATALOG: tuple[Benchmark, ...] = (
         contamination_flagged=False,
         saturation_flagged=False,
         independent_evaluators=3,
-        task_specificity=0.9,
+        specificity_dimensions=(1, 2, 2, 2, 2),
         curation_notes=(
+            "SPECIFICITY: Rubric v2, applied by Claude Code 2026-09-21, adopted by owner 2026-09-21. Not independently checked: a second reviewer scoring a sample would be the validation. "
             "RESEARCHED 2026-09-20. Introduced 2025-05-19 by Stanford (Mike A. "
             "Merrill) and the Laude Institute (Alexander G. Shaw), alongside the "
             "Terminus agent. The launch set, Terminal-Bench-Core, had 80 tasks in "
@@ -683,8 +743,9 @@ BENCHMARK_CATALOG: tuple[Benchmark, ...] = (
         contamination_flagged=False,
         saturation_flagged=False,
         independent_evaluators=2,
-        task_specificity=0.9,
+        specificity_dimensions=(2, 2, 2, 2, 2),
         curation_notes=(
+            "SPECIFICITY: Rubric v2, applied by Claude Code 2026-09-21, adopted by owner 2026-09-21. Not independently checked: a second reviewer scoring a sample would be the validation. "
             "RESEARCHED 2026-09-20. 102 software *optimization* tasks across 10 "
             "real codebases — arXiv 2505.23671, NeurIPS 2025 D&B. The agent gets a "
             "codebase and a performance test, and must beat or match the expert "
@@ -708,9 +769,10 @@ BENCHMARK_CATALOG: tuple[Benchmark, ...] = (
         contamination_flagged=False,
         saturation_flagged=False,
         independent_evaluators=2,
-        task_specificity=0.9,
+        specificity_dimensions=(1, 2, 2, 2, 2),
         holdout="partial_holdout",  # reference solutions never published upstream
         curation_notes=(
+            "SPECIFICITY: Rubric v2, applied by Claude Code 2026-09-21, adopted by owner 2026-09-21. Not independently checked: a second reviewer scoring a sample would be the validation. "
             "RESEARCHED 2026-09-20. 113 original long-horizon engineering tasks "
             "written from scratch across 91 open-source repos in five languages "
             "(arXiv 2607.07946). Two design choices matter here: the tasks are "
@@ -744,9 +806,10 @@ BENCHMARK_CATALOG: tuple[Benchmark, ...] = (
         contamination_flagged=False,
         saturation_flagged=False,
         independent_evaluators=2,
-        task_specificity=0.95,
+        specificity_dimensions=(2, 2, 2, 2, 2),
         holdout="partial_holdout",  # held-out tests + unpublished maintainer rubric
         curation_notes=(
+            "SPECIFICITY: Rubric v2, applied by Claude Code 2026-09-21, adopted by owner 2026-09-21. Not independently checked: a second reviewer scoring a sample would be the validation. "
             "RESEARCHED 2026-09-20. Built by COGNITION, not Epoch — Epoch charts "
             "Cognition's public leaderboard, currently revision 1.1. Each task pairs "
             "a checked-out repo with one real open-source issue; patches are graded "
@@ -773,13 +836,14 @@ BENCHMARK_CATALOG: tuple[Benchmark, ...] = (
         contamination_flagged=True,
         saturation_flagged=True,
         independent_evaluators=4,
-        task_specificity=0.2,
+        specificity_dimensions=(1, 0, 1, 0, 0),
         evidence_dates={
             "saturation_flagged": "2024-06-26",  # HF retirement announcement
             # CURATE(you): contamination is assumed from 2019 public release,
             # with no dated study quantifying it, so as-of scoring ignores it.
         },
         curation_notes=(
+            "SPECIFICITY: Rubric v2, applied by Claude Code 2026-09-21, adopted by owner 2026-09-21. Not independently checked: a second reviewer scoring a sample would be the validation. "
             "RESEARCHED 2026-09-21. Sakaguchi et al., arXiv 1907.10641 (2019-07-24), "
             "AI2: 44k fill-in-the-blank pronoun-resolution problems, built by "
             "crowdsourcing plus AFLITE adversarial debiasing to make the original "
@@ -787,12 +851,6 @@ BENCHMARK_CATALOG: tuple[Benchmark, ...] = (
             "Leaderboard in June 2024 with the rest of the v1 set, for saturation — "
             "which is why it is catalogued: it is one of the six benchmarks the "
             "backtest checks against. https://arxiv.org/abs/1907.10641 "
-            "CURATE(you): SPECIFICITY 0.2 was assigned by Claude Code 2026-09-21 "
-            "and has not been reviewed by the owner. The stated reasoning is that "
-            "binary pronoun disambiguation is a proxy for commonsense, not a task "
-            "anyone performs. Specificity is the owner's judgement by design — it "
-            "is 20% of every trust score and nothing measures it — so this value "
-            "is a placeholder with an argument attached, not a curated number. "
             "CURATE(you): contamination_flagged is set on the 2019 public release "
             "and the AFLITE construction being widely reproduced, NOT on a study "
             "that counted overlap. No rate, no effect, no evidence date — so it is "
@@ -827,13 +885,14 @@ BENCHMARK_CATALOG: tuple[Benchmark, ...] = (
         item_error_rate=0.02,  # creators' own quality-control estimate
         saturation_flagged=True,
         independent_evaluators=5,
-        task_specificity=0.4,
+        specificity_dimensions=(1, 1, 1, 0, 1),
         evidence_dates={
             "saturation_flagged": "2024-06-26",  # HF retirement announcement
             "contamination_flagged": "2024-05-01",  # GSM1k, arXiv 2405.00332
             "item_error_rate": "2021-10-27",  # stated in the original paper
         },
         curation_notes=(
+            "SPECIFICITY: Rubric v2, applied by Claude Code 2026-09-21, adopted by owner 2026-09-21. Not independently checked: a second reviewer scoring a sample would be the validation. "
             "RESEARCHED 2026-09-21. Cobbe et al. (2021-10-27, arXiv 2110.14168): "
             "8.5K grade-school word problems taking 2-8 elementary arithmetic steps, "
             "with natural-language solutions. Retired from HF's Open LLM Leaderboard "
@@ -858,12 +917,6 @@ BENCHMARK_CATALOG: tuple[Benchmark, ...] = (
             "describes a 7.5K/1K train/test split while the released test split is "
             "1,319 problems; the discrepancy is unresolved and matters if anyone "
             "computes per-item error bars. "
-            "CURATE(you): SPECIFICITY 0.4 was assigned by Claude Code 2026-09-21 "
-            "and has not been reviewed by the owner. The stated reasoning is that "
-            "grade-school word problems are a real, recognisable task shape but "
-            "not work anyone is paid to do, and arithmetic competence is a proxy "
-            "for the multi-step reasoning the score gets read as. Specificity is "
-            "the owner's judgement by design. "
             "CURATE(you): EVALUATORS=5 IS PARTLY UNSOURCED. Three are verifiable: "
             "OpenAI (the authors), HF's Open LLM Leaderboard v1, and Epoch AI — "
             "the latter two hold score files in this repo. Scale AI's GSM1k study "
@@ -897,13 +950,14 @@ BENCHMARK_CATALOG: tuple[Benchmark, ...] = (
         contamination_flagged=True,
         saturation_flagged=True,
         independent_evaluators=5,
-        task_specificity=0.5,
+        specificity_dimensions=(2, 1, 1, 0, 1),
                 evidence_dates={
             "saturation_flagged": "2026-09-20",  # this repo's measurement
             # CURATE(you): Epoch's contamination warning carries no date I
             # could pin, so it is excluded from as-of scoring.
         },
         curation_notes=(
+            "SPECIFICITY: Rubric v2, applied by Claude Code 2026-09-21, adopted by owner 2026-09-21. Not independently checked: a second reviewer scoring a sample would be the validation. "
             "RESEARCHED 2026-09-20. Epoch explicitly warns about contamination: many "
             "models are fine-tuned on mathematical content that overlaps the test "
             "set, so scores flatter. Also chosen for HF's Open LLM Leaderboard v2 in "
@@ -927,9 +981,10 @@ BENCHMARK_CATALOG: tuple[Benchmark, ...] = (
         contamination_flagged=False,
         saturation_flagged=False,
         independent_evaluators=2,
-        task_specificity=0.3,
+        specificity_dimensions=(0, 0, 1, 0, 1),
         evidence_dates={},
         curation_notes=(
+            "SPECIFICITY: Rubric v2, applied by Claude Code 2026-09-21, adopted by owner 2026-09-21. Not independently checked: a second reviewer scoring a sample would be the validation. "
             "RESEARCHED 2026-09-21. Sprague et al., arXiv 2310.16049 (2023-10-24), "
             "ICLR 2024: narrative reasoning problems generated by a neurosymbolic "
             "synthetic-to-natural pipeline, spanning murder mysteries (~1000 words "
@@ -937,14 +992,6 @@ BENCHMARK_CATALOG: tuple[Benchmark, ...] = (
             "Leaderboard v2 in June 2024 as one of the harder replacements, which is "
             "why it is catalogued — it is one of the six the backtest checks. "
             "https://arxiv.org/abs/2310.16049 "
-            "CURATE(you): SPECIFICITY 0.3 was assigned by Claude Code 2026-09-21 "
-            "and has not been reviewed by the owner. The stated reasoning is that "
-            "the reasoning is multi-step and genuinely hard, but the scenarios are "
-            "synthetic puzzles rather than work anyone does. Specificity is the "
-            "owner's judgement by design. THIS ONE MATTERS MOST: it is the direct "
-            "cause of the backtest's only inversion (MMLU, retired, outranks MuSR, "
-            "kept). An unreviewed placeholder is currently deciding whether the "
-            "scorer passes its only validation. See docs/BACKTEST.md. "
             "DATASET SIZE AND RANDOM BASELINE — MEASURED 2026-09-21 by probing "
             "TAUR-Lab/MuSR directly (probes/musr_baseline.py), replacing two "
             "earlier CURATE markers. 756 items confirmed: 250 murder mysteries + "
@@ -988,23 +1035,16 @@ BENCHMARK_CATALOG: tuple[Benchmark, ...] = (
         contamination_flagged=False,
         saturation_flagged=False,
         independent_evaluators=2,
-        task_specificity=0.65,
+        specificity_dimensions=(1, 2, 2, 1, 0),
         evidence_dates={},
         curation_notes=(
+            "SPECIFICITY: Rubric v2, applied by Claude Code 2026-09-21, adopted by owner 2026-09-21. Not independently checked: a second reviewer scoring a sample would be the validation. "
             "RESEARCHED 2026-09-21. Zhou et al., arXiv 2311.07911 (2023-11), Google: "
             "541 prompts carrying 25 types of VERIFIABLE instruction — 'write more "
             "than 400 words', 'mention the keyword AI at least 3 times' — each "
             "checkable by a deterministic program rather than a human or an LLM "
             "judge. Chosen for HF's Open LLM Leaderboard v2 in June 2024. "
             "https://arxiv.org/abs/2311.07911 "
-            "CURATE(you): SPECIFICITY 0.65 was assigned by Claude Code 2026-09-21 "
-            "and has not been reviewed by the owner. The stated reasoning: it is "
-            "the highest of the four v2 replacements catalogued here because "
-            "following an explicit formatting constraint is something users "
-            "actually ask for, and the deterministic checker means the score is "
-            "not mediated by a judge's opinion; it is still a constrained slice of "
-            "instruction following, saying nothing about whether the content is "
-            "any good. Specificity is the owner's judgement by design. "
             "New category 'instruction following' added for it; none of the existing "
             "nine fitted without distorting the label. "
             "CURATE(you): no contamination or item-quality study found, and the "
@@ -1026,8 +1066,9 @@ BENCHMARK_CATALOG: tuple[Benchmark, ...] = (
         contamination_flagged=False,
         saturation_flagged=False,
         independent_evaluators=3,
-        task_specificity=0.35,
+        specificity_dimensions=(1, 1, 0, 0, 0),
         curation_notes=(
+            "SPECIFICITY: Rubric v2, applied by Claude Code 2026-09-21, adopted by owner 2026-09-21. Not independently checked: a second reviewer scoring a sample would be the validation. "
             "RESEARCHED 2026-09-20. 2,500 expert-written questions across many "
             "subjects, from the Center for AI Safety and Scale AI, public January "
             "2025 (arXiv 2501.14249). Specificity stays low at 0.35: it is "
@@ -1054,8 +1095,9 @@ BENCHMARK_CATALOG: tuple[Benchmark, ...] = (
         contamination_flagged=False,
         saturation_flagged=False,
         independent_evaluators=2,
-        task_specificity=0.6,
+        specificity_dimensions=(1, 1, 1, 0, 0),
         curation_notes=(
+            "SPECIFICITY: Rubric v2, applied by Claude Code 2026-09-21, adopted by owner 2026-09-21. Not independently checked: a second reviewer scoring a sample would be the validation. "
             "RESEARCHED 2026-09-20. Two corrections, one of which was a live bug. "
             "(1) The date was wrong: this is Google DeepMind's SimpleQA Verified, "
             "arXiv 2509.07968, September 2025 — not OpenAI's SimpleQA (Wei et al., "
@@ -1081,8 +1123,9 @@ BENCHMARK_CATALOG: tuple[Benchmark, ...] = (
         contamination_flagged=False,
         saturation_flagged=False,
         independent_evaluators=2,
-        task_specificity=0.9,
+        specificity_dimensions=(1, 2, 2, 2, 2),
         curation_notes=(
+            "SPECIFICITY: Rubric v2, applied by Claude Code 2026-09-21, adopted by owner 2026-09-21. Not independently checked: a second reviewer scoring a sample would be the validation. "
             "RESEARCHED 2026-09-20. 369 real computer-use tasks on Ubuntu/Windows/"
             "macOS spanning OS file I/O, LibreOffice, Chrome, VLC, Thunderbird, "
             "VS Code, GIMP and multi-app workflows — arXiv 2404.07972, NeurIPS "
@@ -1108,8 +1151,9 @@ BENCHMARK_CATALOG: tuple[Benchmark, ...] = (
         contamination_flagged=False,
         saturation_flagged=False,
         independent_evaluators=2,
-        task_specificity=0.85,
+        specificity_dimensions=(1, 2, 2, 2, 2),
         curation_notes=(
+            "SPECIFICITY: Rubric v2, applied by Claude Code 2026-09-21, adopted by owner 2026-09-21. Not independently checked: a second reviewer scoring a sample would be the validation. "
             "RESEARCHED 2026-09-20. 175 professional tasks inside a simulated "
             "software company — CMU and Duke, arXiv 2412.14161, NeurIPS 2025 "
             "Datasets & Benchmarks. Agents work against real self-hosted tools "
@@ -1131,12 +1175,13 @@ BENCHMARK_CATALOG: tuple[Benchmark, ...] = (
         contamination_flagged=True,
         saturation_flagged=True,
         independent_evaluators=3,
-        task_specificity=0.3,
+        specificity_dimensions=(2, 1, 1, 0, 0),
                 evidence_dates={
             # CURATE(you): contamination here is assumed from the 2017 web
             # provenance, with no dated study, so as-of scoring ignores it.
         },
         curation_notes=(
+            "SPECIFICITY: Rubric v2, applied by Claude Code 2026-09-21, adopted by owner 2026-09-21. Not independently checked: a second reviewer scoring a sample would be the validation. "
             "RESEARCHED 2026-09-20. Joshi et al., ACL 2017 (arXiv 1705.03551): "
             "95K question-answer pairs written by trivia enthusiasts, with 650K+ "
             "question-answer-evidence triples once the ~6 evidence documents per "
