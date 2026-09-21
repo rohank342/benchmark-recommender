@@ -155,14 +155,16 @@ class BenchmarkTrust:
         return head
 
 
-def _days_since(iso_date: Optional[str]) -> Optional[int]:
+def _days_since(iso_date: Optional[str], as_of: Optional[str] = None) -> Optional[int]:
+    """Days from `iso_date` to `as_of` (default today)."""
     if not iso_date:
         return None
     try:
         parsed = datetime.fromisoformat(iso_date).date()
+        reference = datetime.fromisoformat(as_of).date() if as_of else date.today()
     except ValueError:
         return None
-    return (date.today() - parsed).days
+    return (reference - parsed).days
 
 
 def measure_saturation(scores: BenchmarkScores) -> tuple[float, str]:
@@ -199,7 +201,9 @@ def measure_saturation(scores: BenchmarkScores) -> tuple[float, str]:
 
 
 def _discrimination_factor(
-    benchmark: Benchmark, scores: Optional[BenchmarkScores]
+    benchmark: Benchmark,
+    scores: Optional[BenchmarkScores],
+    as_of: Optional[str] = None,
 ) -> tuple[Factor, Optional[float]]:
     if scores is not None:
         saturation, explanation = measure_saturation(scores)
@@ -234,8 +238,8 @@ def _discrimination_factor(
             saturation,
         )
 
-    # No score data: fall back to the curated flag.
-    if benchmark.saturation_flagged:
+    # No score data: fall back to the curated flag, if it was known then.
+    if benchmark.saturation_flagged and benchmark.known_at("saturation_flagged", as_of):
         return (
             Factor(
                 name="discrimination",
@@ -276,8 +280,8 @@ HOLDOUT_AGE_DISCOUNT = {
 PRIVATE_HOLDOUT_FLOOR = 0.9
 
 
-def _freshness_factor(benchmark: Benchmark) -> Factor:
-    age_days = _days_since(benchmark.release_date)
+def _freshness_factor(benchmark: Benchmark, as_of: Optional[str] = None) -> Factor:
+    age_days = _days_since(benchmark.release_date, as_of)
     if age_days is None:
         return Factor(
             name="freshness",
@@ -320,7 +324,9 @@ def _freshness_factor(benchmark: Benchmark) -> Factor:
     )
 
 
-def _reproducibility_factor(benchmark: Benchmark) -> Factor:
+def _reproducibility_factor(
+    benchmark: Benchmark, as_of: Optional[str] = None
+) -> Factor:
     """
     Whether independent evaluators agree, measured where two comparable
     sources cover the benchmark and counted where they don't.
@@ -331,7 +337,11 @@ def _reproducibility_factor(benchmark: Benchmark) -> Factor:
     ways. GPQA Diamond has several evaluators (a high proxy) and 8 points
     of unexplained scatter between two of them (a low measurement).
     """
-    report = agreement_for(benchmark)
+    # Cross-source agreement is computed from today's score sets. Under
+    # as-of scoring it is unavailable rather than recomputed: the sources
+    # publishing it may not have existed then, and pretending otherwise
+    # would import the future through the back door.
+    report = agreement_for(benchmark) if as_of is None else None
     measured = reproducibility_from_agreement(report) if report else None
 
     if measured is not None:
@@ -373,22 +383,47 @@ def _specificity_factor(benchmark: Benchmark) -> Factor:
     )
 
 
-def score_benchmark(benchmark: Benchmark) -> BenchmarkTrust:
-    """Compute one benchmark's 0-100 trust score, with its breakdown."""
+def score_benchmark(
+    benchmark: Benchmark, as_of: Optional[str] = None
+) -> BenchmarkTrust:
+    """
+    Compute one benchmark's 0-100 trust score, with its breakdown.
+
+    `as_of` scores the benchmark as it would have looked on a past date:
+    only models released before then count toward saturation, freshness
+    is measured to that date, and curated claims are used only where
+    `evidence_dates` shows they were public by then. Undated evidence and
+    undated models are excluded rather than assumed — a backtest that
+    quietly uses tomorrow's knowledge proves nothing.
+    """
     scores = load_benchmark_scores(benchmark)
-    discrimination, saturation = _discrimination_factor(benchmark, scores)
+    if as_of is not None and scores is not None:
+        scores = scores.before(as_of)
+        if len(scores.scores) < 2:
+            # Nothing measurable existed yet; fall back to curated signals
+            # rather than reading a distribution of one.
+            scores = None
+    discrimination, saturation = _discrimination_factor(benchmark, scores, as_of)
     factors = [
         discrimination,
-        _freshness_factor(benchmark),
-        _reproducibility_factor(benchmark),
+        _freshness_factor(benchmark, as_of),
+        _reproducibility_factor(benchmark, as_of),
         _specificity_factor(benchmark),
     ]
 
     raw = sum(factor.value * factor.weight for factor in factors) * 100
     penalties: list[str] = []
-    if benchmark.contamination_flagged:
-        rate = benchmark.contamination_rate
-        effect = benchmark.contamination_effect
+    if benchmark.contamination_flagged and benchmark.known_at("contamination_flagged", as_of):
+        rate = (
+            benchmark.contamination_rate
+            if benchmark.known_at("contamination_rate", as_of)
+            else None
+        )
+        effect = (
+            benchmark.contamination_effect
+            if benchmark.known_at("contamination_effect", as_of)
+            else None
+        )
         severities = []
         descriptions = []
         if rate is not None:
@@ -409,14 +444,20 @@ def score_benchmark(benchmark: Benchmark) -> BenchmarkTrust:
         raw *= multiplier
     # None means nobody has audited this benchmark, which is not the same
     # as a clean audit — so it must not be read as zero.
-    if benchmark.item_error_rate is not None:
+    if benchmark.item_error_rate is not None and benchmark.known_at(
+        "item_error_rate", as_of
+    ):
         severity = min(benchmark.item_error_rate / FULL_ITEM_ERROR_RATE, 1.0)
         raw *= 1.0 - (1.0 - ITEM_ERROR_PENALTY) * severity
         penalties.append(
             f"{benchmark.item_error_rate:.0%} of items are mislabelled or misgraded"
         )
 
-    if benchmark.saturation_flagged and scores is None:
+    if (
+        benchmark.saturation_flagged
+        and scores is None
+        and benchmark.known_at("saturation_flagged", as_of)
+    ):
         # With score data the measurement already reflects this; without
         # it, the flag is all we have.
         raw *= REPORTED_SATURATION_PENALTY
@@ -434,13 +475,13 @@ def score_benchmark(benchmark: Benchmark) -> BenchmarkTrust:
             for s in load_score_sets(benchmark)
         },
         primary_source=scores.source if scores else None,
-        agreement=agreement_for(benchmark),
+        agreement=agreement_for(benchmark) if as_of is None else None,
     )
 
 
-def score_all_benchmarks() -> list[BenchmarkTrust]:
+def score_all_benchmarks(as_of: Optional[str] = None) -> list[BenchmarkTrust]:
     """Every catalogued benchmark, most trustworthy first."""
-    scored = [score_benchmark(b) for b in load_benchmark_catalog()]
+    scored = [score_benchmark(b, as_of) for b in load_benchmark_catalog()]
     scored.sort(key=lambda t: t.trust_score, reverse=True)
     return scored
 

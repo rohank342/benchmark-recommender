@@ -1,0 +1,101 @@
+"""The backtest is only meaningful if it cannot see the future."""
+import pytest
+
+from backtest import CUTOFF, REPLACEMENTS, RETIRED, confusion, run_retirement_test, separation
+from benchmark_scoring import score_benchmark
+from fetch_benchmarks import find_benchmark, load_score_sets
+
+
+class TestNoLeakage:
+    def test_retirement_derived_flags_are_invisible_at_the_cutoff(self):
+        """
+        The four retired benchmarks carry saturation_flagged *because* they
+        were retired. If as-of scoring could see that, the test would be
+        marking its own homework.
+        """
+        for name in RETIRED:
+            benchmark = find_benchmark(name)
+            assert benchmark.saturation_flagged, f"{name} should be flagged today"
+            assert not benchmark.known_at("saturation_flagged", CUTOFF), (
+                f"{name}'s saturation flag leaks into the backtest"
+            )
+
+    def test_post_cutoff_models_are_excluded(self):
+        for name in RETIRED + REPLACEMENTS:
+            for scores in load_score_sets(find_benchmark(name)):
+                filtered = scores.before(CUTOFF)
+                assert all(d < CUTOFF for d in filtered.model_dates)
+
+    def test_undated_models_are_dropped_not_assumed_old(self):
+        """Including an undated model could import a post-cutoff result."""
+        scores = load_score_sets(find_benchmark("HumanEval"))[0]
+        assert scores.dated == 0  # EvalPlus publishes no dates
+        assert len(scores.before(CUTOFF).scores) == 0
+
+    def test_undated_evidence_is_unavailable_when_time_travelling(self):
+        triviaqa = find_benchmark("TriviaQA")
+        assert triviaqa.contamination_flagged
+        assert not triviaqa.known_at("contamination_flagged", CUTOFF)
+        # ...but still counts when scoring today.
+        assert triviaqa.known_at("contamination_flagged", None)
+
+    def test_cross_source_agreement_is_not_used_when_time_travelling(self):
+        """Today's score sets can't prove what two evaluators said in 2024."""
+        trust = score_benchmark(find_benchmark("MMLU"), as_of=CUTOFF)
+        assert trust.agreement is None
+        factor = {f.name: f for f in trust.factors}["reproducibility"]
+        assert factor.basis == "curated"
+
+    def test_evidence_published_after_the_cutoff_is_excluded(self):
+        """MMLU's contamination rate is a 2025 finding."""
+        mmlu = find_benchmark("MMLU")
+        assert mmlu.contamination_rate is not None
+        assert not mmlu.known_at("contamination_rate", CUTOFF)
+        then = score_benchmark(mmlu, as_of=CUTOFF)
+        assert not any("pretraining data" in p for p in then.penalties)
+
+
+class TestResult:
+    def test_the_retired_four_rank_below_the_replacements(self):
+        outcomes = run_retirement_test()
+        clean, gap = separation(outcomes)
+        assert clean, "replacements no longer separate from retired benchmarks"
+        assert gap > 0
+
+    def test_confusion_matrix_is_perfect(self):
+        matrix = confusion(run_retirement_test())
+        assert matrix["true_retire"] == 4
+        assert matrix["true_keep"] == 4
+        assert matrix["false_retire"] == 0
+        assert matrix["false_keep"] == 0
+
+    def test_replacements_have_since_declined(self):
+        """The trajectory claim: 2024's harder set aged too."""
+        for name in REPLACEMENTS:
+            benchmark = find_benchmark(name)
+            then = score_benchmark(benchmark, as_of=CUTOFF).trust_score
+            now = score_benchmark(benchmark).trust_score
+            assert now < then, f"{name} did not decline"
+
+
+class TestScoringIsTimeAware:
+    def test_freshness_is_measured_to_the_cutoff(self):
+        mmlu = find_benchmark("MMLU")
+        then = {f.name: f for f in score_benchmark(mmlu, as_of=CUTOFF).factors}
+        now = {f.name: f for f in score_benchmark(mmlu).factors}
+        assert then["freshness"].value > now["freshness"].value
+
+    def test_saturation_uses_only_models_of_the_era(self):
+        gpqa = score_benchmark(find_benchmark("GPQA Diamond"), as_of=CUTOFF)
+        today = score_benchmark(find_benchmark("GPQA Diamond"))
+        assert gpqa.models_measured < today.models_measured
+        # GPQA was barely touched in mid-2024 and looks far healthier then.
+        assert gpqa.trust_score > today.trust_score
+
+    def test_scoring_without_as_of_is_unchanged(self):
+        """Time travel must not alter normal scoring."""
+        for name in ("MMLU", "SWE-Bench Verified", "MirrorCode"):
+            benchmark = find_benchmark(name)
+            assert score_benchmark(benchmark).trust_score == pytest.approx(
+                score_benchmark(benchmark, as_of=None).trust_score
+            )

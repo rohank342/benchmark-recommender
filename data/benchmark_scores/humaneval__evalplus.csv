@@ -1,126 +1,126 @@
-model,score
-OpenCoder-8B-Instruct,0.817000
-Artigenz-Coder-DS-6.7B,0.756000
-Code-13B,0.561000
-Code-290k-6.7B-Instruct,0.646000
-Code-33B,0.549000
-CodeGen-16B,0.329000
-CodeGen-2B,0.244000
-CodeGen-6B,0.293000
-CodeGen2-16B,0.195000
-CodeGen2-1B,0.110000
-CodeGen2-3B,0.159000
-CodeGen2-7B,0.183000
-CodeLlama-13B,0.427000
-CodeLlama-34B,0.518000
-CodeLlama-70B,0.555000
-CodeLlama-70B-Instruct,0.720000
-CodeLlama-7B,0.378000
-Qwen2.5-Coder-32B-Instruct,0.921000
-CodeQwen1.5-7B,0.518000
-CodeQwen1.5-7B-Chat,0.835000
-Qwen1.5-72B-Chat,0.683000
-CodeT5+-16B,0.317000
-CodeT5+-2B,0.250000
-CodeT5+-6B,0.293000
-Command-R+,0.640000
-DeepSeek-V3 (Nov 2024),0.915000
-DeepSeek-V2.5 (Nov 2024),0.902000
-Gemini 1.5 Pro 002,0.890000
-Gemini 1.5 Flash 002,0.823000
-DeepSeek-Coder-V2-Instruct,0.854000
-DeepSeek-Coder-1.3B-base,0.287000
-DeepSeek-Coder-1.3B-instruct,0.659000
-DeepSeek-Coder-33B-base,0.512000
-DeepSeek-Coder-33B-instruct,0.811000
-DeepSeek-Coder-6.7B-base,0.476000
-DeepSeek-Coder-6.7B-instruct,0.744000
-DeepSeek-Coder-7B-instruct-v1.5,0.756000
-Claude Sonnet 3.5 (June 2024),0.872000
-Grok Beta,0.884000
-O1 Preview (Sept 2024),0.963000
-O1 Mini (Sept 2024),0.963000
-GPT 4o (Aug 2024),0.927000
-GPT 4o Mini (July 2024),0.884000
-GPT-3.5 (May 2023),0.732000
-GPT-3.5-Turbo (Nov 2023),0.768000
-GPT-4 (May 2023),0.884000
-GPT-4-Turbo (April 2024),0.902000
-GPT-4-Turbo (Nov 2023),0.854000
-GPT-J-6B,0.122000
-GPT-Neo-2.7B,0.079000
-Gemini Pro 1.0,0.634000
-Gemini Pro 1.5,0.683000
-InCoder-1.3B,0.122000
-InCoder-6.7B,0.159000
-Llama3-70B-instruct,0.774000
-Llama3-8B-base,0.335000
-Llama3.1-8B-instruct,0.695000
-Llama3-8B-instruct,0.616000
-WaveCoder-Ultra-6.7B,0.750000
-Magicoder-S-CL-7B,0.707000
-Magicoder-S-DS-6.7B,0.768000
-Mistral Large (Mar 2024),0.695000
-Mistral-7B,0.287000
-Mistral-codealpaca-7B,0.482000
-MistralHermes-CodePro-7B-v1,0.476000
-databricks/dbrx-instruct,0.750000
-Codestral-22B-v0.1,0.799000
-Mistral-7B-Instruct-v0.2,0.421000
-Mixtral-8x22B-Instruct-v0.1,0.762000
-Mixtral-8x7B-Instruct-v0.1,0.451000
-OpenChat-3.5-7B-0106,0.726000
-OpenCodeInterpreter-DS-33B,0.793000
-OpenCodeInterpreter-DS-6.7B,0.774000
-OpenHermes-2.5-Code-290k-13B,0.543000
-Phind-CodeLlama-34B-v2,0.713000
-PolyCoder-2.7B,0.061000
-Python-Code-13B,0.329000
-SOLAR-10.7B-Instruct-v1.0,0.433000
-SantaCoder-1.1B,0.146000
-StableLM-7B,0.024000
-starchat2-15b-v0.1,0.738000
-StarCoder-15B,0.341000
-starcoder2-15b-instruct-v0.1,0.677000
-StarCoder2-15B,0.463000
-StarCoder2-3B,0.317000
-StarCoder2-7B,0.354000
-StarCoderBase-1B,0.146000
-StarCoderBase-3B,0.177000
-StarCoderBase-7B,0.244000
-Vicuna-13B,0.171000
-Vicuna-7B,0.116000
-WhiteRabbitNeo-33B-v1,0.720000
-WizardCoder-15B-V1.0,0.567000
-WizardCoder-33B-V1.1,0.799000
-WizardCoder-Python-34B-V1.0,0.732000
-WizardCoder-Python-7B-V1.0,0.506000
-XwinCoder-34B,0.756000
-Zephyr β-7B,0.300000
-claude-2 (Mar 2024),0.695000
-claude-3-haiku (Mar 2024),0.768000
-claude-3-opus (Mar 2024),0.829000
-claude-3-sonnet (Mar 2024),0.707000
-claude-instant-1 (Mar 2024),0.573000
-code-millenials-34B,0.744000
-codegemma-2b,0.268000
-codegemma-7b,0.445000
-codegemma-7b-it,0.604000
-dolphin-2.6-mixtral-8x7b,0.640000
-gemma-1.1-2b-it,0.226000
-gemma-1.1-7b-it,0.427000
-gemma-2b,0.250000
-gemma-2b-it,0.177000
-gemma-7b,0.354000
-gemma-7b-it,0.287000
-Phi-3-mini-4k-instruct,0.646000
-phi-2-2.7B,0.494000
-speechless-code-mistral-7B-v1.0,0.482000
-speechless-codellama-34B-v2.0,0.774000
-speechless-coder-ds-6.7B,0.713000
-speechless-coding-7B-16k-tora,0.549000
-speechless-starcoder2-15b,0.671000
-speechless-starcoder2-7b,0.561000
-stable-code-3B,0.293000
-xDAN-L1-Chat-RL-v1-7B,0.402000
-zyte-1B,0.024000
+model,score,date
+OpenCoder-8B-Instruct,0.817000,
+Artigenz-Coder-DS-6.7B,0.756000,
+Code-13B,0.561000,
+Code-290k-6.7B-Instruct,0.646000,
+Code-33B,0.549000,
+CodeGen-16B,0.329000,
+CodeGen-2B,0.244000,
+CodeGen-6B,0.293000,
+CodeGen2-16B,0.195000,
+CodeGen2-1B,0.110000,
+CodeGen2-3B,0.159000,
+CodeGen2-7B,0.183000,
+CodeLlama-13B,0.427000,
+CodeLlama-34B,0.518000,
+CodeLlama-70B,0.555000,
+CodeLlama-70B-Instruct,0.720000,
+CodeLlama-7B,0.378000,
+Qwen2.5-Coder-32B-Instruct,0.921000,
+CodeQwen1.5-7B,0.518000,
+CodeQwen1.5-7B-Chat,0.835000,
+Qwen1.5-72B-Chat,0.683000,
+CodeT5+-16B,0.317000,
+CodeT5+-2B,0.250000,
+CodeT5+-6B,0.293000,
+Command-R+,0.640000,
+DeepSeek-V3 (Nov 2024),0.915000,
+DeepSeek-V2.5 (Nov 2024),0.902000,
+Gemini 1.5 Pro 002,0.890000,
+Gemini 1.5 Flash 002,0.823000,
+DeepSeek-Coder-V2-Instruct,0.854000,
+DeepSeek-Coder-1.3B-base,0.287000,
+DeepSeek-Coder-1.3B-instruct,0.659000,
+DeepSeek-Coder-33B-base,0.512000,
+DeepSeek-Coder-33B-instruct,0.811000,
+DeepSeek-Coder-6.7B-base,0.476000,
+DeepSeek-Coder-6.7B-instruct,0.744000,
+DeepSeek-Coder-7B-instruct-v1.5,0.756000,
+Claude Sonnet 3.5 (June 2024),0.872000,
+Grok Beta,0.884000,
+O1 Preview (Sept 2024),0.963000,
+O1 Mini (Sept 2024),0.963000,
+GPT 4o (Aug 2024),0.927000,
+GPT 4o Mini (July 2024),0.884000,
+GPT-3.5 (May 2023),0.732000,
+GPT-3.5-Turbo (Nov 2023),0.768000,
+GPT-4 (May 2023),0.884000,
+GPT-4-Turbo (April 2024),0.902000,
+GPT-4-Turbo (Nov 2023),0.854000,
+GPT-J-6B,0.122000,
+GPT-Neo-2.7B,0.079000,
+Gemini Pro 1.0,0.634000,
+Gemini Pro 1.5,0.683000,
+InCoder-1.3B,0.122000,
+InCoder-6.7B,0.159000,
+Llama3-70B-instruct,0.774000,
+Llama3-8B-base,0.335000,
+Llama3.1-8B-instruct,0.695000,
+Llama3-8B-instruct,0.616000,
+WaveCoder-Ultra-6.7B,0.750000,
+Magicoder-S-CL-7B,0.707000,
+Magicoder-S-DS-6.7B,0.768000,
+Mistral Large (Mar 2024),0.695000,
+Mistral-7B,0.287000,
+Mistral-codealpaca-7B,0.482000,
+MistralHermes-CodePro-7B-v1,0.476000,
+databricks/dbrx-instruct,0.750000,
+Codestral-22B-v0.1,0.799000,
+Mistral-7B-Instruct-v0.2,0.421000,
+Mixtral-8x22B-Instruct-v0.1,0.762000,
+Mixtral-8x7B-Instruct-v0.1,0.451000,
+OpenChat-3.5-7B-0106,0.726000,
+OpenCodeInterpreter-DS-33B,0.793000,
+OpenCodeInterpreter-DS-6.7B,0.774000,
+OpenHermes-2.5-Code-290k-13B,0.543000,
+Phind-CodeLlama-34B-v2,0.713000,
+PolyCoder-2.7B,0.061000,
+Python-Code-13B,0.329000,
+SOLAR-10.7B-Instruct-v1.0,0.433000,
+SantaCoder-1.1B,0.146000,
+StableLM-7B,0.024000,
+starchat2-15b-v0.1,0.738000,
+StarCoder-15B,0.341000,
+starcoder2-15b-instruct-v0.1,0.677000,
+StarCoder2-15B,0.463000,
+StarCoder2-3B,0.317000,
+StarCoder2-7B,0.354000,
+StarCoderBase-1B,0.146000,
+StarCoderBase-3B,0.177000,
+StarCoderBase-7B,0.244000,
+Vicuna-13B,0.171000,
+Vicuna-7B,0.116000,
+WhiteRabbitNeo-33B-v1,0.720000,
+WizardCoder-15B-V1.0,0.567000,
+WizardCoder-33B-V1.1,0.799000,
+WizardCoder-Python-34B-V1.0,0.732000,
+WizardCoder-Python-7B-V1.0,0.506000,
+XwinCoder-34B,0.756000,
+Zephyr β-7B,0.300000,
+claude-2 (Mar 2024),0.695000,
+claude-3-haiku (Mar 2024),0.768000,
+claude-3-opus (Mar 2024),0.829000,
+claude-3-sonnet (Mar 2024),0.707000,
+claude-instant-1 (Mar 2024),0.573000,
+code-millenials-34B,0.744000,
+codegemma-2b,0.268000,
+codegemma-7b,0.445000,
+codegemma-7b-it,0.604000,
+dolphin-2.6-mixtral-8x7b,0.640000,
+gemma-1.1-2b-it,0.226000,
+gemma-1.1-7b-it,0.427000,
+gemma-2b,0.250000,
+gemma-2b-it,0.177000,
+gemma-7b,0.354000,
+gemma-7b-it,0.287000,
+Phi-3-mini-4k-instruct,0.646000,
+phi-2-2.7B,0.494000,
+speechless-code-mistral-7B-v1.0,0.482000,
+speechless-codellama-34B-v2.0,0.774000,
+speechless-coder-ds-6.7B,0.713000,
+speechless-coding-7B-16k-tora,0.549000,
+speechless-starcoder2-15b,0.671000,
+speechless-starcoder2-7b,0.561000,
+stable-code-3B,0.293000,
+xDAN-L1-Chat-RL-v1-7B,0.402000,
+zyte-1B,0.024000,

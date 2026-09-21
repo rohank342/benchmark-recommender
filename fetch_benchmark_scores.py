@@ -113,7 +113,10 @@ RANDOM_BASELINES = {
 class ScoreSet:
     benchmark_key: str
     source: str
-    rows: list[tuple[str, float]]  # (model name, score 0-1)
+    # (model name, score 0-1, model date or "" when the source has none).
+    # The date is what makes the backtest possible: scoring a benchmark
+    # "as of" a past date means using only models that existed then.
+    rows: list[tuple[str, float, str]] = field(default_factory=list)
     column: str = ""  # the column this came from, verbatim
     normalization: str = "none"  # "none" | "baseline" | "length"
 
@@ -135,6 +138,7 @@ class ScoreSet:
             "random_baseline": self.random_baseline,
             "ceiling": 1.0,
             "models": len(self.rows),
+            "dated_models": sum(1 for row in self.rows if row[2]),
         }
 
     @property
@@ -145,8 +149,10 @@ class ScoreSet:
         SCORES_DIR.mkdir(parents=True, exist_ok=True)
         with self.path.open("w", newline="", encoding="utf-8") as handle:
             writer = csv.writer(handle)
-            writer.writerow(["model", "score"])
-            writer.writerows((name, f"{score:.6f}") for name, score in self.rows)
+            writer.writerow(["model", "score", "date"])
+            writer.writerows(
+                (name, f"{score:.6f}", date or "") for name, score, date in self.rows
+            )
         return self.path
 
 
@@ -196,12 +202,21 @@ def _from_leaderboard(
     print(f"  {dataset}: {total} models, {dropped} flagged and dropped")
 
     name_column = "fullname" if "fullname" in frame.columns else "eval_name"
+    # v1 records a submission date; v2 records when the model was uploaded
+    # to the Hub, which is closer to "when did this model exist".
+    date_column = next(
+        (c for c in ("Upload To Hub Date", "date", "Submission Date") if c in frame.columns),
+        None,
+    )
+    if date_column is None:
+        print(f"  ! {dataset} has no date column — sets from it can't be time-filtered")
     sets = []
     for column, benchmark_key in columns.items():
         if column not in frame.columns:
             print(f"    ! column {column!r} missing — skipping {benchmark_key}")
             continue
-        subset = frame[[name_column, column]].dropna()
+        wanted = [name_column, column] + ([date_column] if date_column else [])
+        subset = frame[wanted].dropna(subset=[name_column, column])
         # Raw columns are already fractions (0.26); normalized ones are
         # percentages (1.23). Detect rather than assume, so a change in the
         # leaderboard's units doesn't silently divide everything by 100.
@@ -210,10 +225,12 @@ def _from_leaderboard(
         divisor = 1.0 if looks_fractional else 100.0
 
         rows = []
-        for name, value in subset.itertuples(index=False):
+        for record in subset.itertuples(index=False):
+            name, value = record[0], record[1]
+            date = str(record[2])[:10] if date_column and len(record) > 2 else ""
             score = float(value) / divisor
             if 0.0 <= score <= 1.0:
-                rows.append((str(name), score))
+                rows.append((str(name), score, "" if date in ("nan", "NaT") else date))
 
         if rows:
             # Stated per column, not guessed from magnitude: v1 reports
@@ -258,10 +275,12 @@ def fetch_evalplus(timeout: int = 30) -> list[ScoreSet]:
     humaneval_plus: list[tuple[str, float]] = []
     for model, entry in payload.items():
         scores = (entry or {}).get("pass@1") or {}
+        # EvalPlus publishes no per-model dates, so these sets cannot be
+        # time-filtered and are excluded from any as-of scoring.
         if isinstance(scores.get("humaneval"), (int, float)):
-            humaneval.append((model, float(scores["humaneval"]) / 100.0))
+            humaneval.append((model, float(scores["humaneval"]) / 100.0, ""))
         if isinstance(scores.get("humaneval+"), (int, float)):
-            humaneval_plus.append((model, float(scores["humaneval+"]) / 100.0))
+            humaneval_plus.append((model, float(scores["humaneval+"]) / 100.0, ""))
 
     print(f"  evalplus: {len(humaneval)} HumanEval, {len(humaneval_plus)} HumanEval+ scores")
     sets = []

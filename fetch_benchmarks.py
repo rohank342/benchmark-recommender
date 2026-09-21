@@ -128,7 +128,26 @@ class Benchmark:
     # version churn, not a leakage defence, and HLE's held-out pool feeds
     # a rolling variant this repo may not even be scoring (see its notes).
     holdout: str = "public_static"
+    # When each curated claim became publicly known, so a benchmark can be
+    # scored as of a past date without using evidence from the future.
+    # Keys are field names: "saturation_flagged", "contamination_rate",
+    # "item_error_rate", and so on.
+    #
+    # This is what keeps the backtest honest. The saturation flags on the
+    # four benchmarks HF retired in June 2024 are *derived from that
+    # retirement*; dating them to the announcement means a backtest run at
+    # 2024-06-01 cannot see them, rather than being handed its own answer.
+    # A claim with no date here is treated as unknown at any past date —
+    # undatable evidence can't be proven to have been available.
+    evidence_dates: dict = field(default_factory=dict)
     curation_notes: str = ""
+
+    def known_at(self, claim: str, as_of: Optional[str]) -> bool:
+        """Was this claim public as of `as_of`? True when not time-travelling."""
+        if as_of is None:
+            return True
+        date = self.evidence_dates.get(claim)
+        return bool(date) and date < as_of
 
     # --- MEASURED ------------------------------------------------------
     # Filename inside data/epoch_benchmarks/ holding per-model scores.
@@ -183,6 +202,14 @@ BENCHMARK_CATALOG: tuple[Benchmark, ...] = (
         saturation_flagged=True,
         independent_evaluators=6,
         task_specificity=0.2,
+                evidence_dates={
+            # HF's retirement announcement — the backtest's ground truth, so
+            # dating it here keeps it out of any pre-June-2024 scoring.
+            "saturation_flagged": "2024-06-26",
+            "contamination_flagged": "2025-06-13",
+            "contamination_rate": "2025-06-13",  # infini-gram mini, arXiv 2506.12229
+            "item_error_rate": "2024-06-06",  # MMLU-Redux, arXiv 2406.04127
+        },
         curation_notes=(
             "RESEARCHED 2026-09-20. Contamination: 27.7% of MMLU items appear in "
             "DCLM-baseline. Quality: Gema et al., 'Are We Done with MMLU?' "
@@ -210,6 +237,10 @@ BENCHMARK_CATALOG: tuple[Benchmark, ...] = (
         saturation_flagged=False,
         independent_evaluators=3,
         task_specificity=0.25,
+                evidence_dates={
+            "contamination_flagged": "2025-06-13",
+            "contamination_rate": "2025-06-13",
+        },
         curation_notes=(
             "RESEARCHED 2026-09-20. Built to de-saturate MMLU (10 options, harder "
             "distractors) and picked for HF's Open LLM Leaderboard v2 in June 2024. "
@@ -232,6 +263,10 @@ BENCHMARK_CATALOG: tuple[Benchmark, ...] = (
         saturation_flagged=True,
         independent_evaluators=5,
         task_specificity=0.6,
+                evidence_dates={
+            # Flag added from 2026 leaderboard observations, not available earlier.
+            "saturation_flagged": "2026-09-01",
+        },
         curation_notes=(
             "RESEARCHED 2026-09-20. Saturation flag added on evidence, and it "
             "matches what this repo measures independently (~89% from Epoch's "
@@ -259,6 +294,13 @@ BENCHMARK_CATALOG: tuple[Benchmark, ...] = (
         saturation_flagged=True,
         independent_evaluators=6,
         task_specificity=0.45,
+                evidence_dates={
+            "contamination_flagged": "2024-03-06",  # arXiv 2403.04811
+            "contamination_rate": "2024-03-06",
+            "contamination_effect": "2024-03-06",
+            # CURATE(you): the saturation flag here is reputational, with no
+            # single dated source, so it is invisible to as-of scoring.
+        },
         curation_notes=(
             "RESEARCHED 2026-09-20. The canonical case for this project. "
             "Contamination is quantified, not just suspected: 8-18% of items appear "
@@ -309,6 +351,9 @@ BENCHMARK_CATALOG: tuple[Benchmark, ...] = (
         saturation_flagged=False,
         independent_evaluators=5,
         task_specificity=0.95,
+                evidence_dates={
+            "item_error_rate": "2024-08-13",  # creators' own estimate at release
+        },
         curation_notes=(
             "RESEARCHED 2026-09-20. Human-validated subset of 500 real GitHub "
             "issues — the closest thing in this catalog to a real task, hence the "
@@ -348,6 +393,10 @@ BENCHMARK_CATALOG: tuple[Benchmark, ...] = (
         saturation_flagged=True,
         independent_evaluators=5,
         task_specificity=0.2,
+                evidence_dates={
+            "saturation_flagged": "2024-06-26",  # HF retirement
+            "item_error_rate": "2022-11-30",  # Surge AI audit
+        },
         curation_notes=(
             "RESEARCHED 2026-09-20. Retired from HF's Open LLM Leaderboard in June "
             "2024, explicitly because the v1 set had saturated — models scored high "
@@ -375,6 +424,12 @@ BENCHMARK_CATALOG: tuple[Benchmark, ...] = (
         saturation_flagged=True,
         independent_evaluators=4,
         task_specificity=0.3,
+                evidence_dates={
+            # Both flags come from this repo's own 2026 measurement. In June
+            # 2024 BBH was a *replacement* benchmark, not a suspect one.
+            "saturation_flagged": "2026-09-20",
+            "contamination_flagged": "2026-09-20",
+        },
         curation_notes=(
             "RESEARCHED 2026-09-20. Worth noting the trajectory: BBH was one of the "
             "HARDER benchmarks chosen for HF's Open LLM Leaderboard v2 in June 2024, "
@@ -395,12 +450,20 @@ BENCHMARK_CATALOG: tuple[Benchmark, ...] = (
         release_date="2021-09-08",
         dataset_size=817,
         contamination_flagged=True,
-        saturation_flagged=False,
+        # Corrected 2026-09-20: this said False while the notes recorded the
+        # June 2024 retirement for saturation, and the measured reading is
+        # 87%. Caught by a backtest leakage test, not by inspection.
+        saturation_flagged=True,
         independent_evaluators=4,
         task_specificity=0.4,
+                evidence_dates={
+            "saturation_flagged": "2024-06-26",  # HF retirement
+        },
         curation_notes=(
             "RESEARCHED 2026-09-20. Retired from HF's Open LLM Leaderboard in June "
-            "2024 with the rest of the v1 set. Note it measures imitation of common "
+            "2024 with the rest of the v1 set — which is why saturation_flagged is "
+            "True; it read False until a backtest test noticed the contradiction "
+            "with these notes. Note it measures imitation of common "
             "human misconceptions, not factual accuracy in general — the category "
             "label here is a stretch. "
             "CURATE(you): no Epoch score file, so saturation is unmeasured; and "
@@ -419,6 +482,9 @@ BENCHMARK_CATALOG: tuple[Benchmark, ...] = (
         saturation_flagged=True,
         independent_evaluators=5,
         task_specificity=0.25,
+                evidence_dates={
+            "saturation_flagged": "2024-06-26",  # HF retirement
+        },
         curation_notes=(
             "RESEARCHED 2026-09-20. 2018 grade-school science questions; retired "
             "from HF's Open LLM Leaderboard alongside HellaSwag/MMLU/TruthfulQA in "
@@ -619,6 +685,11 @@ BENCHMARK_CATALOG: tuple[Benchmark, ...] = (
         saturation_flagged=True,
         independent_evaluators=5,
         task_specificity=0.5,
+                evidence_dates={
+            "saturation_flagged": "2026-09-20",  # this repo's measurement
+            # CURATE(you): Epoch's contamination warning carries no date I
+            # could pin, so it is excluded from as-of scoring.
+        },
         curation_notes=(
             "RESEARCHED 2026-09-20. Epoch explicitly warns about contamination: many "
             "models are fine-tuned on mathematical content that overlaps the test "
@@ -745,6 +816,10 @@ BENCHMARK_CATALOG: tuple[Benchmark, ...] = (
         saturation_flagged=True,
         independent_evaluators=3,
         task_specificity=0.3,
+                evidence_dates={
+            # CURATE(you): contamination here is assumed from the 2017 web
+            # provenance, with no dated study, so as-of scoring ignores it.
+        },
         curation_notes=(
             "RESEARCHED 2026-09-20. Joshi et al., ACL 2017 (arXiv 1705.03551): "
             "95K question-answer pairs written by trivia enthusiasts, with 650K+ "
@@ -771,12 +846,45 @@ class BenchmarkScores:
     benchmark_key: str
     scores: list[float] = field(default_factory=list)
     model_names: list[str] = field(default_factory=list)
+    # Per-model dates, "" where the source publishes none. Parallel to
+    # `scores`; this is what lets a benchmark be scored as of a past date.
+    model_dates: list[str] = field(default_factory=list)
     ceiling: float = 1.0
     random_baseline: float = 0.0
     source: str = "epoch_ai"
     # "none" | "baseline" | "length" — see fetch_benchmark_scores. Only
     # sets sharing a normalization are comparable model-for-model.
     normalization: str = "none"
+
+    @property
+    def dated(self) -> int:
+        return sum(1 for d in self.model_dates if d)
+
+    def before(self, cutoff: str) -> "BenchmarkScores":
+        """
+        The same set restricted to models dated before `cutoff`.
+
+        Undated models are DROPPED rather than assumed old: including a
+        model that might postdate the cutoff would leak the future into a
+        backtest, which is the one thing a backtest must not do. A set
+        with no dates at all therefore comes back empty, and the caller
+        is expected to notice rather than score an empty distribution.
+        """
+        keep = [
+            i
+            for i, date in enumerate(self.model_dates)
+            if date and date < cutoff
+        ]
+        return BenchmarkScores(
+            benchmark_key=self.benchmark_key,
+            scores=[self.scores[i] for i in keep],
+            model_names=[self.model_names[i] for i in keep],
+            model_dates=[self.model_dates[i] for i in keep],
+            ceiling=self.ceiling,
+            random_baseline=self.random_baseline,
+            source=self.source,
+            normalization=self.normalization,
+        )
 
 
 def _epoch_metadata(path: Path = EPOCH_DIR) -> dict[str, dict[str, str]]:
@@ -819,6 +927,7 @@ def load_external_score_sets(
         source = file_path.stem.split("__", 1)[1]
         scores: list[float] = []
         names: list[str] = []
+        dates: list[str] = []
         with file_path.open(newline="", encoding="utf-8") as handle:
             for row in csv.DictReader(handle):
                 try:
@@ -826,6 +935,7 @@ def load_external_score_sets(
                 except (KeyError, TypeError, ValueError):
                     continue
                 names.append((row.get("model") or "").strip())
+                dates.append((row.get("date") or "").strip())
         if scores:
             # The manifest carries the random baseline and which
             # normalization (if any) the column used. Without it every set
@@ -837,6 +947,7 @@ def load_external_score_sets(
                     benchmark_key=benchmark.key,
                     scores=scores,
                     model_names=names,
+                    model_dates=dates,
                     ceiling=float(meta.get("ceiling", 1.0)),
                     random_baseline=float(meta.get("random_baseline", 0.0)),
                     source=source,
@@ -942,8 +1053,13 @@ def load_epoch_scores(
 
     scores: list[float] = []
     names: list[str] = []
+    dates: list[str] = []
     with file_path.open(newline="", encoding="utf-8") as handle:
         reader = csv.DictReader(handle)
+        date_column = next(
+            (c for c in (reader.fieldnames or []) if c.strip().lower() == "release date"),
+            None,
+        )
         model_column = next(
             (c for c in (reader.fieldnames or []) if c.strip().lower() in
              ("model version", "model", "model name")),
@@ -960,6 +1076,7 @@ def load_epoch_scores(
             except ValueError:
                 continue
             names.append((row.get(model_column) or "").strip() if model_column else "")
+            dates.append((row.get(date_column) or "").strip()[:10] if date_column else "")
 
     if not scores:
         return None
@@ -967,6 +1084,7 @@ def load_epoch_scores(
         benchmark_key=benchmark.key,
         scores=scores,
         model_names=names,
+        model_dates=dates,
         ceiling=ceiling,
         random_baseline=baseline,
     )

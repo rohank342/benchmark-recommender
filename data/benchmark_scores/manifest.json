@@ -1,5 +1,5 @@
 {
-  "fetched_at": "2026-09-21T03:18:38.352399+00:00",
+  "fetched_at": "2026-09-21T03:29:14.616662+00:00",
   "sets": {
     "mmlu_pro__open_llm_leaderboard_v2": {
       "benchmark_key": "mmlu_pro",
@@ -8,7 +8,8 @@
       "normalization": "none",
       "random_baseline": 0.1,
       "ceiling": 1.0,
-      "models": 4575
+      "models": 4575,
+      "dated_models": 4046
     },
     "bbh__open_llm_leaderboard_v2": {
       "benchmark_key": "bbh",
@@ -17,7 +18,8 @@
       "normalization": "none",
       "random_baseline": 0.25,
       "ceiling": 1.0,
-      "models": 4575
+      "models": 4575,
+      "dated_models": 4046
     },
     "gpqa_diamond__open_llm_leaderboard_v2": {
       "benchmark_key": "gpqa_diamond",
@@ -26,7 +28,8 @@
       "normalization": "none",
       "random_baseline": 0.25,
       "ceiling": 1.0,
-      "models": 4575
+      "models": 4575,
+      "dated_models": 4046
     },
     "math_level_5__open_llm_leaderboard_v2": {
       "benchmark_key": "math_level_5",
@@ -35,7 +38,8 @@
       "normalization": "none",
       "random_baseline": 0.0,
       "ceiling": 1.0,
-      "models": 4575
+      "models": 4575,
+      "dated_models": 4046
     },
     "truthfulqa__open_llm_leaderboard_v1": {
       "benchmark_key": "truthfulqa",
@@ -44,7 +48,8 @@
       "normalization": "none",
       "random_baseline": 0.0,
       "ceiling": 1.0,
-      "models": 7170
+      "models": 7170,
+      "dated_models": 7145
     },
     "mmlu__open_llm_leaderboard_v1": {
       "benchmark_key": "mmlu",
@@ -53,7 +58,8 @@
       "normalization": "none",
       "random_baseline": 0.25,
       "ceiling": 1.0,
-      "models": 7260
+      "models": 7260,
+      "dated_models": 7234
     },
     "arc__open_llm_leaderboard_v1": {
       "benchmark_key": "arc",
@@ -62,7 +68,8 @@
       "normalization": "length",
       "random_baseline": 0.25,
       "ceiling": 1.0,
-      "models": 7260
+      "models": 7260,
+      "dated_models": 7234
     },
     "hellaswag__open_llm_leaderboard_v1": {
       "benchmark_key": "hellaswag",
@@ -71,7 +78,8 @@
       "normalization": "length",
       "random_baseline": 0.25,
       "ceiling": 1.0,
-      "models": 7260
+      "models": 7260,
+      "dated_models": 7234
     },
     "humaneval__evalplus": {
       "benchmark_key": "humaneval",
@@ -80,7 +88,8 @@
       "normalization": "none",
       "random_baseline": 0.0,
       "ceiling": 1.0,
-      "models": 125
+      "models": 125,
+      "dated_models": 0
     },
     "humaneval_plus__evalplus": {
       "benchmark_key": "humaneval_plus",
@@ -89,7 +98,8 @@
       "normalization": "none",
       "random_baseline": 0.0,
       "ceiling": 1.0,
-      "models": 125
+      "models": 125,
+      "dated_models": 0
     }
   }
 }
