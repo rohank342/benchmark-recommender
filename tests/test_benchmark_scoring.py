@@ -143,3 +143,76 @@ class TestCatalog:
     def test_trust_by_key_covers_the_catalog(self):
         by_key = trust_by_key()
         assert {b.key for b in load_benchmark_catalog()} == set(by_key)
+
+
+class TestCuratedEvidence:
+    """The curated research has to actually drive the numbers."""
+
+    def test_contamination_penalty_scales_with_measured_rate(self):
+        """MMLU (27.7% dirty) must be penalized harder than MMLU-Pro (16.2%)."""
+        from benchmark_scoring import CONTAMINATION_PENALTY, FULL_CONTAMINATION_RATE
+
+        mmlu = find_benchmark("MMLU")
+        mmlu_pro = find_benchmark("MMLU-Pro")
+        assert mmlu.contamination_rate > mmlu_pro.contamination_rate
+
+        def multiplier(b):
+            severity = min(b.contamination_rate / FULL_CONTAMINATION_RATE, 1.0)
+            return 1.0 - (1.0 - CONTAMINATION_PENALTY) * severity
+
+        assert multiplier(mmlu) < multiplier(mmlu_pro)
+
+    def test_severe_inflation_outweighs_a_modest_overlap_rate(self):
+        """HumanEval: 13% overlap, but scores fall 39.4% when decontaminated."""
+        humaneval = find_benchmark("HumanEval")
+        assert humaneval.contamination_rate < 0.2
+        assert humaneval.contamination_effect > 0.35
+        trust = score_benchmark(humaneval)
+        # The effect, not the mild rate, should be driving the penalty.
+        assert any("decontaminated" in p for p in trust.penalties)
+        assert trust.trust_score < 25
+
+    def test_refreshed_benchmarks_do_not_age_like_static_ones(self):
+        """LiveCodeBench's release windows are a defence against leakage."""
+        from datetime import date, timedelta
+
+        from fetch_benchmarks import Benchmark
+
+        released = (date.today() - timedelta(days=900)).isoformat()
+        static = Benchmark(key="s", name="S", category="code generation", release_date=released)
+        refreshed = Benchmark(
+            key="r", name="R", category="code generation",
+            release_date=released, holdout="refreshed",
+        )
+        static_freshness = {f.name: f for f in score_benchmark(static).factors}["freshness"]
+        refreshed_freshness = {f.name: f for f in score_benchmark(refreshed).factors}["freshness"]
+        assert refreshed_freshness.value > static_freshness.value
+
+    def test_private_holdout_barely_ages(self):
+        from fetch_benchmarks import Benchmark
+
+        old_private = Benchmark(
+            key="p", name="P", category="scientific reasoning",
+            release_date="2020-01-01", holdout="private_holdout",
+        )
+        freshness = {f.name: f for f in score_benchmark(old_private).factors}["freshness"]
+        assert freshness.value >= 0.9
+
+    def test_gpqa_curated_flag_now_agrees_with_the_measurement(self):
+        """Flag and measurement disagreeing was the signal; it's resolved."""
+        gpqa = find_benchmark("GPQA Diamond")
+        assert gpqa.saturation_flagged is True
+        trust = score_benchmark(gpqa)
+        assert trust.measured_saturation > 0.8
+
+    def test_researched_entries_cite_their_sources(self):
+        """A curated claim without a basis is a guess wearing a lab coat."""
+        from fetch_benchmarks import load_benchmark_catalog
+
+        for benchmark in load_benchmark_catalog():
+            if benchmark.contamination_flagged or benchmark.saturation_flagged:
+                notes = benchmark.curation_notes
+                assert notes, f"{benchmark.name} is flagged with no curation notes"
+                assert "RESEARCHED" in notes or "CURATE(you)" in notes, (
+                    f"{benchmark.name} does not say whether its flags are researched"
+                )

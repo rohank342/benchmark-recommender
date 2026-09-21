@@ -72,6 +72,16 @@ HEALTHY_SPREAD = 0.20
 # penalties on the *final* score, since a documented leak undermines
 # every factor at once.
 CONTAMINATION_PENALTY = 0.65
+
+# Contamination rate at which the full penalty applies. Below it, the
+# penalty scales with the measured rate, so a benchmark with 16% of its
+# items in a pretraining corpus isn't punished like one with 28%.
+FULL_CONTAMINATION_RATE = 0.30
+
+# Observed score inflation at which the full penalty applies. A benchmark
+# whose scores collapse by 40% once decontaminated has been telling you
+# about memorization, not capability.
+FULL_CONTAMINATION_EFFECT = 0.40
 REPORTED_SATURATION_PENALTY = 0.80
 
 # Evaluator count at which reproducibility is considered fully
@@ -206,6 +216,18 @@ def _discrimination_factor(
     )
 
 
+# Age matters less when the test set isn't static. A benchmark that adds
+# new items on a rolling basis is scoring models on material published
+# after their training cutoff regardless of when the benchmark launched,
+# and one that withholds its answers can't leak by being read.
+HOLDOUT_AGE_DISCOUNT = {
+    "public_static": 1.0,  # full decay
+    "refreshed": 0.35,  # ages at about a third the rate
+    "private_holdout": 0.0,  # doesn't age this way at all
+}
+PRIVATE_HOLDOUT_FLOOR = 0.9
+
+
 def _freshness_factor(benchmark: Benchmark) -> Factor:
     age_days = _days_since(benchmark.release_date)
     if age_days is None:
@@ -216,16 +238,32 @@ def _freshness_factor(benchmark: Benchmark) -> Factor:
             basis="unknown",
             explanation="no release date recorded",
         )
-    value = 0.5 ** (max(age_days, 0) / LEAKAGE_HALF_LIFE_DAYS)
+
+    discount = HOLDOUT_AGE_DISCOUNT.get(benchmark.holdout, 1.0)
+    effective_age = max(age_days, 0) * discount
+    value = 0.5 ** (effective_age / LEAKAGE_HALF_LIFE_DAYS)
+    if benchmark.holdout == "private_holdout":
+        value = max(value, PRIVATE_HOLDOUT_FLOOR)
+
     years = age_days / 365.25
+    if benchmark.holdout == "refreshed":
+        explanation = (
+            f"launched {years:.1f} years ago but refreshed on a rolling basis, "
+            "so what it scores is newer than that"
+        )
+    elif benchmark.holdout == "private_holdout":
+        explanation = f"{years:.1f} years old, but answers are held back from publication"
+    elif years > 2:
+        explanation = f"public and static for {years:.1f} years, so leakage risk has compounded"
+    else:
+        explanation = f"published {years:.1f} years ago"
+
     return Factor(
         name="freshness",
         value=value,
         weight=FACTOR_WEIGHTS["freshness"],
         basis="curated",
-        explanation=f"public for {years:.1f} years, so leakage risk has compounded"
-        if years > 2
-        else f"published {years:.1f} years ago",
+        explanation=explanation,
     )
 
 
@@ -269,8 +307,26 @@ def score_benchmark(benchmark: Benchmark) -> BenchmarkTrust:
     raw = sum(factor.value * factor.weight for factor in factors) * 100
     penalties: list[str] = []
     if benchmark.contamination_flagged:
-        raw *= CONTAMINATION_PENALTY
-        penalties.append("reported contamination")
+        rate = benchmark.contamination_rate
+        effect = benchmark.contamination_effect
+        severities = []
+        descriptions = []
+        if rate is not None:
+            severities.append(min(rate / FULL_CONTAMINATION_RATE, 1.0))
+            descriptions.append(f"{rate:.0%} of items in pretraining data")
+        if effect is not None:
+            severities.append(min(effect / FULL_CONTAMINATION_EFFECT, 1.0))
+            descriptions.append(f"scores fall {effect:.0%} when decontaminated")
+
+        if severities:
+            # Take the worse of the two: a modest overlap rate that
+            # nonetheless inflates scores badly is still badly inflated.
+            multiplier = 1.0 - (1.0 - CONTAMINATION_PENALTY) * max(severities)
+            penalties.append("; ".join(descriptions))
+        else:
+            multiplier = CONTAMINATION_PENALTY
+            penalties.append("reported contamination")
+        raw *= multiplier
     if benchmark.saturation_flagged and scores is None:
         # With score data the measurement already reflects this; without
         # it, the flag is all we have.
