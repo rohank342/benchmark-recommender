@@ -32,6 +32,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Optional
 
+from device_profiles import DEFAULT_DEVICE, DeviceProfile, get_device
+
 # Bytes per parameter at each precision the user can choose.
 BYTES_PER_PARAM = {"fp16": 2.0, "8bit": 1.0, "4bit": 0.5}
 PRECISIONS_HIGH_TO_LOW = ("fp16", "8bit", "4bit")
@@ -75,22 +77,49 @@ def native_quant_bits(model: dict[str, Any]) -> Optional[int]:
     return bits if isinstance(bits, int) else None
 
 
-def available_precisions(model: dict[str, Any]) -> tuple[str, ...]:
+def native_quant_method(model: dict[str, Any]) -> Optional[str]:
+    """How the repo is packaged: "gguf", "mlx", "awq", "fp8", ..."""
+    method = _architecture(model).get("native_quant_method")
+    return method.lower() if isinstance(method, str) else None
+
+
+def runnable_on(model: dict[str, Any], device: DeviceProfile) -> bool:
     """
-    Precisions this repo can actually be run at.
+    Can this device run this artifact at all? A repo packaged for another
+    runtime isn't a slow option, it's not an option.
+    """
+    method = native_quant_method(model)
+    if method is None:
+        return True  # plain safetensors weights run anywhere with the memory
+    if method in ("compressed-tensors", "modelopt") and native_quant_bits(model) == 4:
+        # 4-bit compressed-tensors/modelopt in practice means NVFP4.
+        return "nvfp4" in device.native_methods
+    return method in device.native_methods
+
+
+def available_precisions(
+    model: dict[str, Any], device: Optional[DeviceProfile] = None
+) -> tuple[str, ...]:
+    """
+    Precisions this repo can actually be served at on this device.
 
     Weights that ship quantized can't be restored to a higher precision,
     so a 4-bit AWQ repo offers 4-bit only. Full-precision weights can be
-    quantized at load time, so they offer all three.
+    quantized as they load — but only where that path exists, which on
+    Apple Silicon it doesn't (bitsandbytes has no working MPS backend).
     """
+    device = device or get_device(DEFAULT_DEVICE)
+    if not runnable_on(model, device):
+        return ()
+
     bits = native_quant_bits(model)
     if bits is None:
-        return PRECISIONS_HIGH_TO_LOW
+        return PRECISIONS_HIGH_TO_LOW if device.can_quantize_at_load else ("fp16",)
     if bits <= 4:
         return ("4bit",)
     if bits <= 8:
         return ("8bit",)
-    return PRECISIONS_HIGH_TO_LOW
+    return PRECISIONS_HIGH_TO_LOW if device.can_quantize_at_load else ("fp16",)
 
 
 def kv_cache_gb(model: dict[str, Any], context_tokens: int) -> tuple[Optional[float], bool]:
@@ -119,11 +148,14 @@ def kv_cache_gb(model: dict[str, Any], context_tokens: int) -> tuple[Optional[fl
 
 
 def estimate_vram(
-    model: dict[str, Any], precision: str, context_tokens: int = 8192
+    model: dict[str, Any],
+    precision: str,
+    context_tokens: int = 8192,
+    device: Optional[DeviceProfile] = None,
 ) -> VramEstimate:
     """Estimate VRAM for one model at one precision and context length."""
     params = model.get("params_billion")
-    available = precision in available_precisions(model)
+    available = precision in available_precisions(model, device)
 
     if not params:
         return VramEstimate(precision, None, None, None, True, available)
@@ -143,16 +175,19 @@ def estimate_vram(
 
 
 def best_fit_precision(
-    model: dict[str, Any], available_vram_gb: float, context_tokens: int = 8192
+    model: dict[str, Any],
+    available_vram_gb: float,
+    context_tokens: int = 8192,
+    device: Optional[DeviceProfile] = None,
 ) -> Optional[VramEstimate]:
     """
     Highest precision the model can actually be served at within budget,
     or None if it doesn't fit even at its lowest available precision.
     """
     for precision in PRECISIONS_HIGH_TO_LOW:
-        if precision not in available_precisions(model):
+        if precision not in available_precisions(model, device):
             continue
-        estimate = estimate_vram(model, precision, context_tokens)
+        estimate = estimate_vram(model, precision, context_tokens, device)
         if estimate.total_gb is not None and estimate.total_gb <= available_vram_gb:
             return estimate
     return None
@@ -165,21 +200,29 @@ def max_context_supported(model: dict[str, Any]) -> Optional[int]:
 
 
 def filter_models_by_vram(
-    models: list[dict], available_vram_gb: float, context_tokens: int = 8192
+    models: list[dict],
+    available_vram_gb: float,
+    context_tokens: int = 8192,
+    device: Optional[DeviceProfile] = None,
 ) -> list[dict]:
     """
-    Annotate each model with its VRAM estimate at `context_tokens` and
-    keep those that fit.
+    Annotate each model with its VRAM estimate at `context_tokens` on
+    `device`, and keep those that fit.
 
-    Models whose parameter count is unknown are kept and marked, rather
-    than silently dropped: "we don't know" and "it doesn't fit" are
-    different answers, and only one of them is the model's fault.
+    Artifacts the device can't run are dropped outright — an AWQ repo on
+    a Mac isn't a slow choice, it's not a choice. Models whose parameter
+    count is unknown are kept and marked, rather than silently dropped:
+    "we don't know" and "it doesn't fit" are different answers, and only
+    one of them is the model's fault.
     """
+    device = device or get_device(DEFAULT_DEVICE)
     fitted = []
     for model in models:
+        if not runnable_on(model, device):
+            continue
         annotated = dict(model)
-        precisions = available_precisions(model)
-        estimate = best_fit_precision(model, available_vram_gb, context_tokens)
+        precisions = available_precisions(model, device)
+        estimate = best_fit_precision(model, available_vram_gb, context_tokens, device)
 
         if model.get("params_billion") is None:
             annotated.update(
@@ -191,6 +234,7 @@ def filter_models_by_vram(
                     "kv_cache_estimated": True,
                     "size_known": False,
                     "native_quant": native_quant_bits(model),
+                    "runtime_format": native_quant_method(model) or "safetensors",
                     "max_context": max_context_supported(model),
                     "available_precisions": ", ".join(precisions),
                 }
@@ -210,6 +254,7 @@ def filter_models_by_vram(
                 "kv_cache_estimated": estimate.kv_cache_estimated,
                 "size_known": True,
                 "native_quant": native_quant_bits(model),
+                "runtime_format": native_quant_method(model) or "safetensors",
                 "max_context": max_context_supported(model),
                 "available_precisions": ", ".join(precisions),
             }

@@ -19,18 +19,36 @@ from __future__ import annotations
 
 import json
 import re
+import time
 from dataclasses import dataclass, asdict, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable, Optional
 
-from huggingface_hub import HfApi, hf_hub_download
+import requests
+from huggingface_hub import HfApi, configure_http_backend, hf_hub_download
 from huggingface_hub.utils import EntryNotFoundError, HfHubHTTPError
+from requests.exceptions import RequestException
 
 from model_matching import identity_string, match_key
 
 DATA_DIR = Path(__file__).parent / "data"
 RAW_CACHE_PATH = DATA_DIR / "models_raw.json"
+
+# huggingface_hub issues its HTTP calls without a socket timeout, so a
+# connection that goes quiet blocks forever — a fetch here once sat wedged
+# for 24 hours, and the retry logic below never fired because no exception
+# was ever raised. Install a session that always carries a timeout.
+HTTP_TIMEOUT_SECONDS = 30
+
+
+class _TimeoutSession(requests.Session):
+    def request(self, *args, **kwargs):
+        kwargs.setdefault("timeout", HTTP_TIMEOUT_SECONDS)
+        return super().request(*args, **kwargs)
+
+
+configure_http_backend(_TimeoutSession)
 
 # Tags/keywords used to narrow the Hub search to code-generation models.
 # v1 scope is code-gen only, per project spec.
@@ -184,6 +202,11 @@ def _quantization_from_config(config: dict[str, Any]) -> tuple[Optional[str], Op
     in the wild: AWQ/GPTQ carry `bits`, fp8 carries only a method name,
     and compressed-tensors (NVFP4) nests `num_bits` under config_groups.
     """
+    # MLX writes its own key rather than the transformers one.
+    mlx = config.get("quantization")
+    if isinstance(mlx, dict) and isinstance(mlx.get("bits"), int):
+        return "mlx", mlx["bits"]
+
     quant = config.get("quantization_config")
     if not isinstance(quant, dict):
         return None, None
@@ -252,7 +275,7 @@ def fetch_architecture(repo_id: str, tags: Optional[list[str]] = None) -> ModelA
         path = hf_hub_download(repo_id, "config.json", repo_type="model")
         with open(path) as handle:
             return _architecture_from_config(json.load(handle))
-    except (EntryNotFoundError, HfHubHTTPError, json.JSONDecodeError, OSError):
+    except (EntryNotFoundError, HfHubHTTPError, RequestException, json.JSONDecodeError, OSError):
         if any(tag.lower() == "gguf" for tag in tags):
             # GGUF files embed their own quant level (Q4_K_M etc.); without
             # parsing filenames, 4-bit is the common case and the honest
@@ -376,17 +399,13 @@ def fetch_models_for_catalog(
     found: dict[str, RawModel] = {}
 
     for key, label, creator in targets:
-        try:
-            candidates = [
-                m
-                for m in api.list_models(
-                    search=label, limit=limit_per_search, expand=EXPAND_PROPERTIES
-                )
-                if match_key(m.id) == key and _has_real_weights(m)
-            ]
-        except HfHubHTTPError as exc:  # one bad search shouldn't end the run
-            print(f"[fetch_models] search failed for {label!r}: {exc}")
-            continue
+        candidates = [
+            m
+            for m in _search_models(
+                api, search=label, limit=limit_per_search, expand=EXPAND_PROPERTIES
+            )
+            if match_key(m.id) == key and _has_real_weights(m)
+        ]
         if not candidates:
             continue
         best = max(
@@ -399,6 +418,88 @@ def fetch_models_for_catalog(
         found[best.id] = _to_raw_model(
             best, provenance_verified=_provenance_verified(best, creator)
         )
+    return list(found.values())
+
+
+def _search_models(api: HfApi, retries: int = 3, **kwargs) -> list:
+    """
+    Run one Hub search, tolerating transient network failures.
+
+    These passes make hundreds of requests over several minutes, and a
+    single reset connection used to abort the whole run — losing every
+    model resolved so far, since nothing is written until the end. A
+    failed search should cost one model, not the fetch.
+    """
+    for attempt in range(retries):
+        try:
+            return list(api.list_models(**kwargs))
+        except (HfHubHTTPError, RequestException) as exc:
+            if attempt == retries - 1:
+                print(f"[fetch_models] search failed ({kwargs.get('search')!r}): {exc}")
+                return []
+            time.sleep(2**attempt)  # brief backoff before retrying
+    return []
+
+
+def _artifact_kind(tags: list[str]) -> Optional[str]:
+    """Identify a GGUF or MLX build from its tags, which is all they share."""
+    lowered = {tag.lower() for tag in tags}
+    if "gguf" in lowered:
+        return "gguf"
+    if "mlx" in lowered:
+        return "mlx"
+    return None
+
+
+def fetch_runtime_variants(
+    targets: Iterable[tuple[str, str, Optional[str]]], limit_per_search: int = 30
+) -> list[RawModel]:
+    """
+    Find GGUF and MLX builds of already-known models.
+
+    Benchmark organizations score the original weights, which are
+    published as safetensors. Those can be loaded in 4-bit on CUDA, but
+    not on Apple Silicon or CPU — there, the same model is only reachable
+    through a GGUF or MLX build, usually in a separate repo. Without this
+    pass a Mac user sees a nearly empty table of models they can run.
+
+    Match keys already ignore packaging markers, so a GGUF build shares
+    its key with the original; the artifact kind comes from repo tags.
+    """
+    api = HfApi()
+    found: dict[str, RawModel] = {}
+
+    for key, label, creator in targets:
+        for suffix in ("GGUF", "MLX"):
+            candidates = [
+                m
+                for m in _search_models(
+                    api,
+                    search=f"{label} {suffix}",
+                    limit=limit_per_search,
+                    expand=EXPAND_PROPERTIES,
+                )
+                if match_key(m.id) == key
+            ]
+
+            by_kind: dict[str, list] = {}
+            for candidate in candidates:
+                kind = _artifact_kind(list(getattr(candidate, "tags", []) or []))
+                if kind:
+                    by_kind.setdefault(kind, []).append(candidate)
+
+            for kind, group in by_kind.items():
+                best = max(
+                    group,
+                    key=lambda m: (
+                        _owner_matches_creator(m.id, creator),
+                        getattr(m, "downloads", 0) or 0,
+                    ),
+                )
+                if best.id not in found:
+                    found[best.id] = _to_raw_model(
+                        best, provenance_verified=_provenance_verified(best, creator)
+                    )
     return list(found.values())
 
 
@@ -463,6 +564,16 @@ if __name__ == "__main__":
             by_id.setdefault(model.model_id, model)
         models = list(by_id.values())
         print(f"  {len(models)} total after adding benchmarked models.")
+
+        # Third pass: GGUF/MLX builds of those models. Apple Silicon and
+        # CPU can't load safetensors in 4-bit, so without these a Mac
+        # user's results are limited to what fits at fp16.
+        print("Looking for GGUF/MLX builds of benchmarked models...")
+        by_id = {m.model_id: m for m in models}
+        for model in fetch_runtime_variants(targets):
+            by_id.setdefault(model.model_id, model)
+        models = list(by_id.values())
+        print(f"  {len(models)} total after adding GGUF/MLX builds.")
     else:
         print("  No external catalog cached — run `python enrich_scores.py` first.")
 
