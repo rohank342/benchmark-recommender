@@ -146,6 +146,73 @@ class TestCatalog:
         assert {b.key for b in load_benchmark_catalog()} == set(by_key)
 
 
+class TestUnreviewedJudgements:
+    """
+    Specificity is the owner's call by design — 20% of every trust score,
+    measured by nothing. Four values were assigned by Claude Code instead.
+    They stand, but the basis field has to say who wrote them.
+    """
+
+    ASSIGNED_BY_CLAUDE = {
+        "Winogrande": 0.2,
+        "GSM8K": 0.4,
+        "MuSR": 0.3,
+        "IFEval": 0.65,
+    }
+
+    def test_the_values_are_unchanged(self):
+        for name, value in self.ASSIGNED_BY_CLAUDE.items():
+            assert find_benchmark(name).task_specificity == pytest.approx(value), name
+
+    def test_each_one_admits_who_assigned_it(self):
+        for name in self.ASSIGNED_BY_CLAUDE:
+            notes = find_benchmark(name).curation_notes
+            assert "SPECIFICITY" in notes and "assigned by Claude Code" in notes, name
+            assert "not been reviewed by the owner" in notes, name
+
+
+class TestEvaluatorCountReach:
+    """
+    Where an unsourced curated count can and cannot change an answer.
+    Winogrande and GSM8K both have two comparable score sources, so the
+    measurement replaces the count today — but as-of scoring has no
+    cross-source data, so the count is exactly what the backtest uses.
+    """
+
+    def _basis(self, name, as_of):
+        trust = score_benchmark(find_benchmark(name), as_of=as_of)
+        return {f.name: f for f in trust.factors}["reproducibility"]
+
+    def test_the_count_is_ignored_today(self):
+        for name in ("Winogrande", "GSM8K"):
+            assert self._basis(name, None).basis == "measured", name
+
+    def test_the_count_is_what_the_backtest_uses(self):
+        from backtest import CUTOFF
+
+        for name in ("Winogrande", "GSM8K"):
+            assert self._basis(name, CUTOFF).basis == "curated", name
+
+    def test_gsm8k_gets_full_credit_at_the_cutoff_and_0_13_today(self):
+        """
+        The widest gap in the catalog, pinned because it is a live weakness
+        of the backtest rather than a curiosity: a benchmark whose scores
+        demonstrably do not reproduce across harnesses (6.9 points of
+        scatter, a 7.0-point systematic offset) is handed a perfect
+        reproducibility score in 2024 on the strength of an evaluator count
+        nobody has sourced.
+        """
+        from backtest import CUTOFF
+
+        assert self._basis("GSM8K", CUTOFF).value == pytest.approx(1.0)
+        assert self._basis("GSM8K", None).value < 0.2
+
+    def test_both_counts_are_marked_as_partly_unsourced(self):
+        for name in ("Winogrande", "GSM8K"):
+            notes = find_benchmark(name).curation_notes
+            assert "IS PARTLY UNSOURCED" in notes, name
+
+
 class TestCuratedEvidence:
     """The curated research has to actually drive the numbers."""
 
