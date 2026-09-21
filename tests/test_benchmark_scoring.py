@@ -1,0 +1,410 @@
+import pytest
+
+from benchmark_scoring import (
+    LEAKAGE_HALF_LIFE_DAYS,
+    measure_saturation,
+    score_all_benchmarks,
+    score_benchmark,
+    trust_by_key,
+)
+from fetch_benchmarks import (
+    Benchmark,
+    BenchmarkScores,
+    find_benchmark,
+    load_benchmark_catalog,
+    load_benchmark_scores,
+)
+
+
+def _scores(values, ceiling=1.0, baseline=0.0):
+    return BenchmarkScores(
+        benchmark_key="test", scores=list(values), ceiling=ceiling, random_baseline=baseline
+    )
+
+
+class TestSaturationMeasurement:
+    def test_clustered_near_ceiling_is_saturated(self):
+        """Everyone scoring 94-96%: the benchmark has stopped answering."""
+        saturation, _ = measure_saturation(_scores([0.96, 0.95, 0.95, 0.94, 0.94] * 2))
+        assert saturation > 0.85
+
+    def test_wide_spread_is_discriminating(self):
+        saturation, _ = measure_saturation(
+            _scores([0.85, 0.70, 0.62, 0.55, 0.43, 0.38, 0.30, 0.22, 0.15, 0.08])
+        )
+        assert saturation < 0.35
+
+    def test_clustered_at_the_bottom_also_fails_to_discriminate(self):
+        """A benchmark everyone fails equally ranks models no better."""
+        saturation, _ = measure_saturation(_scores([0.05, 0.04, 0.04, 0.03, 0.03] * 2))
+        assert saturation > 0.5
+
+    def test_explanation_reports_the_numbers(self):
+        _, explanation = measure_saturation(_scores([0.9, 0.5] * 5))
+        assert "%" in explanation and "top" in explanation
+
+    def test_too_few_scores_is_not_a_confident_answer(self):
+        saturation, explanation = measure_saturation(_scores([0.8]))
+        assert saturation == 0.5
+        assert "too few" in explanation
+
+
+class TestTrustScore:
+    def test_old_contaminated_benchmark_scores_low(self):
+        """HellaSwag (2019, flagged) is the calibration case for 'do not trust'."""
+        trust = score_benchmark(find_benchmark("HellaSwag"))
+        assert trust.trust_score < 35
+        assert "reported contamination" in trust.penalties
+
+    def test_recent_task_specific_benchmark_scores_higher(self):
+        swe = score_benchmark(find_benchmark("SWE-Bench Verified"))
+        hellaswag = score_benchmark(find_benchmark("HellaSwag"))
+        assert swe.trust_score > hellaswag.trust_score
+
+    def test_humaneval_ranks_below_its_reputation(self):
+        """The thesis in one assertion: fame and validity have come apart."""
+        humaneval = score_benchmark(find_benchmark("HumanEval"))
+        mirrorcode = score_benchmark(find_benchmark("MirrorCode"))
+        assert humaneval.trust_score < mirrorcode.trust_score
+
+    def test_breakdown_accounts_for_the_whole_score(self):
+        trust = score_benchmark(find_benchmark("GPQA Diamond"))
+        assert {f.name for f in trust.factors} == {
+            "discrimination",
+            "freshness",
+            "reproducibility",
+            "specificity",
+        }
+        # No penalties on this one, so contributions should sum to the score.
+        assert not trust.penalties
+        assert sum(f.contribution for f in trust.factors) == pytest.approx(
+            trust.trust_score, abs=0.2
+        )
+
+    def test_measured_benchmarks_say_so(self):
+        measured = score_benchmark(find_benchmark("MMLU"))
+        curated = score_benchmark(find_benchmark("LiveCodeBench"))
+        assert measured.measured_saturation is not None
+        assert measured.models_measured > 0
+        # LiveCodeBench still has no fetchable score export.
+        assert curated.measured_saturation is None
+        discrimination = {f.name: f for f in curated.factors}["discrimination"]
+        assert discrimination.basis in ("curated", "unknown")
+
+    def test_dominant_factor_is_the_weakest_one(self):
+        trust = score_benchmark(find_benchmark("HellaSwag"))
+        weakest = trust.dominant_factor
+        assert all(weakest.value <= f.value for f in trust.factors)
+
+    def test_freshness_halves_at_the_half_life(self):
+        from datetime import date, timedelta
+
+        recent = Benchmark(
+            key="t1", name="T1", category="code generation",
+            release_date=date.today().isoformat(), independent_evaluators=5,
+        )
+        older = Benchmark(
+            key="t2", name="T2", category="code generation",
+            release_date=(date.today() - timedelta(days=LEAKAGE_HALF_LIFE_DAYS)).isoformat(),
+            independent_evaluators=5,
+        )
+        fresh = {f.name: f for f in score_benchmark(recent).factors}["freshness"]
+        stale = {f.name: f for f in score_benchmark(older).factors}["freshness"]
+        assert stale.value == pytest.approx(fresh.value / 2, rel=0.02)
+
+    def test_scores_stay_in_range(self):
+        for trust in score_all_benchmarks():
+            assert 0.0 <= trust.trust_score <= 100.0
+
+
+class TestCatalog:
+    def test_every_entry_has_a_category_the_matcher_knows(self):
+        from fetch_benchmarks import CATEGORIES
+
+        for benchmark in load_benchmark_catalog():
+            assert benchmark.category in CATEGORIES
+
+    def test_aliases_resolve_to_the_same_benchmark(self):
+        assert find_benchmark("SWE-bench Verified").key == "swe_bench_verified"
+        assert find_benchmark("GPQA").key == "gpqa_diamond"
+        assert find_benchmark("BBH").key == "bbh"
+        assert find_benchmark("nonsense-benchmark") is None
+        assert find_benchmark(None) is None
+
+    def test_score_files_load_where_declared(self):
+        for benchmark in load_benchmark_catalog():
+            if benchmark.epoch_source_file:
+                scores = load_benchmark_scores(benchmark)
+                assert scores is not None, f"{benchmark.name} declares a file that didn't load"
+                assert scores.scores
+
+    def test_benchmarks_without_data_return_none_not_an_error(self):
+        assert load_benchmark_scores(find_benchmark("LiveCodeBench")) is None
+
+    def test_trust_by_key_covers_the_catalog(self):
+        by_key = trust_by_key()
+        assert {b.key for b in load_benchmark_catalog()} == set(by_key)
+
+
+class TestCuratedEvidence:
+    """The curated research has to actually drive the numbers."""
+
+    def test_contamination_penalty_scales_with_measured_rate(self):
+        """MMLU (27.7% dirty) must be penalized harder than MMLU-Pro (16.2%)."""
+        from benchmark_scoring import CONTAMINATION_PENALTY, FULL_CONTAMINATION_RATE
+
+        mmlu = find_benchmark("MMLU")
+        mmlu_pro = find_benchmark("MMLU-Pro")
+        assert mmlu.contamination_rate > mmlu_pro.contamination_rate
+
+        def multiplier(b):
+            severity = min(b.contamination_rate / FULL_CONTAMINATION_RATE, 1.0)
+            return 1.0 - (1.0 - CONTAMINATION_PENALTY) * severity
+
+        assert multiplier(mmlu) < multiplier(mmlu_pro)
+
+    def test_severe_inflation_outweighs_a_modest_overlap_rate(self):
+        """HumanEval: 13% overlap, but scores fall 39.4% when decontaminated."""
+        humaneval = find_benchmark("HumanEval")
+        assert humaneval.contamination_rate < 0.2
+        assert humaneval.contamination_effect > 0.35
+        trust = score_benchmark(humaneval)
+        # The effect, not the mild rate, should be driving the penalty.
+        assert any("decontaminated" in p for p in trust.penalties)
+        assert trust.trust_score < 35
+
+    def test_refreshed_benchmarks_do_not_age_like_static_ones(self):
+        """LiveCodeBench's release windows are a defence against leakage."""
+        from datetime import date, timedelta
+
+        from fetch_benchmarks import Benchmark
+
+        released = (date.today() - timedelta(days=900)).isoformat()
+        static = Benchmark(key="s", name="S", category="code generation", release_date=released)
+        refreshed = Benchmark(
+            key="r", name="R", category="code generation",
+            release_date=released, holdout="refreshed",
+        )
+        static_freshness = {f.name: f for f in score_benchmark(static).factors}["freshness"]
+        refreshed_freshness = {f.name: f for f in score_benchmark(refreshed).factors}["freshness"]
+        assert refreshed_freshness.value > static_freshness.value
+
+    def test_private_holdout_barely_ages(self):
+        from fetch_benchmarks import Benchmark
+
+        old_private = Benchmark(
+            key="p", name="P", category="scientific reasoning",
+            release_date="2020-01-01", holdout="private_holdout",
+        )
+        freshness = {f.name: f for f in score_benchmark(old_private).factors}["freshness"]
+        assert freshness.value >= 0.9
+
+    def test_gpqa_curated_flag_now_agrees_with_the_measurement(self):
+        """Flag and measurement disagreeing was the signal; it's resolved."""
+        gpqa = find_benchmark("GPQA Diamond")
+        assert gpqa.saturation_flagged is True
+        trust = score_benchmark(gpqa)
+        # Measured over frontier models, where the question actually bites.
+        assert trust.primary_source == "epoch_ai"
+        assert trust.measured_saturation > 0.8
+
+    def test_researched_entries_cite_their_sources(self):
+        """A curated claim without a basis is a guess wearing a lab coat."""
+        from fetch_benchmarks import load_benchmark_catalog
+
+        for benchmark in load_benchmark_catalog():
+            if benchmark.contamination_flagged or benchmark.saturation_flagged:
+                notes = benchmark.curation_notes
+                assert notes, f"{benchmark.name} is flagged with no curation notes"
+                assert "RESEARCHED" in notes or "CURATE(you)" in notes, (
+                    f"{benchmark.name} does not say whether its flags are researched"
+                )
+
+    def test_top_ranked_benchmarks_are_not_built_on_guesses(self):
+        """
+        The rankings must not be led by invented numbers.
+
+        Every benchmark's trust score is driven by curated fields —
+        evaluator count and task specificity alone are 40% of the weight.
+        A benchmark that leads this table on values nobody researched is
+        the failure mode this project exists to criticize, so the suite
+        refuses it rather than trusting anyone to notice.
+        """
+        top = score_all_benchmarks()[:5]
+        unresearched = [
+            t.benchmark.name
+            for t in top
+            if "RESEARCHED" not in (t.benchmark.curation_notes or "")
+        ]
+        assert not unresearched, (
+            "These benchmarks lead the rankings on uncurated fields: "
+            f"{unresearched}. Research them or they should not be at the top."
+        )
+
+    def test_every_entry_states_the_basis_for_its_numbers(self):
+        """Not just the leaders — no entry should be silently invented."""
+        from fetch_benchmarks import load_benchmark_catalog
+
+        missing = [
+            b.name
+            for b in load_benchmark_catalog()
+            if "RESEARCHED" not in (b.curation_notes or "")
+        ]
+        assert not missing, f"Entries with no researched basis: {missing}"
+
+
+class TestMeasurementPopulation:
+    """Saturation depends on which models you measure over."""
+
+    def test_frontier_source_is_preferred_over_a_bigger_sample(self):
+        """4,575 weak models spread wide say nothing about the frontier."""
+        from fetch_benchmarks import load_benchmark_scores as primary
+        from fetch_benchmarks import load_score_sets
+
+        gpqa = find_benchmark("GPQA Diamond")
+        sets = {s.source: len(s.scores) for s in load_score_sets(gpqa)}
+        assert sets["open_llm_leaderboard_v2"] > sets["epoch_ai"]
+        assert primary(gpqa).source == "epoch_ai"
+
+    def test_divergent_sources_are_reported_not_averaged(self):
+        trust = score_benchmark(find_benchmark("GPQA Diamond"))
+        assert len(trust.saturation_by_source) > 1
+        discrimination = {f.name: f for f in trust.factors}["discrimination"]
+        # The frontier reading leads; the community reading is named, not hidden.
+        assert "frontier models" in discrimination.explanation
+        assert "Note:" in discrimination.explanation
+
+    def test_newly_measured_benchmarks_stop_guessing(self):
+        """HumanEval, MMLU-Pro and TruthfulQA were curated-only before."""
+        for name in ("HumanEval", "MMLU-Pro", "TruthfulQA"):
+            trust = score_benchmark(find_benchmark(name))
+            assert trust.measured_saturation is not None, f"{name} still unmeasured"
+            assert trust.models_measured > 100
+            basis = {f.name: f for f in trust.factors}["discrimination"].basis
+            assert basis == "measured"
+
+    def test_humaneval_measures_as_saturated(self):
+        """The headline claim, now from a distribution rather than a citation."""
+        trust = score_benchmark(find_benchmark("HumanEval"))
+        assert trust.measured_saturation > 0.6
+
+
+class TestPartialHoldout:
+    """Hidden grading material is a real defence, short of a private set."""
+
+    def _freshness(self, holdout, days_old=900):
+        from datetime import date, timedelta
+
+        from fetch_benchmarks import Benchmark
+
+        released = (date.today() - timedelta(days=days_old)).isoformat()
+        bench = Benchmark(
+            key="t", name="T", category="code generation",
+            release_date=released, holdout=holdout,
+        )
+        return {f.name: f for f in score_benchmark(bench).factors}["freshness"].value
+
+    def test_partial_sits_between_public_and_refreshed(self):
+        public = self._freshness("public_static")
+        partial = self._freshness("partial_holdout")
+        refreshed = self._freshness("refreshed")
+        assert public < partial < refreshed
+
+    def test_partial_is_well_below_private(self):
+        assert self._freshness("partial_holdout") < self._freshness("private_holdout")
+
+    def test_unknown_holdout_value_decays_fully(self):
+        """An unrecognized value must not silently earn a discount."""
+        assert self._freshness("nonsense") == self._freshness("public_static")
+
+    def test_explanation_says_why(self):
+        from datetime import date, timedelta
+
+        from fetch_benchmarks import Benchmark
+
+        bench = Benchmark(
+            key="t", name="T", category="code generation",
+            release_date=(date.today() - timedelta(days=900)).isoformat(),
+            holdout="partial_holdout",
+        )
+        freshness = {f.name: f for f in score_benchmark(bench).factors}["freshness"]
+        assert "grading material is withheld" in freshness.explanation
+
+    def test_the_three_benchmarks_are_marked(self):
+        for name in ("MirrorCode", "FrontierCode", "DeepSWE"):
+            assert find_benchmark(name).holdout == "partial_holdout", name
+
+    def test_no_other_entry_claims_partial_holdout_without_evidence(self):
+        from fetch_benchmarks import load_benchmark_catalog
+
+        for b in load_benchmark_catalog():
+            if b.holdout == "partial_holdout":
+                notes = b.curation_notes.lower()
+                assert "held out" in notes or "held-out" in notes or "unpublished" in notes, (
+                    f"{b.name} claims partial_holdout with no evidence in its notes"
+                )
+
+
+class TestItemQuality:
+    """A wrong answer key is a defect, not a dimension."""
+
+    def _rate(self, rate):
+        from benchmark_scoring import score_benchmark
+        from fetch_benchmarks import Benchmark
+
+        return score_benchmark(
+            Benchmark(
+                key="t", name="T", category="code generation",
+                release_date="2026-01-01", independent_evaluators=3,
+                task_specificity=0.8, item_error_rate=rate,
+            )
+        )
+
+    def test_errors_lower_the_score_in_proportion(self):
+        clean = self._rate(None)
+        mild = self._rate(0.05)
+        severe = self._rate(0.30)
+        assert clean.trust_score > mild.trust_score > severe.trust_score
+
+    def test_unaudited_is_not_treated_as_clean_or_as_zero(self):
+        """None means nobody looked — no penalty, and no credit either."""
+        unaudited = self._rate(None)
+        assert not any("mislabelled" in p for p in unaudited.penalties)
+        # An explicit 0.0 is a *clean audit* and should also not be penalized.
+        audited_clean = self._rate(0.0)
+        assert audited_clean.trust_score == unaudited.trust_score
+
+    def test_penalty_saturates_rather_than_going_negative(self):
+        from benchmark_scoring import ITEM_ERROR_PENALTY
+
+        catastrophic = self._rate(0.95)
+        floor = self._rate(0.20)
+        assert catastrophic.trust_score == pytest.approx(floor.trust_score, abs=0.05)
+        assert catastrophic.trust_score > 0
+        assert ITEM_ERROR_PENALTY > 0
+
+    def test_penalty_is_named_in_the_breakdown(self):
+        trust = self._rate(0.36)
+        assert any("36% of items" in p for p in trust.penalties)
+
+    def test_real_entries_carry_their_audited_rates(self):
+        assert find_benchmark("MMLU").item_error_rate == pytest.approx(0.0649)
+        assert find_benchmark("HellaSwag").item_error_rate == pytest.approx(0.36)
+        assert find_benchmark("SWE-Bench Verified").item_error_rate == pytest.approx(0.10)
+
+    def test_unaudited_benchmarks_stay_none(self):
+        """Most of the catalog has never been audited; that must show as None."""
+        from fetch_benchmarks import load_benchmark_catalog
+
+        unaudited = [b for b in load_benchmark_catalog() if b.item_error_rate is None]
+        assert len(unaudited) >= 15, "suspiciously many benchmarks claim an audited rate"
+
+    def test_every_audited_rate_cites_a_source(self):
+        from fetch_benchmarks import load_benchmark_catalog
+
+        for b in load_benchmark_catalog():
+            if b.item_error_rate is not None:
+                notes = b.curation_notes.lower()
+                assert "item" in notes or "label error" in notes, (
+                    f"{b.name} has an item_error_rate with no explanation"
+                )
