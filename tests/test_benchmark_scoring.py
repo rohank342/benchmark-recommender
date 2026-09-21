@@ -213,6 +213,43 @@ class TestEvaluatorCountReach:
             assert "IS PARTLY UNSOURCED" in notes, name
 
 
+class TestMusrBaseline:
+    """
+    Measured from the dataset by probes/musr_baseline.py, not read about.
+    The murder-mystery split is binary, so 0.33 was never right.
+    """
+
+    def test_the_committed_baseline_matches_the_derivation(self):
+        from fetch_benchmark_scores import RANDOM_BASELINES
+
+        # (250 x 1/2 + 72.1333 + 250 x 1/3) / 756
+        derived = (250 * 0.5 + (4 / 2 + 112 / 3 + 96 / 4 + 44 / 5) + 250 / 3) / 756
+        assert derived == pytest.approx(0.371, abs=0.001)
+        assert RANDOM_BASELINES["musr"] == pytest.approx(0.371)
+
+    def test_the_stored_manifest_agrees_with_the_constant(self):
+        """
+        Scoring reads the manifest, the fetcher writes it from the
+        constant. If they drift, saturation is computed against a baseline
+        nothing in the code claims.
+        """
+        import json
+
+        from fetch_benchmark_scores import RANDOM_BASELINES
+        from fetch_benchmarks import SCORES_MANIFEST
+
+        sets = json.loads(SCORES_MANIFEST.read_text())["sets"]
+        for entry in sets.values():
+            key = entry["benchmark_key"]
+            if key in RANDOM_BASELINES and entry["normalization"] != "baseline":
+                assert entry["random_baseline"] == pytest.approx(
+                    RANDOM_BASELINES[key]
+                ), key
+
+    def test_dataset_size_is_the_counted_total(self):
+        assert find_benchmark("MuSR").dataset_size == 756  # 250 + 256 + 250
+
+
 class TestCuratedEvidence:
     """The curated research has to actually drive the numbers."""
 
@@ -560,11 +597,16 @@ class TestNewlyAddedBenchmarks:
         assert scores.normalization == "none"
         assert 0.2 < min(scores.scores) and max(scores.scores) < 0.7
 
-    def test_unverified_figures_are_not_recorded(self):
-        """MuSR's widely-quoted 756 could not be confirmed, so it stays None."""
+    def test_the_unverified_figure_was_resolved_by_probing(self):
+        """
+        MuSR's widely-quoted 756 was left None while it was only hearsay.
+        It has since been counted from the released dataset — 250 + 256 +
+        250 — so it is now recorded as a measurement rather than dropped.
+        The rule was never "leave it out", it was "don't record hearsay".
+        """
         musr = find_benchmark("MuSR")
-        assert musr.dataset_size is None
-        assert "could not confirm" in musr.curation_notes
+        assert musr.dataset_size == 756
+        assert "MEASURED 2026-09-21 by probing" in musr.curation_notes
 
     def test_gsm8k_does_not_record_a_maximum_as_an_effect(self):
         """

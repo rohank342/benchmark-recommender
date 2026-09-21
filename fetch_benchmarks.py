@@ -919,6 +919,11 @@ BENCHMARK_CATALOG: tuple[Benchmark, ...] = (
         category="commonsense reasoning",
         aliases=("MUSR", "Multistep Soft Reasoning", "musr"),
         release_date="2023-10-24",
+        # MEASURED 2026-09-21 by counting the released CSVs, not from the
+        # paper: 250 murder mysteries + 256 object placements + 250 team
+        # allocations = 756, which also matches all.csv exactly. The widely
+        # repeated 756 is correct. See probes/musr_baseline.py.
+        dataset_size=756,
         contamination_flagged=False,
         saturation_flagged=False,
         independent_evaluators=2,
@@ -940,16 +945,30 @@ BENCHMARK_CATALOG: tuple[Benchmark, ...] = (
             "cause of the backtest's only inversion (MMLU, retired, outranks MuSR, "
             "kept). An unreviewed placeholder is currently deciding whether the "
             "scorer passes its only validation. See docs/BACKTEST.md. "
-            "CURATE(you): dataset_size is unset. The figure of 756 instances is "
-            "widely repeated but I could not confirm it from the paper or the "
-            "dataset card, so it is left None rather than recorded on hearsay. "
+            "DATASET SIZE AND RANDOM BASELINE — MEASURED 2026-09-21 by probing "
+            "TAUR-Lab/MuSR directly (probes/musr_baseline.py), replacing two "
+            "earlier CURATE markers. 756 items confirmed: 250 murder mysteries + "
+            "256 object placements + 250 team allocations, matching all.csv. "
+            "THE BASELINE WAS WRONG, and wrong in MuSR's favour. It was recorded "
+            "as 0.33 on the assumption of three options throughout. Counting "
+            "options per item shows the murder-mystery split is BINARY (chance "
+            "0.5), object placement varies from 2 to 5 options (chance 0.282) and "
+            "only team allocation is genuinely three-way (0.333). The aggregate "
+            "is 0.371, and the item-weighted and subtask-weighted aggregations "
+            "agree to 0.0007 because the three subtasks are nearly the same size, "
+            "so the number does not hinge on how the leaderboard aggregates. "
+            "HF's own v2 rescaling, inverted out of their raw and normalized "
+            "columns, implies ~0.345 — but it varies per model, which shows they "
+            "normalized each subtask separately rather than using one aggregate "
+            "baseline. Their number is not directly comparable; it does confirm "
+            "0.33 was too low. Derivation in fetch_benchmark_scores.RANDOM_BASELINES. "
+            "CONSEQUENCE: less headroom, so MEASURED SATURATION RISES and MuSR's "
+            "trust score FALLS. This was committed before the backtest was rerun "
+            "and it works against the backtest's only inversion, which MuSR is "
+            "already on the losing side of. "
             "CURATE(you): no contamination or item-quality study found. That is "
             "absence of evidence — the generation pipeline is public, so a "
-            "regenerated variant would be a cheap contamination check. "
-            "SCORING NOTE: the random baseline is recorded as 0.33 in "
-            "fetch_benchmark_scores, assuming three options. MuSR mixes domains "
-            "with different option counts, so that is an approximation and it feeds "
-            "directly into the saturation reading."
+            "regenerated variant would be a cheap contamination check."
         ),
         epoch_source_file=None,
     ),

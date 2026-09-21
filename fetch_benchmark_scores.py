@@ -116,11 +116,42 @@ RANDOM_BASELINES = {
     "winogrande": 0.5,  # binary choice; matches Epoch's metadata
     "gsm8k": 0.0,  # free-form numeric answer
     "ifeval": 0.0,  # verifiable instructions, pass/fail per constraint
-    # CURATE(you): MuSR mixes domains with different option counts, so a
-    # single chance level is an approximation. 0.33 assumes three options,
-    # which matches the murder-mystery and team-allocation splits but not
-    # necessarily object placement.
-    "musr": 0.33,
+    # MEASURED 2026-09-21 from the released dataset (TAUR-Lab/MuSR), not
+    # from anything written about it. Re-derive with probes/musr_baseline.py.
+    #
+    # The old 0.33 assumed three options throughout. That is wrong, and
+    # wrong in the direction that flattered the benchmark: the murder
+    # mystery split is BINARY. Counting options per item across all 756:
+    #
+    #   murder_mystery      250 items, all 2 options   -> 0.50000
+    #   object_placements   256 items, 2-5 options     -> 0.28177
+    #                       (4x2, 112x3, 96x4, 44x5)
+    #   team_allocation     250 items, all 3 options   -> 0.33333
+    #
+    #   item-weighted:    (125 + 72.133 + 83.333) / 756       = 0.37099
+    #   subtask-weighted: (0.5 + 0.28177 + 0.33333) / 3       = 0.37170
+    #
+    # The subtasks are near-identical in size (250/256/250), so the two
+    # aggregations differ by 0.0007 and the recorded value does not depend
+    # on which one the leaderboard used. Taken as 0.371.
+    #
+    # CROSS-CHECK against HF's v2 leaderboard, which publishes MuSR both
+    # raw and rescaled-so-chance-is-0, so its baseline inverts out as
+    # b = (raw - rescaled)/(1 - rescaled). On GPQA — flat four options —
+    # that returns exactly 0.25000 (std 0.002), so the inversion is sound.
+    # On MuSR it returns a median of 0.345 that VARIES per model (std
+    # 0.012, p01-p99 0.303-0.357), which means HF used no single aggregate
+    # baseline: they normalized each subtask separately and averaged, and
+    # that cannot be written as one constant. Their ~0.345 is therefore not
+    # directly comparable to 0.371, but it independently confirms the
+    # direction — 0.33 was too low.
+    #
+    # EFFECT, stated because it points the wrong way: a higher baseline
+    # means less headroom, so this RAISES measured saturation for MuSR and
+    # LOWERS its trust score — deepening the backtest's one inversion
+    # rather than fixing it. Committed before the backtest was rerun,
+    # because the dataset says so.
+    "musr": 0.371,
     "humaneval": 0.0,
 }
 

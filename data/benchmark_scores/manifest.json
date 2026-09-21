@@ -56,7 +56,7 @@
       "source": "open_llm_leaderboard_v2",
       "column": "MUSR Raw",
       "normalization": "none",
-      "random_baseline": 0.33,
+      "random_baseline": 0.371,
       "ceiling": 1.0,
       "models": 4575,
       "dated_models": 4046
