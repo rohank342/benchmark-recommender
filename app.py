@@ -137,10 +137,24 @@ def rank_benchmarks(task_description: str) -> tuple[str, pd.DataFrame]:
     rows = []
     for trust in benchmarks:
         benchmark = trust.benchmark
+        from fetch_benchmarks import describe_population
+
         saturation = (
             f"{trust.measured_saturation * 100:.0f}% (measured, n={trust.models_measured})"
             if trust.measured_saturation is not None
             else "unknown (no score data)"
+        )
+        # Saturation depends on which models you measure over, so name the
+        # population rather than implying one universal number.
+        measured_over = (
+            describe_population(trust.primary_source) if trust.primary_source else "—"
+        )
+        by_source = (
+            " | ".join(
+                f"{describe_population(src)}: {value * 100:.0f}% (n={n})"
+                for src, (value, n) in trust.saturation_by_source.items()
+            )
+            or "—"
         )
         factors = {f.name: f for f in trust.factors}
         rows.append(
@@ -149,6 +163,8 @@ def rank_benchmarks(task_description: str) -> tuple[str, pd.DataFrame]:
                 "trust_score": trust.trust_score,
                 "category": benchmark.category,
                 "saturation": saturation,
+                "measured_over": measured_over,
+                "saturation_by_source": by_source,
                 "limiting_factor": trust.dominant_factor.name if trust.dominant_factor else "—",
                 "why": trust.summary,
                 "released": benchmark.release_date or "unknown",

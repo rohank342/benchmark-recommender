@@ -83,12 +83,13 @@ class TestTrustScore:
 
     def test_measured_benchmarks_say_so(self):
         measured = score_benchmark(find_benchmark("MMLU"))
-        curated = score_benchmark(find_benchmark("HumanEval"))
+        curated = score_benchmark(find_benchmark("LiveCodeBench"))
         assert measured.measured_saturation is not None
         assert measured.models_measured > 0
+        # LiveCodeBench still has no fetchable score export.
         assert curated.measured_saturation is None
         discrimination = {f.name: f for f in curated.factors}["discrimination"]
-        assert discrimination.basis == "curated"
+        assert discrimination.basis in ("curated", "unknown")
 
     def test_dominant_factor_is_the_weakest_one(self):
         trust = score_benchmark(find_benchmark("HellaSwag"))
@@ -138,7 +139,7 @@ class TestCatalog:
                 assert scores.scores
 
     def test_benchmarks_without_data_return_none_not_an_error(self):
-        assert load_benchmark_scores(find_benchmark("HumanEval")) is None
+        assert load_benchmark_scores(find_benchmark("LiveCodeBench")) is None
 
     def test_trust_by_key_covers_the_catalog(self):
         by_key = trust_by_key()
@@ -170,7 +171,7 @@ class TestCuratedEvidence:
         trust = score_benchmark(humaneval)
         # The effect, not the mild rate, should be driving the penalty.
         assert any("decontaminated" in p for p in trust.penalties)
-        assert trust.trust_score < 25
+        assert trust.trust_score < 35
 
     def test_refreshed_benchmarks_do_not_age_like_static_ones(self):
         """LiveCodeBench's release windows are a defence against leakage."""
@@ -203,6 +204,8 @@ class TestCuratedEvidence:
         gpqa = find_benchmark("GPQA Diamond")
         assert gpqa.saturation_flagged is True
         trust = score_benchmark(gpqa)
+        # Measured over frontier models, where the question actually bites.
+        assert trust.primary_source == "epoch_ai"
         assert trust.measured_saturation > 0.8
 
     def test_researched_entries_cite_their_sources(self):
@@ -216,3 +219,39 @@ class TestCuratedEvidence:
                 assert "RESEARCHED" in notes or "CURATE(you)" in notes, (
                     f"{benchmark.name} does not say whether its flags are researched"
                 )
+
+
+class TestMeasurementPopulation:
+    """Saturation depends on which models you measure over."""
+
+    def test_frontier_source_is_preferred_over_a_bigger_sample(self):
+        """4,575 weak models spread wide say nothing about the frontier."""
+        from fetch_benchmarks import load_benchmark_scores as primary
+        from fetch_benchmarks import load_score_sets
+
+        gpqa = find_benchmark("GPQA Diamond")
+        sets = {s.source: len(s.scores) for s in load_score_sets(gpqa)}
+        assert sets["open_llm_leaderboard_v2"] > sets["epoch_ai"]
+        assert primary(gpqa).source == "epoch_ai"
+
+    def test_divergent_sources_are_reported_not_averaged(self):
+        trust = score_benchmark(find_benchmark("GPQA Diamond"))
+        assert len(trust.saturation_by_source) > 1
+        discrimination = {f.name: f for f in trust.factors}["discrimination"]
+        # The frontier reading leads; the community reading is named, not hidden.
+        assert "frontier models" in discrimination.explanation
+        assert "Note:" in discrimination.explanation
+
+    def test_newly_measured_benchmarks_stop_guessing(self):
+        """HumanEval, MMLU-Pro and TruthfulQA were curated-only before."""
+        for name in ("HumanEval", "MMLU-Pro", "TruthfulQA"):
+            trust = score_benchmark(find_benchmark(name))
+            assert trust.measured_saturation is not None, f"{name} still unmeasured"
+            assert trust.models_measured > 100
+            basis = {f.name: f for f in trust.factors}["discrimination"].basis
+            assert basis == "measured"
+
+    def test_humaneval_measures_as_saturated(self):
+        """The headline claim, now from a distribution rather than a citation."""
+        trust = score_benchmark(find_benchmark("HumanEval"))
+        assert trust.measured_saturation > 0.6

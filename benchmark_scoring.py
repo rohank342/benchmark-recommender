@@ -44,8 +44,10 @@ from typing import Optional
 from fetch_benchmarks import (
     Benchmark,
     BenchmarkScores,
+    describe_population,
     load_benchmark_catalog,
     load_benchmark_scores,
+    load_score_sets,
 )
 
 # How much each factor contributes to the final score. Sums to 1.0.
@@ -112,6 +114,10 @@ class BenchmarkTrust:
     penalties: list[str] = field(default_factory=list)
     measured_saturation: Optional[float] = None  # 0-1, higher = more saturated
     models_measured: int = 0
+    # Saturation per source, since different sources cover different
+    # populations: {source: (saturation, n_models)}.
+    saturation_by_source: dict = field(default_factory=dict)
+    primary_source: Optional[str] = None
 
     @property
     def dominant_factor(self) -> Optional[Factor]:
@@ -180,14 +186,33 @@ def _discrimination_factor(
 ) -> tuple[Factor, Optional[float]]:
     if scores is not None:
         saturation, explanation = measure_saturation(scores)
+        population = describe_population(scores.source)
+        detail = f"{explanation}, across {len(scores.scores)} {population}"
+
+        # Where another source covers a different population, say so —
+        # a benchmark can be saturated at the frontier and still spread
+        # out weaker models, and conflating the two misleads.
+        others = [
+            (s.source, measure_saturation(s)[0])
+            for s in load_score_sets(benchmark)
+            if s.source != scores.source
+        ]
+        divergent = [
+            (source, value) for source, value in others if abs(value - saturation) > 0.15
+        ]
+        if divergent:
+            detail += ". Note: " + "; ".join(
+                f"{value * 100:.0f}% among {describe_population(source)}"
+                for source, value in divergent
+            )
+
         return (
             Factor(
                 name="discrimination",
                 value=1.0 - saturation,
                 weight=FACTOR_WEIGHTS["discrimination"],
                 basis="measured",
-                explanation=explanation
-                + f" (from {len(scores.scores)} model scores)",
+                explanation=detail,
             ),
             saturation,
         )
@@ -340,6 +365,11 @@ def score_benchmark(benchmark: Benchmark) -> BenchmarkTrust:
         penalties=penalties,
         measured_saturation=saturation,
         models_measured=len(scores.scores) if scores else 0,
+        saturation_by_source={
+            s.source: (round(measure_saturation(s)[0], 3), len(s.scores))
+            for s in load_score_sets(benchmark)
+        },
+        primary_source=scores.source if scores else None,
     )
 
 

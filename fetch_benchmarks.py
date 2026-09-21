@@ -37,6 +37,9 @@ from typing import Any, Optional
 DATA_DIR = Path(__file__).parent / "data"
 EPOCH_DIR = DATA_DIR / "epoch_benchmarks"
 EPOCH_METADATA_FILE = "benchmark_metadata.csv"
+# Score sets pulled by fetch_benchmark_scores.py, named
+# "<benchmark key>__<source>.csv" with columns model,score (0-1).
+SCORES_DIR = DATA_DIR / "benchmark_scores"
 
 # Task categories. task_matcher.py maps free-text task descriptions onto
 # these, so adding a category means teaching the matcher its vocabulary.
@@ -572,16 +575,99 @@ def _epoch_metadata(path: Path = EPOCH_DIR) -> dict[str, dict[str, str]]:
         }
 
 
-def load_benchmark_scores(
+def load_external_score_sets(
+    benchmark: Benchmark, path: Path = SCORES_DIR
+) -> list[BenchmarkScores]:
+    """
+    Score sets pulled from leaderboards by fetch_benchmark_scores.py.
+
+    A benchmark can have several — the same benchmark measured by
+    different evaluators — which is what makes cross-source agreement
+    checkable rather than assumed.
+    """
+    if not path.exists():
+        return []
+    sets: list[BenchmarkScores] = []
+    for file_path in sorted(path.glob(f"{benchmark.key}__*.csv")):
+        source = file_path.stem.split("__", 1)[1]
+        scores: list[float] = []
+        names: list[str] = []
+        with file_path.open(newline="", encoding="utf-8") as handle:
+            for row in csv.DictReader(handle):
+                try:
+                    scores.append(float(row["score"]))
+                except (KeyError, TypeError, ValueError):
+                    continue
+                names.append((row.get("model") or "").strip())
+        if scores:
+            sets.append(
+                BenchmarkScores(
+                    benchmark_key=benchmark.key,
+                    scores=scores,
+                    model_names=names,
+                    ceiling=1.0,
+                    random_baseline=0.0,
+                    source=source,
+                )
+            )
+    return sets
+
+
+def load_score_sets(benchmark: Benchmark) -> list[BenchmarkScores]:
+    """Every score distribution available for this benchmark, any source."""
+    sets = load_external_score_sets(benchmark)
+    epoch = load_epoch_scores(benchmark)
+    if epoch is not None:
+        sets.insert(0, epoch)
+    return sets
+
+
+# What population each score source covers. This decides what a
+# saturation reading *means*, and the sources disagree sharply: on GPQA
+# Diamond the frontier's top 10 sit at 93% of the usable range while the
+# open-community leaderboard's top 10 sit at 27%. Both are true; they
+# answer different questions.
+SOURCE_POPULATIONS = {
+    "epoch_ai": "frontier models",
+    "open_llm_leaderboard_v2": "open community models (HF leaderboard v2)",
+    "open_llm_leaderboard_v1": "open community models (HF leaderboard v1)",
+    "evalplus": "code models submitted to EvalPlus",
+}
+
+# Preference order for the headline reading. Frontier coverage wins over
+# sample size: "has this benchmark stopped separating the best models?"
+# is the question people are actually asking when they pick a benchmark,
+# and a thousand weak models spread across the low end don't answer it.
+PRIMARY_SOURCE_PREFERENCE = ("epoch_ai", "evalplus")
+
+
+def describe_population(source: str) -> str:
+    return SOURCE_POPULATIONS.get(source, source)
+
+
+def load_benchmark_scores(benchmark: Benchmark) -> Optional[BenchmarkScores]:
+    """
+    The distribution to measure saturation from.
+
+    Prefers a source that tracks frontier models, falling back to the
+    largest set. Returns None when nothing covers this benchmark — not a
+    failure, just the boundary between measured and curated, which the
+    caller is expected to report rather than paper over.
+    """
+    sets = load_score_sets(benchmark)
+    if not sets:
+        return None
+    for preferred in PRIMARY_SOURCE_PREFERENCE:
+        for score_set in sets:
+            if score_set.source == preferred:
+                return score_set
+    return max(sets, key=lambda s: len(s.scores))
+
+
+def load_epoch_scores(
     benchmark: Benchmark, path: Path = EPOCH_DIR
 ) -> Optional[BenchmarkScores]:
-    """
-    Every model score recorded for this benchmark, normalized to 0-1.
-
-    Returns None when the benchmark has no local score file — which is
-    not a failure, just the boundary between measured and curated. The
-    caller is expected to say which it is rather than paper over it.
-    """
+    """Per-model scores from Epoch AI's export, normalized to 0-1."""
     if not benchmark.epoch_source_file:
         return None
     metadata = _epoch_metadata(path).get(benchmark.epoch_source_file)
