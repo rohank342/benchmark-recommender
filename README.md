@@ -44,9 +44,14 @@ committed data:
 anybody's finding:
 
 - `task_specificity` for all 26 benchmarks: how narrowly a benchmark maps to
-  real work, 0–1.
+  real work, 0–1. **Four of these (Winogrande, GSM8K, MuSR, IFEval) were
+  assigned by Claude Code and have not been reviewed by the owner** — each is
+  marked as such in the catalog. Specificity is 20% of every score, nothing
+  measures it, and one of the four unreviewed values decides whether the
+  backtest passes.
 - `independent_evaluators` for the 20 benchmarks where agreement can't be
-  measured.
+  measured. Winogrande's 4 and GSM8K's 5 are partly unsourced: three of each
+  can be named, the rest cannot.
 - Every weight and threshold: the 40/20/20/20 factor split, the two-year
   leakage half-life, the penalty curves.
 
@@ -64,12 +69,15 @@ The ones that undercut the project, stated plainly:
 reproducibility and specificity, with a two-year leakage half-life. These are
 judgement calls, and **[the backtest now partially fails](docs/BACKTEST.md)**.
 Scored as of June 2024 against HF's retirement decision it gets 10 of 12 —
-MMLU, which was retired, outranks MuSR, which was kept. The cause is MuSR's
-hand-assigned specificity. Worse, sorting benchmarks by release date and
-calling the newer half "kept" also scores 10 of 12, so on the only test
-available the four weighted factors do not beat ranking by age. Weights that
-would pass exist, but they disagree about which factor is wrong, so none were
-applied.
+MMLU, which was retired, outranks MuSR, which was kept, by 0.6 points.
+The cause is MuSR's specificity of 0.3, a number Claude Code assigned and
+nobody reviewed; **raising it to 0.34 would flip the test to 12/12**. Worse,
+sorting benchmarks by release date and calling the newer half "kept" also
+scores 10 of 12, so on the only test available the four weighted factors do
+not beat ranking by age. Weights that would pass exist — four different
+single-weight changes each produce 12/12, including *halving* the
+discrimination weight that the whole method leans on — and they disagree
+about which factor is wrong, so none were applied.
 
 **Saturation depends on which models you measure.** On GPQA Diamond the
 frontier's top ten sit at 93% of the usable range while the open-community
@@ -79,12 +87,20 @@ coverage, because "has this stopped separating the best models?" is usually
 what's being asked, and the UI shows every source's reading rather than
 averaging them into one misleading number.
 
-**Reproducibility is measured for 4 benchmarks and guessed for 18.** Only MMLU,
-GPQA Diamond, BBH and MATH Lvl 5 have two comparable sources. The rest fall
-back to a curated count of how many groups publish scores — which says nothing
-about whether those scores agree. Where both exist they can disagree sharply:
-GPQA has five evaluators (proxy: fully reproducible) and 8.1 points of
-unexplained scatter between two of them (measurement: not reproducible at all).
+**Reproducibility is measured for 6 benchmarks and guessed for 20.** Only MMLU,
+GPQA Diamond, BBH, MATH Lvl 5, Winogrande and GSM8K have two comparable
+sources. The rest fall back to a curated count of how many groups publish
+scores — which says nothing about whether those scores agree. Where both exist
+they can disagree sharply: GPQA has five evaluators (proxy: fully reproducible)
+and 8.1 points of unexplained scatter between two of them (measurement: not
+reproducible at all).
+
+**And the backtest cannot use the measurement at all.** Cross-source agreement
+is computed from today's score sets, so as-of scoring falls back to the curated
+count — meaning the one test this project has runs on the guessed value for all
+twelve. GSM8K is the worst case: an unsourced count of 5 hands it *full* marks
+for reproducibility in 2024, while the measurement available today says 0.134
+(6.9 points of scatter plus a 7.0-point systematic gap between harnesses).
 
 **Evaluator coverage is thin.** MirrorCode, which currently leads the rankings,
 has exactly one independent evaluator, and seven more benchmarks have only two.

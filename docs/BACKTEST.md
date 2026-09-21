@@ -2,8 +2,14 @@
 
 **Run it:** `python backtest.py` (add `--sweep` for the diagnostics).
 
-**Result at 12 benchmarks: 10/12, separation LOST by 1.4 points. The scorer
+**Result at 12 benchmarks: 10/12, separation LOST by 0.6 points. The scorer
 gets one pair the wrong way round.** No weights were changed in response.
+
+*Updated 2026-09-21.* Correcting MuSR's random baseline from an assumed
+0.33 to a measured 0.371 (see `probes/musr_baseline.py`) moved MuSR from
+43.6 to 44.4 and narrowed the gap from −1.4 to −0.6. **The verdict did not
+change**: still 10/12, still no separation, still the same inversion. The
+baseline was committed from the dataset before this was run.
 
 **This used to pass.** At 8 benchmarks it scored 8/8 with perfect separation
 and an 8.2-point margin. Adding the four missing benchmarks — completing
@@ -48,7 +54,7 @@ the score means nothing without them.
 | 4 | MMLU-Pro | kept | 53.2 | 608 |
 | 5 | IFEval | kept | 48.9 | 608 |
 | 6 | **MMLU** | **retired** | **45.0** | 172 |
-| 7 | **MuSR** | **kept** | **43.6** | 608 |
+| 7 | **MuSR** | **kept** | **44.4** | 608 |
 | 8 | ARC | retired | 42.3 | 121 |
 | 9 | Winogrande | retired | 42.0 | 124 |
 | 10 | GSM8K | retired | 40.6 | 142 |
@@ -60,18 +66,31 @@ the score means nothing without them.
 | **scorer: retire** | 5 | 1 |
 | **scorer: keep** | 1 | 5 |
 
-**One inversion**: MMLU (retired) scores 1.4 points above MuSR (kept). Every
+**One inversion**: MMLU (retired) scores 0.6 points above MuSR (kept). Every
 other benchmark lands on the correct side.
 
 ### Why the miss happens
 
-MuSR's `task_specificity` is 0.3 — my hand-assigned judgement that synthetic
+MuSR's `task_specificity` is 0.3 — a hand-assigned judgement that synthetic
 murder-mystery puzzles don't map onto real work. That judgement is 20% of
 its score and is what drags it below MMLU. The scorer's weakest, least
 defensible input produces its only error.
 
+It is worse than "hand-assigned". That 0.3 was **written by Claude Code and
+never reviewed by the owner**, and is now marked as such in the catalog.
+Specificity is supposed to be the owner's judgement; an unreviewed
+placeholder is currently deciding whether the scorer passes its only
+validation.
+
 That is worth sitting with. It is not a data problem that more scraping
-fixes.
+fixes. **Raising MuSR's specificity from 0.30 to 0.34 flips the test to
+12/12** — a change smaller than anyone could defend one way or the other,
+to a number nobody has justified. The scorer's verdict on its only
+validation rests on the second decimal place of a guess.
+
+This is also the clearest argument for not tuning: a test that can be
+passed by nudging an unreviewed judgement by 0.04 is not measuring the
+scoring machinery.
 
 ---
 
@@ -101,14 +120,21 @@ nothing over "newer benchmarks are better."
 
 12/12 is reachable, but the settings disagree about how:
 
-- **freshness ≥ 0.30** → 12/12, separated (gap +5.5 to +18.5)
-- **reproducibility = 0.10** → 12/12, separated (gap +5.9)
-- **specificity 0.40–0.50** → 12/12, separated (gap +0.5 to +1.5)
-- **discrimination**: never reaches 12/12 at any tested weight
+- **freshness ≥ 0.30** → 12/12, separated (gap +6.2 to +18.5)
+- **reproducibility = 0.10** → 12/12, separated (gap +6.9)
+- **specificity 0.30–0.50** → 12/12, separated (gap +0.7 to +2.1)
+- **discrimination = 0.20** → 12/12, separated (gap +0.3)
 
-Three different single-weight changes each "fix" the test, pulling in
-different directions. That is the signature of fitting to twelve data
-points, not of finding the right weights. **No weights were changed.**
+**Four** different single-weight changes each "fix" the test now, and they
+pull in incompatible directions. The last one is new since the MuSR
+correction and is the most damning: discrimination is the project's
+headline factor at 0.40, and *halving* it also produces a pass. Raising it
+to 0.60 produces 8/12.
+
+So the test can be passed by trusting measured saturation more, or less;
+by weighting age more; by weighting reproducibility less; or by nudging one
+unreviewed judgement by 0.04. That is the signature of fitting to twelve
+data points, not of finding the right weights. **No weights were changed.**
 
 ---
 
