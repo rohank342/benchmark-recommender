@@ -104,6 +104,18 @@ class Benchmark:
     # benchmark-specific reference errors, and their recommended fix was
     # "fully held-out evaluation sets" with temporal separation.
     # https://huggingface.co/blog/asr-benchmark-optimization
+    #
+    # CURATE(you): these three values are too coarse, and curating the
+    # 2026 benchmarks made that obvious. MirrorCode holds out ~34% of each
+    # program's tests, FrontierCode grades against held-out tests plus a
+    # maintainer rubric, and DeepSWE never contributes its tasks upstream
+    # so the reference solutions stay unpublished. All three are real
+    # leakage defences on benchmarks whose *questions* are public — which
+    # is neither "public_static" nor "private_holdout". They are currently
+    # recorded as public_static, so they get no credit for it. A fourth
+    # value ("partial_holdout") with a discount between the two would fix
+    # this, but it would lift three of the top six, so it is your call
+    # rather than something to slip in.
     holdout: str = "public_static"
     curation_notes: str = ""
 
@@ -384,11 +396,30 @@ BENCHMARK_CATALOG: tuple[Benchmark, ...] = (
         category="code generation",
         aliases=("Mirror Code",),
         release_date="2026-06-26",
+        dataset_size=30,  # 15 target programs x 2 implementation languages
         contamination_flagged=False,
         saturation_flagged=False,
-        independent_evaluators=2,
+        independent_evaluators=1,
         task_specificity=0.8,
-        curation_notes="CURATE(you): recent Epoch-run benchmark; confirm construction and refresh policy.",
+        curation_notes=(
+            "RESEARCHED 2026-09-20. Epoch AI's long-horizon coding benchmark, "
+            "co-developed with METR. Models reimplement CLI programs from "
+            "execute-only access plus docs — no source, no internet — across Unix "
+            "utilities, serialization tools, bioinformatics, interpreters, static "
+            "analysis, cryptography and compression. 25 target programs exist; the "
+            "leaderboard config scores the 15 Medium/Large ones in two languages = "
+            "30 tasks. Specificity 0.8: reimplementation is a real engineering "
+            "capability but a constructed exercise, not a task someone had anyway. "
+            "Evaluators lowered 2 -> 1: Epoch publishes the scores and METR "
+            "co-built it, so they are not independent of each other. "
+            "LEAKAGE DEFENCE NOT CAPTURED BY `holdout`: ~34% of each program's "
+            "test cases are held out, which blocks memorizing solutions without "
+            "making the benchmark private or refreshed. The three-value field "
+            "can't express partial holdout — see the note on that field. "
+            "https://epoch.ai/benchmarks/mirrorcode "
+            "CURATE(you): Epoch dates it 2026-06-26 but the citation says "
+            "published August 2026 — check which is the public release."
+        ),
         epoch_source_file="mirrorcode.csv",
     ),
     Benchmark(
@@ -400,9 +431,21 @@ BENCHMARK_CATALOG: tuple[Benchmark, ...] = (
         dataset_size=225,
         contamination_flagged=False,
         saturation_flagged=False,
-        independent_evaluators=3,
-        task_specificity=0.85,
-        curation_notes="CURATE(you): edit-format-sensitive; measures applying diffs, not just writing code.",
+        independent_evaluators=2,
+        task_specificity=0.7,
+        curation_notes=(
+            "RESEARCHED 2026-09-20. The 225 hardest of Exercism's 697 exercises — "
+            "specifically those solved by 3 or fewer models — in C++, Go, Java, "
+            "JavaScript, Python and Rust. Worth noting WHY it exists: aider's "
+            "earlier Python-only benchmark saturated above 80%, so this is a "
+            "de-saturation successor, the same pattern as MMLU -> MMLU-Pro. "
+            "Specificity cut 0.85 -> 0.7: Exercism katas are self-contained "
+            "puzzles, not real code; what does transfer is that the model must "
+            "produce a correctly-formatted edit to an existing file. Evaluators "
+            "cut 3 -> 2 (aider's leaderboard, Epoch) — the rest are aggregators "
+            "republishing aider's numbers, which is not independent measurement. "
+            "https://aider.chat/2024/12/21/polyglot.html"
+        ),
         epoch_source_file="aider_polyglot_external.csv",
     ),
     Benchmark(
@@ -410,12 +453,29 @@ BENCHMARK_CATALOG: tuple[Benchmark, ...] = (
         name="Terminal Bench",
         category="agentic tool use",
         aliases=("TerminalBench", "terminalbench", "terminalbench_hard"),
-        release_date="2025-05-01",
+        release_date="2025-05-19",  # was 2025-05-01: corrected, public introduction date
+        dataset_size=80,  # Terminal-Bench-Core at the 2025-05-19 release
         contamination_flagged=False,
         saturation_flagged=False,
         independent_evaluators=3,
         task_specificity=0.9,
-        curation_notes="CURATE(you): verify release date and harness version — scores move between harnesses.",
+        curation_notes=(
+            "RESEARCHED 2026-09-20. Introduced 2025-05-19 by Stanford (Mike A. "
+            "Merrill) and the Laude Institute (Alexander G. Shaw), alongside the "
+            "Terminus agent. The launch set, Terminal-Bench-Core, had 80 tasks in "
+            "a Docker sandbox. Specificity 0.9: real sysadmin, data-processing, "
+            "training and security work done at a shell. Evaluators = 3 (official "
+            "leaderboard, Epoch, Artificial Analysis). "
+            "HARNESS/VERSION NOT PINNED — CURATE(you): the benchmark has moved "
+            "fast. 2.0 shipped November 2025; 2.1 is a verified refresh of 89 "
+            "tasks run with the Terminus 2 harness in an e2b sandbox, and "
+            "Artificial Analysis separately publishes Terminal-Bench Hard. Epoch's "
+            "file gives a release date of 2025-05-19 and an 'Accuracy mean' "
+            "column but does not name the version or harness, so the scores this "
+            "repo reads MAY MIX HARNESSES. Scores are known to move between "
+            "harnesses, so treat cross-model comparisons here as provisional until "
+            "the version is confirmed."
+        ),
         epoch_source_file="terminalbench_external.csv",
     ),
     Benchmark(
@@ -423,12 +483,24 @@ BENCHMARK_CATALOG: tuple[Benchmark, ...] = (
         name="GSO-Bench",
         category="software engineering",
         aliases=("GSO", "gso_external"),
-        release_date="2025-07-01",
+        release_date="2025-05-29",  # was 2025-07-01: wrong, corrected from arXiv + Epoch
+        dataset_size=102,
         contamination_flagged=False,
         saturation_flagged=False,
         independent_evaluators=2,
-        task_specificity=0.85,
-        curation_notes="CURATE(you): confirm release date and what the OPT@1 scorer rewards.",
+        task_specificity=0.9,
+        curation_notes=(
+            "RESEARCHED 2026-09-20. 102 software *optimization* tasks across 10 "
+            "real codebases — arXiv 2505.23671, NeurIPS 2025 D&B. The agent gets a "
+            "codebase and a performance test, and must beat or match the expert "
+            "developer's own optimization commit. The Opt@1 scorer this repo reads "
+            "is the fraction of tasks where one attempt achieves >=95% of the human "
+            "speedup AND passes correctness; p=0 would score correctness alone. "
+            "Specificity raised 0.85 -> 0.9: the reference is a real commit a real "
+            "maintainer wrote. Leading agents score under 5%, which is consistent "
+            "with the ~15% saturation measured here. Evaluators = 2 (authors, Epoch). "
+            "https://arxiv.org/abs/2505.23671 | https://gso-bench.github.io/"
+        ),
         epoch_source_file="gso_external.csv",
     ),
     Benchmark(
@@ -437,11 +509,31 @@ BENCHMARK_CATALOG: tuple[Benchmark, ...] = (
         category="software engineering",
         aliases=("Deep SWE",),
         release_date="2026-05-26",
+        dataset_size=113,
         contamination_flagged=False,
         saturation_flagged=False,
         independent_evaluators=2,
         task_specificity=0.9,
-        curation_notes="CURATE(you): recent; little independent reporting yet.",
+        curation_notes=(
+            "RESEARCHED 2026-09-20. 113 original long-horizon engineering tasks "
+            "written from scratch across 91 open-source repos in five languages "
+            "(arXiv 2607.07946). Two design choices matter here: the tasks are "
+            "NEVER CONTRIBUTED UPSTREAM, so reference solutions stay outside the "
+            "public record training scrapes; and grading uses hand-written "
+            "verifiers that accept any working implementation instead of the "
+            "repo's own tests. On the second point they report an independent LLM "
+            "judge disagreeing with their verifier 1.4% of the time against 32.4% "
+            "for SWE-bench Pro's inherited tests — i.e. much of what SWE-bench-"
+            "style benchmarks score as failure is the test being wrong, not the "
+            "patch. Specificity 0.9 stands. Evaluators = 2 (authors, Epoch). "
+            "Unpublished solutions are a real leakage defence that `holdout` "
+            "cannot express — see that field's note. "
+            "NAME COLLISION — CURATE(you): 'DeepSWE-Preview' is a 32B coding MODEL "
+            "from Agentica/Together AI (July 2025), unrelated to this benchmark. "
+            "The alias 'Deep SWE' could pick up model scores; worth tightening. "
+            "Also: Epoch dates this 2026-05-26 while the paper was submitted "
+            "2026-07-08 — the discrepancy is unexplained, Epoch's date kept."
+        ),
         epoch_source_file="deepswe_external.csv",
     ),
     Benchmark(
@@ -450,11 +542,25 @@ BENCHMARK_CATALOG: tuple[Benchmark, ...] = (
         category="code generation",
         aliases=("Frontier Code",),
         release_date="2026-06-08",
+        dataset_size=150,  # Extended set; the Main subset scored here is 100
         contamination_flagged=False,
         saturation_flagged=False,
         independent_evaluators=2,
-        task_specificity=0.8,
-        curation_notes="CURATE(you): recent; little independent reporting yet.",
+        task_specificity=0.95,
+        curation_notes=(
+            "RESEARCHED 2026-09-20. Built by COGNITION, not Epoch — Epoch charts "
+            "Cognition's public leaderboard, currently revision 1.1. Each task pairs "
+            "a checked-out repo with one real open-source issue; patches are graded "
+            "against held-out tests AND a maintainer-authored rubric covering "
+            "behavioural correctness, regression safety, build/style cleanliness and "
+            "project conventions. The score this repo reads is the Main subset (100 "
+            "hardest of 150). Specificity raised 0.8 -> 0.95: 'would a maintainer "
+            "merge this?' is the actual job, not a proxy for it. Evaluators = 2 "
+            "(Cognition, Epoch). "
+            "Partial leakage defence (held-out tests) again not expressible in "
+            "`holdout` — see that field's note. "
+            "https://epoch.ai/benchmarks/frontiercode"
+        ),
         epoch_source_file="frontiercode_external.csv",
     ),
     Benchmark(
@@ -487,23 +593,50 @@ BENCHMARK_CATALOG: tuple[Benchmark, ...] = (
         dataset_size=2500,
         contamination_flagged=False,
         saturation_flagged=False,
-        independent_evaluators=4,
+        independent_evaluators=3,
         task_specificity=0.35,
-        curation_notes="CURATE(you): built to be hard for frontier models; watch for rapid saturation.",
+        curation_notes=(
+            "RESEARCHED 2026-09-20. 2,500 expert-written questions across many "
+            "subjects, from the Center for AI Safety and Scale AI, public January "
+            "2025 (arXiv 2501.14249). Specificity stays low at 0.35: it is "
+            "deliberately an exam of exotic expert knowledge, not a task anyone "
+            "performs — which is the point, and also why a high score transfers "
+            "poorly. Evaluators trimmed 4 -> 3 (Scale's leaderboard, Epoch, "
+            "Artificial Analysis). "
+            "https://arxiv.org/abs/2501.14249 | https://epoch.ai/benchmarks/hle "
+            "CURATE(you): an HLE-Rolling variant replaces solved questions from a "
+            "held-out pool. That would change the holdout classification, but I "
+            "could not confirm whether Epoch's scores here are the static 2,500 or "
+            "the rolling set — left as public_static until that is settled."
+        ),
         epoch_source_file="hle_external.csv",
     ),
     Benchmark(
         key="simpleqa_verified",
         name="SimpleQA Verified",
         category="factual accuracy",
-        aliases=("SimpleQA", "simpleqa_verified"),
-        release_date="2024-10-30",
+        # NOTE: "SimpleQA" deliberately removed as an alias — see notes.
+        aliases=("simpleqa_verified", "SimpleQA-Verified"),
+        release_date="2025-09-09",  # was 2024-10-30, which is OpenAI's SimpleQA, a different benchmark
         dataset_size=1000,
         contamination_flagged=False,
         saturation_flagged=False,
-        independent_evaluators=3,
-        task_specificity=0.7,
-        curation_notes="CURATE(you): short-form factuality; confirm the verified subset's provenance.",
+        independent_evaluators=2,
+        task_specificity=0.6,
+        curation_notes=(
+            "RESEARCHED 2026-09-20. Two corrections, one of which was a live bug. "
+            "(1) The date was wrong: this is Google DeepMind's SimpleQA Verified, "
+            "arXiv 2509.07968, September 2025 — not OpenAI's SimpleQA (Wei et al., "
+            "October 2024), which is a different benchmark. Epoch's metadata agrees "
+            "(2025-09-09). (2) 'SimpleQA' was listed as an ALIAS, so any source "
+            "reporting OpenAI's SimpleQA would have had its scores attributed to "
+            "this benchmark. Alias removed. "
+            "1,000 prompts, rebuilt from SimpleQA to fix noisy labels, topical bias "
+            "and question redundancy. Specificity cut 0.7 -> 0.6: short-form "
+            "parametric factuality is a real property of a model but not a task a "
+            "user performs. Evaluators = 2 (Google/Kaggle leaderboard, Epoch). "
+            "https://arxiv.org/abs/2509.07968"
+        ),
         epoch_source_file="simpleqa_verified.csv",
     ),
     Benchmark(
@@ -515,9 +648,22 @@ BENCHMARK_CATALOG: tuple[Benchmark, ...] = (
         dataset_size=369,
         contamination_flagged=False,
         saturation_flagged=False,
-        independent_evaluators=3,
+        independent_evaluators=2,
         task_specificity=0.9,
-        curation_notes="CURATE(you): real desktop environments; scores depend heavily on the agent scaffold.",
+        curation_notes=(
+            "RESEARCHED 2026-09-20. 369 real computer-use tasks on Ubuntu/Windows/"
+            "macOS spanning OS file I/O, LibreOffice, Chrome, VLC, Thunderbird, "
+            "VS Code, GIMP and multi-app workflows — arXiv 2404.07972, NeurIPS "
+            "2024. Each task ships an initial-state setup and an execution-based "
+            "verification script, so grading is behavioural rather than textual. "
+            "Specificity 0.9 stands: these are literally things people do on a "
+            "computer. Evaluators cut 3 -> 2 (authors' leaderboard, Epoch) — labs "
+            "quote OSWorld in model cards, but self-reported numbers are not an "
+            "independent evaluator. "
+            "https://arxiv.org/abs/2404.07972 "
+            "CURATE(you): scores move a lot with the agent scaffold, and OSWorld-V2 "
+            "now exists — check which Epoch's runs use before comparing across time."
+        ),
         epoch_source_file="os_world_external.csv",
     ),
     Benchmark(
@@ -526,11 +672,21 @@ BENCHMARK_CATALOG: tuple[Benchmark, ...] = (
         category="agentic tool use",
         aliases=("TheAgentCompany", "the_agent_company_external"),
         release_date="2024-12-18",
+        dataset_size=175,
         contamination_flagged=False,
         saturation_flagged=False,
         independent_evaluators=2,
-        task_specificity=0.9,
-        curation_notes="CURATE(you): simulated workplace tasks; confirm dataset size and scoring.",
+        task_specificity=0.85,
+        curation_notes=(
+            "RESEARCHED 2026-09-20. 175 professional tasks inside a simulated "
+            "software company — CMU and Duke, arXiv 2412.14161, NeurIPS 2025 "
+            "Datasets & Benchmarks. Agents work against real self-hosted tools "
+            "rather than mock APIs, which is why specificity is high; trimmed 0.9 "
+            "-> 0.85 because the company and its employees are simulated, so the "
+            "social and organizational parts are staged. Evaluators = 2 (the "
+            "authors' leaderboard, Epoch). "
+            "https://arxiv.org/abs/2412.14161 | https://the-agent-company.com/"
+        ),
         epoch_source_file="the_agent_company_external.csv",
     ),
     Benchmark(
@@ -542,9 +698,22 @@ BENCHMARK_CATALOG: tuple[Benchmark, ...] = (
         dataset_size=95000,
         contamination_flagged=True,
         saturation_flagged=True,
-        independent_evaluators=4,
+        independent_evaluators=3,
         task_specificity=0.3,
-        curation_notes="CURATE(you): 2017 web-sourced trivia; assume full contamination.",
+        curation_notes=(
+            "RESEARCHED 2026-09-20. Joshi et al., ACL 2017 (arXiv 1705.03551): "
+            "95K question-answer pairs written by trivia enthusiasts, with 650K+ "
+            "question-answer-evidence triples once the ~6 evidence documents per "
+            "question are counted. dataset_size records the 95K questions. Public "
+            "since 2017 and web-sourced, so contamination is assumed rather than "
+            "measured — no study quantifying its overlap found, which is why "
+            "contamination_rate stays None and the flat penalty applies. "
+            "Specificity 0.3: recall of web trivia is a proxy for parametric "
+            "knowledge, not a task. Evaluators = 3, a soft count (original "
+            "authors, Epoch, HF Open LLM Leaderboard v1 era) — CURATE(you), few "
+            "current leaderboards still run it. "
+            "https://aclanthology.org/P17-1147/"
+        ),
         epoch_source_file="trivia_qa_external.csv",
     ),
 )

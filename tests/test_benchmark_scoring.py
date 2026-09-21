@@ -220,6 +220,38 @@ class TestCuratedEvidence:
                     f"{benchmark.name} does not say whether its flags are researched"
                 )
 
+    def test_top_ranked_benchmarks_are_not_built_on_guesses(self):
+        """
+        The rankings must not be led by invented numbers.
+
+        Every benchmark's trust score is driven by curated fields —
+        evaluator count and task specificity alone are 40% of the weight.
+        A benchmark that leads this table on values nobody researched is
+        the failure mode this project exists to criticize, so the suite
+        refuses it rather than trusting anyone to notice.
+        """
+        top = score_all_benchmarks()[:5]
+        unresearched = [
+            t.benchmark.name
+            for t in top
+            if "RESEARCHED" not in (t.benchmark.curation_notes or "")
+        ]
+        assert not unresearched, (
+            "These benchmarks lead the rankings on uncurated fields: "
+            f"{unresearched}. Research them or they should not be at the top."
+        )
+
+    def test_every_entry_states_the_basis_for_its_numbers(self):
+        """Not just the leaders — no entry should be silently invented."""
+        from fetch_benchmarks import load_benchmark_catalog
+
+        missing = [
+            b.name
+            for b in load_benchmark_catalog()
+            if "RESEARCHED" not in (b.curation_notes or "")
+        ]
+        assert not missing, f"Entries with no researched basis: {missing}"
+
 
 class TestMeasurementPopulation:
     """Saturation depends on which models you measure over."""
