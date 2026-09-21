@@ -1,9 +1,17 @@
-# NOTE: huggingface_hub is pinned <0.26 because gradio 4.x still imports
-# the now-removed `HfFolder` symbol from it. If you upgrade gradio to 5.x
-# later, this pin can likely be relaxed.
-huggingface_hub>=0.24.0,<0.26.0
-gradio>=4.44.0,<5.0.0
+# Upgraded 2026-09-21 alongside the Python 3.12 pin. gradio 4.44 renders a
+# blank page under 3.12's newer starlette/jinja2 (TypeError: unhashable
+# type: 'dict' inside the template cache), so the old "<5.0.0" ceiling and
+# its matching huggingface_hub ceiling both had to go.
+#
+# huggingface_hub 1.x is a breaking change and the fetchers were ported for
+# it: `tags`/`direction` were removed from list_models (use `filter`), and
+# `configure_http_backend` is gone because 1.x moved to httpx and sets
+# DEFAULT_REQUEST_TIMEOUT itself. fetch_models keeps the 0.x timeout shim
+# behind an import guard, so both majors still work.
+gradio>=5.0,<6.0
+huggingface_hub>=1.0,<2.0
 pandas>=2.2.0
+pyarrow>=16.0.0
 requests>=2.32.0
 
 # Dev/test only.

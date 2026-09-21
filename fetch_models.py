@@ -26,19 +26,26 @@ from pathlib import Path
 from typing import Any, Iterable, Optional
 
 import requests
-from huggingface_hub import HfApi, configure_http_backend, hf_hub_download
+from huggingface_hub import HfApi, hf_hub_download
 from huggingface_hub.utils import EntryNotFoundError, HfHubHTTPError
 from requests.exceptions import RequestException
+
+try:  # huggingface_hub < 1.0
+    from huggingface_hub import configure_http_backend
+except ImportError:  # 1.x moved to httpx and applies its own default timeout
+    configure_http_backend = None
 
 from model_matching import identity_string, match_key
 
 DATA_DIR = Path(__file__).parent / "data"
 RAW_CACHE_PATH = DATA_DIR / "models_raw.json"
 
-# huggingface_hub issues its HTTP calls without a socket timeout, so a
-# connection that goes quiet blocks forever — a fetch here once sat wedged
+# huggingface_hub 0.x issued its HTTP calls without a socket timeout, so a
+# connection that went quiet blocked forever — a fetch here once sat wedged
 # for 24 hours, and the retry logic below never fired because no exception
-# was ever raised. Install a session that always carries a timeout.
+# was ever raised. Under 0.x we install a session that always carries a
+# timeout; 1.x moved to httpx and applies DEFAULT_REQUEST_TIMEOUT itself,
+# so the shim is unnecessary there and its entry point no longer exists.
 HTTP_TIMEOUT_SECONDS = 30
 
 
@@ -48,7 +55,8 @@ class _TimeoutSession(requests.Session):
         return super().request(*args, **kwargs)
 
 
-configure_http_backend(_TimeoutSession)
+if configure_http_backend is not None:
+    configure_http_backend(_TimeoutSession)
 
 # Tags/keywords used to narrow the Hub search to code-generation models.
 # v1 scope is code-gen only, per project spec.
@@ -512,11 +520,14 @@ def fetch_code_gen_models(limit_per_query: int = MODELS_PER_QUERY) -> list[RawMo
     seen: dict[str, RawModel] = {}
 
     for tag in CODE_GEN_TAGS:
+        # `filter` rather than `tags`: huggingface_hub 1.x dropped the
+        # `tags` keyword (and `library`, `language`, `task`) entirely.
+        # `filter` takes the same tag strings and exists in both 0.x and
+        # 1.x, so this works either side of that upgrade.
         models = api.list_models(
             pipeline_tag="text-generation",
-            tags=[tag],
+            filter=tag,
             sort="downloads",
-            direction=-1,
             limit=limit_per_query,
             expand=EXPAND_PROPERTIES,
         )

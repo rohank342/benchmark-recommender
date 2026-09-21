@@ -7,8 +7,8 @@ description = "Scores LLM benchmarks for whether they still discriminate, and ra
 # every run for weeks before anyone noticed.
 requires-python = ">=3.12"
 dependencies = [
-    "huggingface_hub>=0.24.0,<0.26.0",
-    "gradio>=4.44.0,<5.0.0",
+    "huggingface_hub>=1.0,<2.0",
+    "gradio>=5.0,<6.0",
     "pandas>=2.2.0",
     "pyarrow>=16.0.0",
     "requests>=2.32.0",
