@@ -20,21 +20,30 @@ training corpora. So "which model is best?" is downstream of a question
 nobody asks: which measurement is still worth believing?
 
 The concrete case, computed from real data: for code generation HumanEval
-scores 28.7/100 while MirrorCode scores 74.3. HumanEval is the famous one —
+scores 30.6/100 while MirrorCode scores 76.3. HumanEval is the famous one —
 164 short functions from 2021, top ten models spanning 7.9 points and
 averaging 92% of the usable range, 8-18% of items in pretraining corpora,
-and scores 39.4% lower on a decontaminated variant.
+and scoring 39.4% lower on EvoEval.
 
 Repo: github.com/rohank342/benchmark-recommender
-Local: ~/benchmark-recommender, branch main, 213 tests, CI green.
+Local: ~/benchmark-recommender, branch main, 221 tests, CI green.
 
 WHERE THE PROJECT ACTUALLY STANDS — read this before believing the above.
-The backtest (section 4a) gets 10 of 12 and does NOT beat sorting by
-release date, which also gets 10 of 12. Across those twelve, age and
-measured saturation are uncorrelated (r = +0.01) while age alone predicts
-the ground truth at r = +0.79. The scoring machinery has not been shown to
-add anything over "newer benchmarks are better". That is the central open
-problem and most current work points at it.
+The backtest (section 4a) gets 10 of 12, loses separation by 17.3 points,
+and does NOT beat sorting by release date, which also gets 10 of 12.
+Across those twelve, age and measured saturation are uncorrelated
+(r = +0.01) while age alone predicts the ground truth at r = +0.79.
+
+A second pre-registered test (Candidate 1, docs/SECOND_TEST_PREREGISTRATION.md)
+was run on 2026-09-21 and FAILED: the scorer ranked SWE-Bench Verified
+16.6 points ABOVE GPQA Diamond three weeks before OpenAI publicly
+abandoned it — the same ordering age gives. Discrimination pointed the
+right way (+2.02); specificity overrode it (-16.00).
+
+THE SCORING MACHINERY HAS NEVER BEEN SHOWN TO BEAT AGE ON ANY
+DISCRIMINATING COMPARISON. That is the central open problem. Do not
+paper over it, and do not tune anything to change it (see the standing
+rule in section 8).
 
 ═══════════════════════════════════════════════════════════════════════
 2. ARCHITECTURE
@@ -75,8 +84,14 @@ Model side (downstream, weaker):
   docs/BACKTEST.md           The one real validation, and its limits.
   docs/BACKTEST_DESIGN.md    What that validation can and cannot establish.
                              The age-vs-saturation correlations live here.
-  docs/SPECIFICITY_RUBRIC.md A PROPOSED rubric for task_specificity, with
-                             all 26 scored against it. Not adopted.
+  docs/SPECIFICITY_RUBRIC.md The ADOPTED rubric (v2) for task_specificity.
+                             v1 kept below it, superseded.
+  docs/SECOND_TEST_PREREGISTRATION.md  Candidate 1, pre-registered and
+                             RUN. It failed.
+  docs/HINDCAST_PREREGISTRATION.md  Pre-registered and RUN. Descriptive
+                             only; the outcome mean-reverted.
+  docs/SCORE_SPLIT_PROPOSAL.md  Proposal to separate measurement health
+                             from task relevance. NOT implemented.
 
 ═══════════════════════════════════════════════════════════════════════
 3. THE EVIDENCE STANDARD — NON-NEGOTIABLE
@@ -126,18 +141,22 @@ Trust = weighted factors, then penalties multiply:
   freshness      0.20   age decay, half-life 730 days, discounted by holdout
   reproducibility 0.20  cross-source scatter where measurable, else a
                         curated evaluator count
-  specificity    0.20   hand-assigned; the least defensible factor
+  specificity    0.20   computed from five rubric dimensions stored per
+                        benchmark (sum/10). Auditable judgement, NOT
+                        measurement, and not independently checked.
 
 Penalties: contamination (worse of rate vs observed effect), item error
 rate (wrong answer keys), reported saturation (only when unmeasurable).
 
-KNOWN FLAW in the contamination penalty: a flag with no rate and no effect
-takes a flat 0.65, which is exactly what severity = 1 produces. So
-"reported, nobody measured it" is charged as hard as "measured to be
-maximally contaminated" — the opposite of how item_error_rate=None is
-treated. It is why SWE-Bench Verified now scores below HumanEval. Analysed
-in docs/METHODOLOGY.md; not patched, because fixing it means choosing a new
-free parameter with no evidence.
+FIXED 2026-09-21: a contamination flag with no measured rate and no
+measured effect now carries NO numeric penalty and is shown as a WARNING.
+It used to take a flat 0.65 — identical to what severity = 1 produces — so
+"reported, nobody measured it" cost as much as "measured to be maximally
+contaminated", and measuring bought nothing. The cost of the fix is that
+unmeasured-but-real contamination is now free; SWE-Bench Verified is the
+live example. See docs/METHODOLOGY.md.
+
+THE SAME ERROR IS STILL LIVE IN REPRODUCIBILITY — see open work item 4.
 
 Model scoring keeps TWO trusts apart, deliberately: how much to believe the
 benchmark, versus how much to believe the report of a model's result on it.
@@ -265,22 +284,61 @@ This is the kind of thing worth hunting.
 Re-ranked 2026-09-21. The top three are all the same problem: the project
 cannot currently show that its scoring beats a calendar.
 
+═══ STANDING RULE, set by the owner 2026-09-21 ═══
+NO FURTHER CHANGES ARE TO BE MADE WITH THE BACKTEST IN VIEW.
+
+The backtest and Candidate 1 have both now been run to a conclusion and
+both failed. They have served their purpose: they falsified. Continuing
+to adjust inputs while watching those numbers would convert them from
+tests into a training set, and every remaining failure is already
+understood well enough that another round of tuning would be fitting,
+not fixing.
+
+What this permits: changes argued entirely from evidence about the
+benchmark itself — a citation, a measurement, a probe, a study. Those may
+be committed, and the backtest may be RERUN afterwards and REPORTED, as
+was done for GSM8K's contamination effect.
+
+What this forbids: choosing or revisiting any value, weight, threshold or
+formula because of what it does to a test result; and re-running a test
+to decide whether to keep a change.
+
+The next real move is a test the project has not run: a genuinely
+independent dated decision (see docs/BACKTEST_DESIGN.md), or the forward
+test at item 7, which cannot be gamed because the outcome has not
+happened yet.
+
 1. A SECOND DATED TEST, pre-registered. The existing backtest cannot
    separate the scorer from age, because every retired benchmark in it is
    old and every kept one is new. A second test only helps if it contains
    old-but-still-discriminating or new-but-saturated cases, and if the age
    baseline and the scorer predict DIFFERENT outcomes. Verified candidate
    events with dates and sources are in docs/BACKTEST_DESIGN.md.
-2. SPECIFICITY. 20% of every score, measured by nothing, four values
-   written by Claude Code and unreviewed, and the direct cause of the
-   backtest's only error — 0.30 -> 0.34 on MuSR flips the whole result.
-   docs/SPECIFICITY_RUBRIC.md proposes a rubric and scores all 26 against
-   it; it correlates with the existing guesses at rho = +0.91, which is
-   weak evidence either way since both were written by Claude Code. The
-   owner scoring a sample independently is worth more than either.
-3. THE UNQUANTIFIED CONTAMINATION FLAG takes full severity (see section
-   4). Fixing it means picking a number between 1.0 and 0.65 with no
-   evidence for any particular value.
+2. SPECIFICITY is now rubric-based (v2, adopted 2026-09-21) and computed
+   from five stored dimensions per benchmark. That makes it AUDITABLE
+   JUDGEMENT, not measurement, and no second reviewer has scored anything
+   against the rubric — that check is the highest-value thing the owner
+   could personally do. It is also the factor that cost the scorer
+   Candidate 1: discrimination pointed the right way by +2.02 and
+   specificity pointed the wrong way by -16.00.
+   docs/SCORE_SPLIT_PROPOSAL.md proposes separating it out entirely.
+3. SATURATION IS NOT A PROPERTY OF A BENCHMARK, it is a property of a
+   population snapshot, and this is now measured twice over:
+   - BY POPULATION: MATH Level 5 reads 0.938 on Epoch and 0.507 on the v2
+     leaderboard; HellaSwag 0.524 vs 0.907; GPQA 0.894 vs 0.588. The
+     catalog mixes four populations and the ranking is not like-for-like.
+   - BY SAMPLE DATE: over nine months on the SAME source, saturation
+     readings mean-reverted almost perfectly (correlation between level
+     and change = -0.971) as the v2 population grew 608 -> 4,046 models.
+   Both are in docs/METHODOLOGY.md and docs/HINDCAST_PREREGISTRATION.md.
+   This undermines the discrimination factor itself and is now the most
+   serious technical problem in the project.
+4. THE REPRODUCIBILITY FALLBACK REWARDS BEING UNCHECKABLE. ARC scores
+   1.000 because its two sources CANNOT be compared (different
+   normalizations), while GPQA scores 0.000 because its two sources CAN
+   be and disagree. That single mechanism is 20 of the 30 points by which
+   ARC outranks GPQA. It is the same error as the old contamination rule,
+   which was fixed; this one has not been.
 4. REPRODUCIBILITY is measured for 6 of 26 — and the backtest uses NONE of
    those measurements, because as-of scoring has no cross-source data and
    falls back to the curated count. GSM8K gets full marks at the 2024
