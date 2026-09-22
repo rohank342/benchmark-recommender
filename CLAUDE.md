@@ -28,6 +28,23 @@ and scoring 39.4% lower on EvoEval.
 Repo: github.com/rohank342/benchmark-recommender
 Local: ~/benchmark-recommender, branch main, 221 tests, CI green.
 
+═══ DIRECTION DECIDED 2026-09-22 — do not relitigate ═══
+This project is an EVIDENCE DOSSIER on 26 benchmarks. The per-benchmark
+evidence is the product; the composite score is a summary presented as
+such, and the ranking is grouped by evidence tier and labelled as a
+summary rather than a verdict. See docs/DIRECTION.md for the argument on
+both sides.
+
+Adopted because every real finding came from the catalog and every
+failure came from the score. It is not a retreat from the scoring claim
+— it is an accurate description of what is established TODAY.
+
+THE HEDGE, also decided: the forward test was sealed the same day
+(docs/FORWARD_TEST.md, data/forward_test/sealed_2026-09-22.json). It
+matures 2028-09-22, its age baseline is fixed in advance, and it is the
+only route by which the scoring claim could be vindicated. If it passes
+and beats the baseline, revisit the direction then — not before.
+
 WHERE THE PROJECT ACTUALLY STANDS — read this before believing the above.
 The backtest (section 4a) gets 10 of 12, loses separation by 17.3 points,
 and does NOT beat sorting by release date, which also gets 10 of 12.
@@ -305,6 +322,17 @@ This is the kind of thing worth hunting.
   1 put SWE-Bench Verified (18 dated models) against GPQA Diamond (196)
   and read the top 56% against the top 5%. This was caught only by
   auditing a result that had already been reported.
+- MORE EVIDENCE CAN SCORE LOWER THAN LESS. Dropping unmeasurable factors
+  and renormalizing the rest made a score resting on one factor
+  arithmetically comparable to one resting on three — and the thinnest
+  score in the catalog ranked first (MirrorCode 95.1 on a release date).
+  Fixed 2026-09-22 with evidence tiers. Any normalization that makes
+  unequal evidence look equal is this bug.
+- A CONSTANT CAN OUTLIVE THE DEFINITION IT WAS CALIBRATED FOR.
+  HEALTHY_SPREAD = 0.20 was set against top-10 spreads and survived the
+  move to a top-20% band, so every absolute saturation level in the
+  catalog was on a scale nothing was calibrated for. When a definition
+  changes, every constant that touches it is stale until re-derived.
 - A claimed DIRECTION of effect is as inventable as a number. "Raising the
   baseline will raise saturation" was written into a commit message as
   fact and was backwards: both saturation terms are fractions of
@@ -315,8 +343,43 @@ This is the kind of thing worth hunting.
 8. OPEN WORK, ROUGHLY RANKED
 ═══════════════════════════════════════════════════════════════════════
 
-Re-ranked 2026-09-21. The top three are all the same problem: the project
-cannot currently show that its scoring beats a calendar.
+Re-ranked 2026-09-22 UNDER READING B. The catalog's gaps rise; tuning the
+composite score falls away, because no tuning of it has ever been shown
+to matter and the direction decision says it is a summary, not the
+product.
+
+CATALOG — the product:
+1. MODEL-SIDE FINDINGS 1 AND 2 (docs/MODEL_SIDE_AUDIT.md). Tiering does
+   not reach model weighting, so the model ranking leans hardest on the
+   thinnest-evidence benchmarks; and source disagreement costs nothing,
+   so two sources reporting 45 and 85 score the same as two reporting 65
+   and 65. Both are bug classes already fixed twice on the benchmark
+   side. Highest-value fixes in the project.
+2. COVERAGE. Reproducibility is measured for 8 of 26 and saturation for
+   23. LiveCodeBench still has no fetchable export. HumanEval+ as its
+   own entry would make HumanEval's thin tests directly measurable.
+3. VERIFICATION OF WHAT IS ALREADY THERE. SWE-Bench Verified's upper
+   bound is unknown (0.164 is a floor; a preprint reports the opposite
+   error). HumanEval's 0.394 is not difficulty-controlled and no
+   controlled replacement exists. Nobody but Claude Code has scored
+   anything against the specificity rubric.
+4. SATURATION STILL DEPENDS ON THE SUBMISSION PIPELINE. The percentile
+   fixed top-k-of-n; an archived leaderboard still yields a frozen
+   reading, and v1's six move by exactly zero. No fix proposed.
+
+THE FORWARD TEST — the only open question about the score:
+5. It is sealed and matures 2028-09-22. Until then, the honest answer to
+   "does the scoring work?" is "no test has shown that it does".
+   Protect the seal: a later run adds a dated file, never overwrites.
+
+SCORING — deliberately demoted:
+6. HEALTHY_SPREAD's defensible range (0.084-0.358) reorders about 20 of
+   26 benchmarks. Derived on the measured noise floor 2026-09-22; the
+   sensitivity is a limit on what any ranking here can mean.
+7. Relevance is a property of a (benchmark, task) PAIR, scored
+   per-benchmark as an approximation.
+8. Model-side VRAM numbers are derived, never measured, and the
+   kv_cache_estimated flag is computed but not shown in the UI.
 
 ═══ STANDING RULE, set by the owner 2026-09-21 ═══
 NO FURTHER CHANGES ARE TO BE MADE WITH THE BACKTEST IN VIEW.
@@ -403,3 +466,10 @@ happened yet.
   useful sentence.
 - Don't add features I didn't ask for. Do flag when something you found
   suggests one.
+- A FIX THAT IMPROVES ONE FAILURE MODE CAN CREATE A WORSE ONE. Dropping
+  unmeasurable factors was right on its own terms; combined with the
+  30-model minimum it made thin scores outrank thick ones. Before
+  adopting a fix, work through how it interacts with the rules already
+  in place — especially any rule that changes what gets INCLUDED in a
+  computation, because those compose in ways a single-rule reading
+  misses. Report the interaction even when the fix is still right.
