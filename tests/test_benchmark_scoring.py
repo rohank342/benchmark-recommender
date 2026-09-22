@@ -42,12 +42,19 @@ class TestSaturationMeasurement:
         assert saturation > 0.85
 
     def test_wide_spread_is_discriminating(self):
+        """
+        Fixture rewritten 2026-09-22: the old one repeated ten values
+        four times each, so its top 20% held only two distinct scores
+        and read as TIGHT under a percentile band. Distinct descending
+        scores are what "wide spread" was meant to mean.
+        """
         saturation, _ = measure_saturation(
-            _scores([0.85, 0.70, 0.62, 0.55, 0.43, 0.38, 0.30, 0.22, 0.15, 0.08] * 4)
+            _scores(
+                [0.62, 0.55, 0.48, 0.42, 0.37, 0.33, 0.30, 0.27]
+                + [0.24 - i * 0.006 for i in range(32)]
+            )
         )
-        # Under a top-20% band and the noise-derived HEALTHY_SPREAD of
-        # 0.24 this reads lower than the original top-10 fixture did.
-        assert saturation < 0.50
+        assert saturation < 0.35
 
     def test_clustered_at_the_bottom_also_fails_to_discriminate(self):
         """A benchmark everyone fails equally ranks models no better."""
