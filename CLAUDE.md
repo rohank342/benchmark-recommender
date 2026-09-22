@@ -514,6 +514,16 @@ happened yet.
   useful sentence.
 - Don't add features I didn't ask for. Do flag when something you found
   suggests one.
+- MEASURE IMPACT BEFORE RANKING OR FIXING ANYTHING. Count how often a
+  rule actually fires on real data first. Two model-side findings were
+  ranked HIGH on their mechanism; measured, one fired on ZERO of 187
+  benchmark citations and the other on ONE model/benchmark pair in the
+  whole dataset. A mechanism that is wrong but never exercised is a
+  guard to add cheaply, not an urgent fix — and severity claimed without
+  a count is the same error as a number without a source.
+  `probes/impact.py` exists for this: citations, tiers, weights, and
+  per-parameter catalog movement. Run it before changing a scoring rule
+  and quote the count in the commit.
 - A FIX THAT IMPROVES ONE FAILURE MODE CAN CREATE A WORSE ONE. Dropping
   unmeasurable factors was right on its own terms; combined with the
   30-model minimum it made thin scores outrank thick ones. Before
