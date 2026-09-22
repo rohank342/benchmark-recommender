@@ -54,6 +54,88 @@ models?" is the usual question. Every source's reading is retained and shown.
 Falls back to the curated `saturation_flagged` when no score data exists
 (currently LiveCodeBench only), with `basis` set to `curated`.
 
+#### Diagnosis: why GPQA Diamond ranks below ARC
+
+Analysis only, 2026-09-21. Nothing was changed. GPQA Diamond (2023,
+PhD-written) scores **15.7**, last of 26, while ARC (2018, grade-school
+multiple choice, retired by HF for saturation) scores **45.9**. That
+ordering looks wrong, and the hypothesis under test was that it is the
+population problem above rather than the specificity rubric.
+
+**Verdict: the population problem is real and worth about 40% of the gap,
+but it is not the main cause. The rubric is the smallest cause.**
+
+| factor | GPQA | ARC | favours |
+|---|---:|---:|---|
+| reproducibility | 0.00 | 20.00 | **ARC +20.00** |
+| discrimination | 4.23 | 18.88 | **ARC +14.65** |
+| specificity | 4.00 | 6.00 | ARC +2.00 |
+| freshness | 7.48 | 1.04 | GPQA +6.44 |
+| **total** | **15.7** | **45.9** | **ARC +30.2** |
+
+**1. Reproducibility is the biggest term, and it is perverse.** GPQA has
+two comparable sources, so its reproducibility is *measured* — 29 shared
+models, 8.1 points of unexplained scatter — and scores **0.000**. ARC also
+has two sources, but v1 is length-normalized and Epoch is not, so the
+comparison is refused and ARC falls back to its curated evaluator count of
+5/5 = **1.000**.
+
+> ARC gets full marks for reproducibility **because** its two sources
+> cannot be compared. GPQA gets zero **because** its two sources can be
+> compared and disagree. Being measurable costs 20 points.
+
+This is the same class of error as the old contamination rule, where an
+unquantified flag cost more than a measured one. It was fixed there and is
+still live here.
+
+**2. Discrimination, and the population problem.** GPQA's headline
+saturation is 0.894 from Epoch's frontier models; on the v2
+open-community leaderboard the same benchmark reads **0.588**. Reading
+GPQA on the open-community population instead would add about **12.3
+points** — roughly 40% of the total gap. ARC, by contrast, reads 0.528 on
+Epoch and 0.527 on v1: it is population-insensitive, so none of its score
+is a population artifact.
+
+**A comparable-population measurement is not available for this pair.**
+Both benchmarks nominally use `epoch_ai`, but matching model names across
+the two score sets finds **4 shared models out of 269 and 76**. Epoch
+evaluates GPQA on frontier models and ARC largely on older ones. "Same
+source" is not the same population, and with 4 overlapping models a
+like-for-like reading cannot be computed at all.
+
+**3. Specificity contributes 2.00 points of 30.2.** The rubric is the
+*smallest* factor in this gap. The intuition that "the rubric tanked
+GPQA" is wrong — the rubric moved GPQA's specificity from 0.60 to 0.20,
+which is 8 points of its trust score, but ARC's is only 0.30, so the
+*difference* between them is small.
+
+#### Other benchmarks read on mismatched populations
+
+Every benchmark with two sources, sorted by disagreement:
+
+| benchmark | spread | readings |
+|---|---:|---|
+| **MATH Level 5** | **0.431** | Epoch 0.938 (n=108) vs v2 0.507 (n=4,575) |
+| **HellaSwag** | **0.383** | Epoch 0.524 (n=135) vs v1 0.907 (n=7,260) |
+| **GPQA Diamond** | **0.306** | Epoch 0.894 (n=313) vs v2 0.588 (n=4,575) |
+| MMLU | 0.090 | Epoch 0.817 vs v1 0.727 |
+| GSM8K | 0.073 | Epoch 0.783 vs v1 0.856 |
+| Winogrande | 0.066 | Epoch 0.641 vs v1 0.707 |
+| BIG-Bench Hard | 0.017 | Epoch 0.483 vs v2 0.466 |
+| ARC | 0.001 | Epoch 0.528 vs v1 0.527 |
+
+**MATH Level 5 is the worst case and it sits in the backtest.** It ranks
+first at the 2024 cutoff on a 0.938-vs-0.507 disagreement, and its
+cutoff reading rests on 29 models. HellaSwag's spread is additionally not
+even the same metric — v1 reports length-normalized accuracy.
+
+Across the catalog, saturation is read on **four different populations**:
+Epoch (20 benchmarks), v2 (3), v1 (1), EvalPlus (1). Any cross-benchmark
+comparison mixes them, and the three benchmarks above show that mixing can
+be worth 30–43 points of saturation. **The single-number ranking in the
+UI and README is therefore not a like-for-like comparison**, and nothing
+currently warns a reader of that.
+
 ### freshness — curated input, computed output
 
 Exponential decay on the benchmark's age, halving every **730 days**. The
