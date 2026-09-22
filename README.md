@@ -79,6 +79,15 @@ ranking by age. The only single weight change that reaches 12/12 is
 raising *freshness* to 0.50 — making the scorer act more like the calendar
 baseline it cannot beat. No weights were changed.
 
+**Saturation depends on which models you measure, and the ranking spans
+four populations.** 26 benchmarks are read on Epoch (20), the v2
+leaderboard (3), v1 (1) and EvalPlus (1). **18 pairs in the catalog change
+order depending on which population is used** — MATH Level 5 alone moves
+17.2 points between its two readings and flips against 9 other
+benchmarks. The UI now names the population on every row and warns when a
+table spans more than one, but the headline single-number ranking is
+still not a like-for-like comparison.
+
 **Saturation depends on which models you measure.** On GPQA Diamond the
 frontier's top ten sit at 93% of the usable range while the open-community
 leaderboard's top ten sit at 27% — 89% versus 59% saturation. Both are true and

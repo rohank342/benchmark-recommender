@@ -143,10 +143,35 @@ def rank_benchmarks(task_description: str) -> tuple[str, pd.DataFrame]:
 
     header = match.explanation
     top = benchmarks[0]
+
+    # Saturation — 40% of every score — is measured on whichever model
+    # population a source happens to cover, and the readings differ
+    # sharply: MATH Level 5 is 94% saturated among frontier models and
+    # 51% among the open community. Ranking across populations is not a
+    # like-for-like comparison, so say so rather than printing one
+    # column and hoping nobody asks.
+    populations = {t.population for t in benchmarks if t.population}
+    mixed = len(populations) > 1
+
     header += (
         f"\n\n**Most trustworthy for this task: {top.benchmark.name}** "
-        f"({top.trust_score:.1f}/100). {top.summary}"
+        f"({top.trust_score:.1f}/100"
+        + (f", measured on {top.population}" if top.population else "")
+        + f"). {top.summary}"
     )
+    if mixed:
+        header += (
+            "\n\n🔀 **These rows are not a like-for-like ranking.** Saturation "
+            "is measured on whichever models each source covers, and this "
+            "table spans "
+            + str(len(populations))
+            + " populations: "
+            + "; ".join(sorted(populations))
+            + ". The same benchmark can read 30-40 points differently between "
+            "them (GPQA Diamond: 89% saturated among frontier models, 59% "
+            "among the open community). Compare within a population — the "
+            "'measured over' column — before comparing across the table."
+        )
     # Name-and-shame the popular-but-weak, since that's the point of the tool.
     weak = [t for t in benchmarks if t.trust_score < 35]
     if weak:

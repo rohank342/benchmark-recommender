@@ -134,6 +134,22 @@ class BenchmarkTrust:
     # populations: {source: (saturation, n_models)}.
     saturation_by_source: dict = field(default_factory=dict)
     primary_source: Optional[str] = None
+
+    @property
+    def population(self) -> Optional[str]:
+        """
+        The model population the headline saturation was measured on.
+
+        Saturation is a property of a population snapshot, not of a
+        benchmark (docs/SATURATION_MEASUREMENT.md), so any reader
+        comparing two trust scores needs to know whether they were read
+        on the same one. This is what the UI surfaces per row.
+        """
+        from fetch_benchmarks import describe_population
+
+        if self.primary_source is None:
+            return None
+        return describe_population(self.primary_source)
     agreement: Optional[object] = None  # cross_source.AgreementReport, when any
 
     @property

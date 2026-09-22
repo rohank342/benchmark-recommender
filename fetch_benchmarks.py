@@ -1264,6 +1264,20 @@ class BenchmarkScores:
     normalization: str = "none"
 
     @property
+    def population(self) -> str:
+        """
+        WHICH MODELS this distribution covers, in words.
+
+        Derived from `source` via SOURCE_POPULATIONS — no new data, just
+        the provenance the manifest already records, surfaced where a
+        reader can see it. A saturation number means nothing without it:
+        GPQA Diamond reads 0.894 among frontier models and 0.588 among
+        the open community, and those are answers to different questions
+        rather than a disagreement to be averaged away.
+        """
+        return describe_population(self.source)
+
+    @property
     def dated(self) -> int:
         return sum(1 for d in self.model_dates if d)
 

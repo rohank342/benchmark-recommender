@@ -710,3 +710,62 @@ class TestNewlyAddedBenchmarks:
         assert match_task("does it follow output formatting constraints").category == (
             "instruction following"
         )
+
+
+class TestPopulationIsRecorded:
+    """
+    Saturation is a property of a population snapshot, not of a
+    benchmark. Every reading has to say which population, or a reader
+    compares two numbers that answer different questions.
+    """
+
+    def test_every_score_set_names_its_population(self):
+        from fetch_benchmarks import load_score_sets
+
+        for b in load_benchmark_catalog():
+            for scores in load_score_sets(b):
+                assert scores.population, b.name
+                # Derived from the manifest's source, not invented.
+                assert scores.population != scores.source or scores.source not in (
+                    "epoch_ai", "open_llm_leaderboard_v1",
+                    "open_llm_leaderboard_v2", "evalplus",
+                )
+
+    def test_trust_names_the_population_it_was_measured_on(self):
+        for b in load_benchmark_catalog():
+            trust = score_benchmark(b)
+            if trust.measured_saturation is None:
+                assert trust.population is None, b.name
+            else:
+                assert trust.population, b.name
+
+    def test_the_same_benchmark_reads_differently_by_population(self):
+        """The reason the field exists, pinned as a fact."""
+        gpqa = score_benchmark(find_benchmark("GPQA Diamond"))
+        readings = gpqa.saturation_by_source
+        assert len(readings) == 2
+        frontier = readings["epoch_ai"][0]
+        community = readings["open_llm_leaderboard_v2"][0]
+        assert frontier - community > 0.25, (frontier, community)
+
+
+class TestUiWarnsAboutMixedPopulations:
+    def test_a_mixed_category_carries_the_warning(self):
+        import app
+
+        header, _ = app.rank_benchmarks("general knowledge questions")
+        assert "not a like-for-like ranking" in header
+        assert "2 populations" in header
+
+    def test_a_single_population_category_does_not(self):
+        import app
+
+        header, _ = app.rank_benchmarks("scientific reasoning questions")
+        assert "not a like-for-like ranking" not in header
+
+    def test_every_row_names_its_population(self):
+        import app
+
+        _, frame = app.rank_benchmarks("general knowledge questions")
+        assert "measured over" in frame.columns
+        assert all(str(v).strip() for v in frame["measured over"])
