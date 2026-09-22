@@ -103,6 +103,50 @@ class TestResult:
         assert not clean
         assert -35.0 < gap < -20.0, gap
 
+    def test_single_factor_analysis_runs_at_all(self):
+        """
+        `backtest.py --sweep` raised ZeroDivisionError for 28 commits,
+        from e247226 (drop-and-renormalize) until 2026-09-22. Isolating
+        one factor sets the other weights to 0; when the surviving factor
+        was itself dropped as unmeasurable, the renormalizer divided by a
+        zero total. Production weights are all non-zero so no score was
+        ever wrong — but the single-factor comparison, and the release
+        date baseline printed after it, could not run. That is the one
+        diagnostic that asks whether the scorer beats a calendar.
+        """
+        from benchmark_scoring import FACTOR_WEIGHTS, HEALTH_WEIGHTS
+
+        original = dict(FACTOR_WEIGHTS)
+        try:
+            for factor in HEALTH_WEIGHTS:
+                for name in FACTOR_WEIGHTS:
+                    FACTOR_WEIGHTS[name] = 1.0 if name == factor else 0.0
+                outcomes = run_retirement_test()  # must not raise
+                assert len(outcomes) == 12
+        finally:
+            FACTOR_WEIGHTS.clear()
+            FACTOR_WEIGHTS.update(original)
+
+    def test_zero_total_weight_does_not_renormalize(self):
+        """
+        The guard itself: a benchmark whose only measurable factor has
+        been given weight 0 still scores, rather than dividing by zero.
+        """
+        from benchmark_scoring import FACTOR_WEIGHTS, score_benchmark
+        from fetch_benchmarks import find_benchmark
+
+        original = dict(FACTOR_WEIGHTS)
+        try:
+            for name in FACTOR_WEIGHTS:
+                FACTOR_WEIGHTS[name] = 1.0 if name == "reproducibility" else 0.0
+            # HumanEval drops reproducibility as unmeasurable, so every
+            # surviving weight here is zero.
+            trust = score_benchmark(find_benchmark("HumanEval"))
+            assert trust.health is not None
+        finally:
+            FACTOR_WEIGHTS.clear()
+            FACTOR_WEIGHTS.update(original)
+
     def test_specificity_no_longer_affects_the_backtest_at_all(self):
         """
         The mechanical consequence of the split, pinned: relevance is not

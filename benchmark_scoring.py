@@ -673,8 +673,16 @@ def score_benchmark(
         if f.name in FALLBACK_CAPABLE and f.basis != "measured"
     }
     kept = [f for f in factors if f.name in HEALTH_WEIGHTS and f.name not in dropped]
-    if kept:
-        total = sum(f.weight for f in kept)
+    total = sum(f.weight for f in kept)
+    # `total` can be zero even when `kept` is not empty: a caller may set a
+    # factor's weight to 0 to isolate another one, which is exactly what
+    # backtest.py's single-factor analysis does. Renormalizing then divides
+    # by zero. Production weights are all non-zero, so this never fired in
+    # scoring — it crashed `backtest.py --sweep`, and with it the calendar
+    # baseline printed after it, for 28 commits (since e247226). Guarding on
+    # the weight rather than on the list keeps scores identical and lets the
+    # diagnostic run.
+    if kept and total > 0:
         factors = [
             replace(f, weight=f.weight / total)
             if f.name in HEALTH_WEIGHTS and f.name not in dropped
