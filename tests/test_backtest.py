@@ -65,55 +65,97 @@ class TestResult:
         # that the scorer is right.
         assert correct >= 10, f"backtest got worse: {correct}/12"
 
-    @pytest.mark.xfail(
-        reason=(
-            "Rubric v2 and the contamination-treatment change are landing in "
-            "this session. Both move as-of scores, so the pinned inversion is "
-            "stale. Deliberately NOT re-pinned here: the backtest is run once, "
-            "after every value is committed, and this test is rewritten from "
-            "that single run — not from whatever happened to be true mid-edit."
-        ),
-        strict=False,
-    )
-    def test_the_known_inversion_is_still_the_only_one(self):
+    def test_the_two_known_errors_are_still_the_only_ones(self):
         """
-        MMLU (retired) outranks MuSR (kept) by ~1.4 points. This is the
-        scorer's one error at twelve benchmarks, and it traces to MuSR's
-        hand-assigned specificity of 0.3.
+        Re-pinned 2026-09-21 from the single post-decision run.
 
-        Pinned deliberately. If it disappears, something changed and the
-        write-up in docs/BACKTEST.md needs revisiting — including checking
-        that it wasn't "fixed" by quietly tuning a weight.
+        GSM8K (retired) ranks 4th of 12 and MuSR (kept) ranks 9th. Those
+        are the scorer's two errors. GSM8K's placement traces to the
+        contamination decision — an unquantified flag no longer carries a
+        penalty, which moved it 40.6 -> 62.5 at the cutoff.
+
+        Pinned deliberately, not fixed. If either disappears, something
+        changed and docs/BACKTEST.md needs revisiting — including checking
+        that it was not "fixed" by quietly tuning a weight.
         """
         outcomes = run_retirement_test()
         by_name = {o.name: o for o in outcomes}
-        assert by_name["MMLU"].score > by_name["MuSR"].score
 
-        # Exactly one retired benchmark outscores the weakest kept one.
         weakest_kept = min(o.score for o in outcomes if o.label == "replacement")
         overlapping = sorted(
             o.name for o in outcomes if o.label == "retired" and o.score > weakest_kept
         )
-        assert overlapping == ["MMLU"], overlapping
+        assert overlapping == ["ARC (AI2 Reasoning Challenge)", "GSM8K", "MMLU"], overlapping
 
-    @pytest.mark.xfail(
-        reason=(
-            "Same reason as the inversion pin above: rubric v2 and the "
-            "contamination-treatment change both move as-of scores, and the "
-            "gap is re-pinned from the single post-change backtest run "
-            "rather than from a mid-edit state."
-        ),
-        strict=False,
-    )
-    def test_separation_is_currently_lost(self):
+        # GSM8K is the top-ranked retired benchmark and outscores three
+        # benchmarks HF kept.
+        retired_best = max(
+            (o for o in outcomes if o.label == "retired"), key=lambda o: o.score
+        )
+        assert retired_best.name == "GSM8K"
+        beaten = [
+            o.name for o in outcomes
+            if o.label == "replacement" and o.score < by_name["GSM8K"].score
+        ]
+        assert len(beaten) == 3, beaten
+
+    def test_separation_is_lost_by_a_wide_margin(self):
         """
-        Documents the regression honestly: at eight benchmarks this
-        separated cleanly with an 8.2-point gap; at twelve it does not.
-        Asserting the failure keeps the docs and the code in step.
+        Not a near miss. At eight benchmarks this separated cleanly with
+        an 8.2-point gap; before the 2026-09-21 decisions it failed by
+        0.6; it now fails by 20.1. Asserting the size keeps the docs and
+        the code in step — a 20-point gap must not be described anywhere
+        as "close".
         """
         clean, gap = separation(run_retirement_test())
         assert not clean
-        assert -3.0 < gap < 0, gap
+        assert -25.0 < gap < -15.0, gap
+
+    def test_the_verdict_survives_reviewer_sized_rubric_noise(self):
+        """
+        The sensitivity analysis in docs/BACKTEST.md, pinned at a sample.
+
+        The rubric calls differences under ~0.2 noise. Changing any single
+        dimension of any of the twelve by +/-1 leaves the result at 10/12,
+        still unseparated. The failure is not an artifact of the most
+        subjective input.
+        """
+        from dataclasses import replace
+
+        import fetch_benchmarks as fb
+
+        real = fb.find_benchmark
+        checked = 0
+        try:
+            for name in ("MuSR", "GSM8K", "MMLU-Pro"):
+                dims = list(real(name).specificity_dimensions)
+                for i in range(5):
+                    for delta in (-1, 1):
+                        if not 0 <= dims[i] + delta <= 2:
+                            continue
+                        swapped = tuple(dims[:i] + [dims[i] + delta] + dims[i + 1:])
+
+                        def patched(label, _n=name, _d=swapped):
+                            b = real(label)
+                            if b is not None and b.name == _n:
+                                return replace(b, specificity_dimensions=_d)
+                            return b
+
+                        fb.find_benchmark = patched
+                        import backtest
+
+                        backtest.find_benchmark = patched
+                        outcomes = run_retirement_test()
+                        matrix = confusion(outcomes)
+                        assert matrix["true_retire"] + matrix["true_keep"] == 10
+                        assert not separation(outcomes)[0]
+                        checked += 1
+        finally:
+            fb.find_benchmark = real
+            import backtest
+
+            backtest.find_benchmark = real
+        assert checked >= 20, checked
 
     def test_replacements_have_since_declined(self):
         """The trajectory claim: 2024's harder set aged too."""

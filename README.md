@@ -7,8 +7,8 @@ data — so HumanEval and MMLU keep getting quoted long after they stopped
 discriminating. This scores *benchmarks* first. Model rankings are downstream:
 a model's result is worth what the benchmark that produced it is worth.
 
-The concrete case. For code generation, **HumanEval scores 28.7/100 and
-MirrorCode scores 74.3.** HumanEval is the famous one. It is also 164 short
+The concrete case. For code generation, **HumanEval scores 30.6/100 and
+MirrorCode scores 76.3.** HumanEval is the famous one. It is also 164 short
 functions published in 2021, whose top ten models now span 7.9 points of the
 usable range and average 92% of it — measured, from 125 models' scores — while
 8–18% of its items appear in major pretraining corpora and the same models
@@ -43,15 +43,15 @@ committed data:
 **Judgement calls** — defensible, argued in comments, but mine rather than
 anybody's finding:
 
-- `task_specificity` for all 26 benchmarks: how narrowly a benchmark maps to
-  real work, 0–1. **Four of these (Winogrande, GSM8K, MuSR, IFEval) were
-  assigned by Claude Code and have not been reviewed by the owner** — each is
-  marked as such in the catalog. Specificity is 20% of every score, nothing
-  measures it, and one of the four unreviewed values decides whether the
-  backtest passes.
+- `task_specificity` for all 26 benchmarks, now computed from a
+  [five-dimension rubric](docs/SPECIFICITY_RUBRIC.md) stored per benchmark
+  rather than assigned as a bare number. **This makes it auditable
+  judgement, not measurement** — five judgements have replaced one, and
+  neither the rubric nor any score against it has been checked by a second
+  reviewer.
 - `independent_evaluators` for the 20 benchmarks where agreement can't be
-  measured. Winogrande's 4 and GSM8K's 5 are partly unsourced: three of each
-  can be named, the rest cannot.
+  measured. Winogrande's 4 and GSM8K's 5 are partly unsourced: three of
+  each can be named, the rest cannot.
 - Every weight and threshold: the 40/20/20/20 factor split, the two-year
   leakage half-life, the penalty curves.
 
@@ -65,19 +65,19 @@ traces back to a guess, the guess is visible.
 
 The ones that undercut the project, stated plainly:
 
-**The weights are uncalibrated.** 40% discrimination, 20% each for freshness,
-reproducibility and specificity, with a two-year leakage half-life. These are
-judgement calls, and **[the backtest now partially fails](docs/BACKTEST.md)**.
-Scored as of June 2024 against HF's retirement decision it gets 10 of 12 —
-MMLU, which was retired, outranks MuSR, which was kept, by 0.6 points.
-The cause is MuSR's specificity of 0.3, a number Claude Code assigned and
-nobody reviewed; **raising it to 0.34 would flip the test to 12/12**. Worse,
-sorting benchmarks by release date and calling the newer half "kept" also
-scores 10 of 12, so on the only test available the four weighted factors do
-not beat ranking by age. Weights that would pass exist — four different
-single-weight changes each produce 12/12, including *halving* the
-discrimination weight that the whole method leans on — and they disagree
-about which factor is wrong, so none were applied.
+**The weights are uncalibrated and the backtest now fails clearly.**
+40% discrimination, 20% each for freshness, reproducibility and
+specificity, with a two-year leakage half-life. These are judgement calls,
+and **[the backtest fails](docs/BACKTEST.md)**. Scored as of June 2024
+against HF's retirement decision it gets 10 of 12 and **loses separation
+by 20 points** — GSM8K, which HF retired, ranks 4th of 12, above three
+benchmarks HF kept. A sensitivity analysis over 82 single-point changes to
+the most subjective input moves the verdict **not once**, so this is a
+stable failure rather than a close call. Sorting benchmarks by release
+date also gets 10 of 12, so the four weighted factors still do not beat
+ranking by age. The only single weight change that reaches 12/12 is
+raising *freshness* to 0.50 — making the scorer act more like the calendar
+baseline it cannot beat. No weights were changed.
 
 **Saturation depends on which models you measure.** On GPQA Diamond the
 frontier's top ten sit at 93% of the usable range while the open-community
@@ -127,7 +127,7 @@ happily pick an end-of-life system Python).
 uv venv --python 3.12
 uv pip install -r requirements.txt pytest
 python app.py          # http://127.0.0.1:7860
-pytest                 # 193 tests
+pytest                 # 219 tests
 ```
 
 The **benchmark tab works offline** from committed data. The **model tab** needs

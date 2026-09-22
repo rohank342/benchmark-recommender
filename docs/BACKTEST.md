@@ -2,20 +2,26 @@
 
 **Run it:** `python backtest.py` (add `--sweep` for the diagnostics).
 
-**Result at 12 benchmarks: 10/12, separation LOST by 0.6 points. The scorer
-gets one pair the wrong way round.** No weights were changed in response.
+**Result at 12 benchmarks: 10/12, separation lost by 20.1 points.** Two
+benchmarks land on the wrong side. No weights were changed in response.
 
-*Updated 2026-09-21.* Correcting MuSR's random baseline from an assumed
-0.33 to a measured 0.371 (see `probes/musr_baseline.py`) moved MuSR from
-43.6 to 44.4 and narrowed the gap from −1.4 to −0.6. **The verdict did not
-change**: still 10/12, still no separation, still the same inversion. The
-baseline was committed from the dataset before this was run.
+*Updated 2026-09-21, after two owner decisions: specificity is now
+computed from [rubric v2](SPECIFICITY_RUBRIC.md), and an unquantified
+contamination flag no longer carries a numeric penalty
+([METHODOLOGY.md](METHODOLOGY.md)). Both were committed from their own
+evidence before this was run.*
 
-**This used to pass.** At 8 benchmarks it scored 8/8 with perfect separation
-and an 8.2-point margin. Adding the four missing benchmarks — completing
-both sides of the decision being tested — turned a pass into a partial
-failure. The earlier result was a small-sample result, and reporting it as
-validation would have been wrong.
+**The verdict is now a stable failure, not a close one.** The previous
+run was 10/12 with a 0.6-point gap that a 0.04 change in one unreviewed
+judgement could flip. This run is 10/12 with a 20.1-point gap that
+**nothing** in the sensitivity analysis below can flip. The scorer has
+stopped being marginally wrong and started being clearly wrong about
+separation.
+
+**This used to pass.** At 8 benchmarks it scored 8/8 with perfect
+separation and an 8.2-point margin. Completing both sides of the decision
+turned that into a partial failure, and the two decisions above widened
+it.
 
 ---
 
@@ -48,49 +54,73 @@ the score means nothing without them.
 
 | rank | benchmark | actual | trust | models |
 |---:|---|---|---:|---:|
-| 1 | GPQA Diamond | kept | 73.9 | 33 |
-| 2 | MATH Level 5 | kept | 71.6 | 29 |
+| 1 | MATH Level 5 | kept | 71.6 | 29 |
+| 2 | GPQA Diamond | kept | 65.9 | 33 |
 | 3 | BIG-Bench Hard | kept | 63.5 | 81 |
-| 4 | MMLU-Pro | kept | 53.2 | 608 |
-| 5 | IFEval | kept | 48.9 | 608 |
-| 6 | **MMLU** | **retired** | **45.0** | 172 |
-| 7 | **MuSR** | **kept** | **44.4** | 608 |
-| 8 | ARC | retired | 42.3 | 121 |
-| 9 | Winogrande | retired | 42.0 | 124 |
-| 10 | GSM8K | retired | 40.6 | 142 |
-| 11 | TruthfulQA | retired | 36.8 | 7,095 |
-| 12 | HellaSwag | retired | 28.2 | 97 |
+| 4 | **GSM8K** | **retired** | **62.5** | 142 |
+| 5 | MMLU-Pro | kept | 52.2 | 608 |
+| 6 | IFEval | kept | 47.9 | 608 |
+| 7 | MMLU | retired | 45.0 | 172 |
+| 8 | ARC | retired | 43.3 | 121 |
+| 9 | **MuSR** | **kept** | **42.4** | 608 |
+| 10 | Winogrande | retired | 42.0 | 124 |
+| 11 | TruthfulQA | retired | 32.8 | 7,095 |
+| 12 | HellaSwag | retired | 27.0 | 97 |
 
 |  | HF retired | HF kept |
 |---|---:|---:|
 | **scorer: retire** | 5 | 1 |
 | **scorer: keep** | 1 | 5 |
 
-**One inversion**: MMLU (retired) scores 0.6 points above MuSR (kept). Every
-other benchmark lands on the correct side.
+### Where it goes wrong, and why
 
-### Why the miss happens
+**GSM8K (retired) ranks 4th of 12**, above three benchmarks HF kept. It
+sits 20.1 points above the weakest kept benchmark, and that single
+placement is the whole of the lost separation.
 
-MuSR's `task_specificity` is 0.3 — a hand-assigned judgement that synthetic
-murder-mystery puzzles don't map onto real work. That judgement is 20% of
-its score and is what drags it below MMLU. The scorer's weakest, least
-defensible input produces its only error.
+The cause is traceable to one decision. GSM8K's contamination flag —
+from Scale AI's GSM1k study — had no usable rate or effect at the 2024
+cutoff, and under the old rule that cost it a flat penalty. Treating an
+unquantified flag as a warning moved it from **40.6 to 62.5**. Without
+that change the best-ranked retired benchmark would be MMLU at 45.0 and
+the gap would be −2.6.
 
-It is worse than "hand-assigned". That 0.3 was **written by Claude Code and
-never reviewed by the owner**, and is now marked as such in the catalog.
-Specificity is supposed to be the owner's judgement; an unreviewed
-placeholder is currently deciding whether the scorer passes its only
-validation.
+So the contamination decision is defensible on its own terms and is also
+the reason this test now fails badly. Both things are true. The decision
+was not made to affect this test and was committed before it was run.
 
-That is worth sitting with. It is not a data problem that more scraping
-fixes. **Raising MuSR's specificity from 0.30 to 0.34 flips the test to
-12/12** — a change smaller than anyone could defend one way or the other,
-to a number nobody has justified. The scorer's verdict on its only
-validation rests on the second decimal place of a guess.
+**MuSR (kept) ranks 9th**, below three retired benchmarks. Rubric v2
+moved its specificity from 0.30 to 0.20 — further from the 0.34 that
+would once have fixed the older, narrower failure.
 
-This is also the clearest argument for not tuning: a test that can be
-passed by nudging an unreviewed judgement by 0.04 is not measuring the
-scoring machinery.
+---
+
+## Sensitivity: can reviewer-sized noise change the answer?
+
+The rubric warns that specificity differences below ~0.2 are noise —
+about one reviewer disagreeing on two of five dimensions. So: for each of
+the 12 benchmarks, change each dimension score by ±1 (staying in 0–2),
+one change at a time, and rescore.
+
+**82 single-point changes. Zero change the verdict.**
+
+| | |
+|---|---|
+| correct count across all 82 runs | **10/12 every time** |
+| separation across all 82 runs | **lost every time** |
+| gap range | −22.1 to −18.1 (baseline −20.1) |
+
+None of these changes were applied.
+
+**What this means, and what it does not.** The verdict is robust to
+single-reviewer disagreement, so this result cannot be dismissed as noise
+in the specificity judgements — which is exactly what could have been
+said about the previous 0.6-point run. That is a real improvement in what
+the test can tell us.
+
+It is not good news. The thing that is now robust is a **failure**. A
+20-point gap is not a near miss, and no plausible re-scoring of the most
+subjective input closes it.
 
 ---
 
@@ -98,59 +128,68 @@ scoring machinery.
 
 ### One factor can no longer do it
 
-| ranking by | 8-benchmark result | 12-benchmark result |
-|---|---|---|
-| discrimination alone | **8/8, separated** | **8/12, not separated** |
-| freshness alone | 6/8, not separated | 10/12, not separated |
-| specificity alone | 6/8, not separated | 10/12, not separated |
-| reproducibility alone | 4/8, not separated | 6/12, not separated |
-| **release date alone (no scoring)** | **6/8** | **10/12** |
+| ranking by | 8 benchmarks | 12, before the decisions | 12, now |
+|---|---|---|---|
+| discrimination alone | **8/8, separated** | 8/12 | **8/12** |
+| freshness alone | 6/8 | 10/12 | **10/12** |
+| specificity alone | 6/8 | 10/12 | **8/12** |
+| reproducibility alone | 4/8 | 6/12 | **6/12** |
+| **release date alone (no scoring)** | **6/8** | **10/12** | **10/12** |
 
-The earlier headline — "discrimination alone gets 8/8, so measured
+The earliest headline — "discrimination alone gets 8/8, so measured
 saturation is doing the work, not age" — **does not survive**. At twelve
 points discrimination alone gets 8/12, worse than ranking by publication
 date.
 
-**And the trivial baseline now ties the full scorer.** Sorting by release
+**The trivial baseline still ties the full scorer**: sorting by release
 date and calling the newer half "kept" gets 10/12, exactly what the four
-weighted factors achieve. On this expanded test, the scoring machinery adds
-nothing over "newer benchmarks are better."
+weighted factors achieve. On this test the scoring machinery adds nothing
+over "newer benchmarks are better."
 
-### Sensitivity
+Specificity alone fell from 10/12 to 8/12 under rubric v2. That is worth
+sitting with: the rubric was adopted to make specificity defensible, and
+the more defensible version is a *worse* standalone predictor of this
+particular decision. Either the rubric is wrong, or HF's 2024 decision
+tracked something other than how task-shaped a benchmark is. The second
+is more likely — HF's stated reasons included cost and where they wanted
+the field to climb — but this test cannot separate the two.
 
-12/12 is reachable, but the settings disagree about how:
+### Weight sweep
 
-- **freshness ≥ 0.30** → 12/12, separated (gap +6.2 to +18.5)
-- **reproducibility = 0.10** → 12/12, separated (gap +6.9)
-- **specificity 0.30–0.50** → 12/12, separated (gap +0.7 to +2.1)
-- **discrimination = 0.20** → 12/12, separated (gap +0.3)
+| setting | result |
+|---|---|
+| freshness ≥ 0.50 | 12/12, separated (gap +1.3 to +3.2) |
+| every other single-weight change tested | 10/12 or worse, never separated |
 
-**Four** different single-weight changes each "fix" the test now, and they
-pull in incompatible directions. The last one is new since the MuSR
-correction and is the most damning: discrimination is the project's
-headline factor at 0.40, and *halving* it also produces a pass. Raising it
-to 0.60 produces 8/12.
+**Only one lever now reaches 12/12, and it is the age proxy.** Before
+these decisions, four different single-weight changes each produced a
+pass, pulling in incompatible directions — the signature of fitting to
+twelve data points. That ambiguity is gone, and what replaced it is
+worse: the only way to pass this test is to weight *freshness* at 0.50,
+i.e. to make the scorer behave more like the calendar baseline it
+already fails to beat.
 
-So the test can be passed by trusting measured saturation more, or less;
-by weighting age more; by weighting reproducibility less; or by nudging one
-unreviewed judgement by 0.04. That is the signature of fitting to twelve
-data points, not of finding the right weights. **No weights were changed.**
+Raising discrimination — the headline factor — never reaches 12/12 at
+any tested weight, and 0.60 makes it worse (8/12).
+
+**No weights were changed.**
 
 ---
 
 ## What changed as a result
 
-**Nothing in the scorer.** The test was expanded, run, and reported. Tuning
-after seeing the answer would convert a prediction into a retrofit, and the
-sensitivity sweep shows several mutually inconsistent ways to do it.
+**Nothing in the scorer's weights.** Two owner decisions changed inputs
+(rubric v2, contamination treatment (c)); both were argued and committed
+from their own evidence before this was run, and neither was chosen for
+its effect here. The test was then run once and reported as-is.
 
-Two tests that asserted the old perfect result were rewritten to assert the
-current one, including pinning the known inversion, so the failure is
-recorded in the suite rather than papered over.
+The tests that pinned the previous failure were re-pinned to this one, so
+the suite records the current reality rather than a historical one.
 
-The honest summary is now: *the scorer is wrong about one of twelve pairs,
-its only error traces to its least defensible input, and on this test it
-does not outperform sorting by publication date.*
+The honest summary is now: *the scorer places a retired benchmark fourth
+of twelve, loses separation by 20 points, cannot be rescued by any
+single-point change to its most subjective input, and does not outperform
+sorting by publication date.*
 
 ---
 
