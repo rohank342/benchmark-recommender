@@ -357,3 +357,153 @@ The audit's original ranking put mechanism ahead of impact. Measuring
 first would have caught that, and it is the same lesson the benchmark
 side learned when an unquantified flag turned out to cost more than a
 measured one.
+
+---
+---
+
+# The unknown-benchmark default, and what models actually cite — 2026-09-22
+
+## `UNKNOWN_BENCHMARK_TRUST` — options, no pick
+
+### Measured first
+
+| | |
+|---|---|
+| models whose rank depends on it | up to **33 of 81** |
+| catalogued benchmarks scoring **below** 45.0 | **8 of 28** |
+| health distribution now | min 15.5, median 54.9, max 95.1 |
+
+| value | models changing rank |
+|---:|---:|
+| 0 | 33 |
+| 20 | 17 |
+| 30 | 9 |
+| **45 (current)** | — |
+| 60 | 10 |
+| 100 | 16 |
+
+**A correction to my own earlier claim.** I reported that 45.0 "sits
+above 18 of 26 measured health scores". It sits above **8 of 28**. The
+health distribution moved up when unmeasurable factors stopped
+contributing and `HEALTHY_SPREAD` was derived; I quoted a figure from
+before those changes. **The default is now slightly below the median,
+not generous** — the fifth-instance framing was overstated, though the
+structural point stands: nothing about it is derived.
+
+### Was it derived?
+
+**No.** It entered in the pivot commit `e965175` with the comment
+*"Middling on purpose: an unknown benchmark is not evidence of a bad
+one, but it can't be trusted like a benchmark that has been assessed"* —
+and a `TODO(you): shrink this as the catalog grows`. Same commit and
+same status as `HEALTHY_SPREAD`, which was also chosen and has since
+been derived.
+
+### The options
+
+| option | invents a parameter? | impact |
+|---|---|---|
+| **(i)** status quo, 45.0 | it already is one | — |
+| **(ii)** re-derive from the current health distribution | **yes** — which statistic? | median 54.9 moves 10 models; mean 51.3 moves ~8 |
+| **(iii)** own tier below THIN, excluded from weighting | **no** | **47 of 81 models lose all weighted evidence** |
+| **(iv)** treat composites as a distinct kind, then re-ask | no | see below |
+
+**(i) asserts** that an unassessed benchmark is worth about as much as a
+median assessed one. Nothing supports that; it is a placeholder that
+has outlived two scale changes.
+
+**(ii) asserts** that the typical assessed benchmark is the right stand-in
+for an unassessed one. It invents a parameter in the same way the old
+value did — "which statistic of the distribution?" is exactly the
+quantile choice that `HEALTHY_SPREAD`'s derivation had to make. It is
+also unstable by construction: the value would move every time a
+benchmark is added, which is the property the `HEALTHY_SPREAD` note
+explicitly warned against.
+
+**(iii) asserts** that a benchmark nobody has assessed cannot weight a
+model's score, exactly as a thin-tier one cannot. It invents nothing and
+is consistent with D1. **Its cost is the finding:**
+
+> **47 of 81 scored models (58%) would have NO weighted evidence at
+> all.** Counting the 134 models that have no score today, **181 of 215
+> (84%) would have no weighted score.**
+
+**What the UI would show for such a model:** its results, its sources,
+and "no weighted evidence — every benchmark this model reports on is
+outside the catalog", with the unweighted numbers displayed beside it.
+Under Reading B that is an honest page rather than an empty one. It also
+makes the model tab's real state visible instead of hiding it behind a
+default — **which is the argument for (iii) and the argument against it,
+depending on whether the model tab is meant to rank or to inform.**
+
+---
+
+## What models cite: composites, aliases, and the tail
+
+### The citation curve
+
+| | citations | share |
+|---|---:|---|
+| catalogued benchmarks | 58 | **31%** |
+| `artificial_analysis_coding_index` (a composite) | 52 | 28% |
+| `MultiPL HumanEval (Python)` (one model's card, 20 variants) | 20 | 11% |
+| long tail | 57 | 30% |
+
+**57 of the 60 distinct unrecognised labels are cited exactly once**, and
+**one model — `bigscience/bloomz-560m` — contributes 50 of them** by
+listing its entire XCOPA / XStoryCloze / XNLI / XWinograd suite across
+dozens of languages.
+
+| to reach | additions needed |
+|---|---|
+| 50% of citations | **impossible** without cataloguing one model's multilingual suite |
+| 33% | the 5 most-cited true benchmarks |
+| 60% | every singleton label — 57 entries, each cited by one model |
+
+**Citation-weighted coverage is the wrong metric.** Model-weighted
+coverage — models with at least one catalogued citation — is **42%**, and
+is what actually matters for whether a model's score rests on assessed
+evidence.
+
+### Composites — design only
+
+`artificial_analysis_coding_index` is 28% of all citations and is **not a
+benchmark**. It is a published aggregate over several benchmarks, scaled
+0–82 in the source and rescaled here.
+
+**It double-counts.** Its components overlap benchmarks this catalog
+already weighs separately — Artificial Analysis's coding index has
+historically included LiveCodeBench and SciCode among others — so a model
+carrying both the index and a component benchmark has that component
+counted twice, once assessed and once inside an unassessed aggregate.
+
+**Three ways to treat it, none implemented:**
+
+1. **Decompose** — record the index's components and their weights, and
+   attribute the score to them. Correct in principle; requires the
+   provider to publish component weights, which change between index
+   versions (v2 → v3 → v4 dropped and added several), so it is a moving
+   target this repo would have to re-verify each release.
+2. **Exclude** — composites carry no weight, like thin-tier benchmarks.
+   Simple, consistent with D1 and (iii), and removes 28% of the model
+   side's evidence at a stroke.
+3. **Mark as a distinct kind** — a `composite` flag on the data point, so
+   it is displayed, never weighted, and never double-counts. This is the
+   basis-field pattern applied to a kind rather than a value, and is the
+   cheapest of the three.
+
+**Recommended for the owner's decision: (3).** It invents nothing,
+matches how every other "we cannot assess this" case has been handled,
+and preserves the evidence for display.
+
+### Alias check — one real match, three traps
+
+| candidate | verdict | evidence |
+|---|---|---|
+| **`Winogrande XL (xl)` → Winogrande** | **MATCH** | "xl" is the standard Winogrande config name (the 40k-example training size); the benchmark is identical. Safe to alias. |
+| `XWinograd (en/fr/jp/pt/ru/zh)` → Winogrande | **NOT A MATCH** | XWinograd is a *different* multilingual Winograd-schema set, not Winogrande. Merging would repeat the SimpleQA / SimpleQA Verified error in reverse. |
+| `GSM8K (PAL)` → GSM8K | **NOT MERGED** | Same problems, but PAL is a different *evaluation protocol* (program-aided prompting) producing systematically different scores. Same trap as the raw-vs-rescaled column bug. |
+| `MultiPL HumanEval (Python)` → HumanEval | **NOT MERGED** | MultiPL-E is a translation harness; its Python config is close to HumanEval but not identical, and the citing card reports 20 different values under the label. Merging would import that spread into HumanEval. |
+
+**Only the Winogrande XL alias is safe**, and it is worth one line. The
+other three are exactly the kind of match that looks free and is not.

@@ -880,7 +880,14 @@ BENCHMARK_CATALOG: tuple[Benchmark, ...] = (
         key="winogrande",
         name="Winogrande",
         category="commonsense reasoning",
-        aliases=("WinoGrande", "wino_grande_external", "winogrande_xl"),
+        # "Winogrande XL (xl)" appears in model cards: "xl" is the standard
+        # config name for the 40k-example training size, and the benchmark
+        # is identical. Verified 2026-09-22. NOT aliased: XWinograd, which
+        # is a different multilingual Winograd-schema set.
+        aliases=(
+            "WinoGrande", "wino_grande_external", "winogrande_xl",
+            "Winogrande XL (xl)", "Winogrande XL",
+        ),
         release_date="2019-07-24",
         dataset_size=44000,
         contamination_flagged=True,
