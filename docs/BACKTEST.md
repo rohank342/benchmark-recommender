@@ -1,40 +1,64 @@
-# Backtest: does the trust score agree with a decision already made?
+# Backtest — RETIRED as a discriminating test, 2026-09-22
 
-**Run it:** `python backtest.py` (add `--sweep` for the diagnostics).
+**Run it:** `python backtest.py`. It is kept as a **regression check**:
+it will catch a change that breaks as-of scoring or the leakage gates.
+It can no longer tell you whether the scorer works.
 
-**Result at 12 benchmarks: 10/12 on the split, separation lost by 26.9
-points. On the 30 comparisons that are actually valid, 30/30 — and so is
-the age baseline.**
+## Why it was retired
 
-*Updated 2026-09-22 (fifth run), after evidence tiering and a derived
-HEALTHY_SPREAD. Every earlier number in this document was computed under
-a saturation definition and a threshold now superseded; they are kept as
-history, not as claims.*
+Evidence tiering showed that 6 of this test's 36 retired-vs-kept pairs
+span tiers and were never valid comparisons — all six involve MATH Level
+5, which has 29 models at the cutoff and is therefore THIN.
 
-## The thing to read first
+On the 30 comparisons that **are** valid:
 
-Evidence tiering (see [METHODOLOGY.md](METHODOLOGY.md)) says a score
-resting on one factor cannot be ranked against one resting on three. Six
-of this test's 36 retired-vs-kept pairs turn out to span tiers — all six
-involve **MATH Level 5**, which has 29 models at the cutoff and is
-therefore THIN. Those six were never valid comparisons.
+| | pairs | correct |
+|---|---:|---:|
+| **the scorer** | 30 | **30 (100%)** |
+| **sorting by release date** | 30 | **30 (100%)** |
 
-| | pairs | scorer | age baseline |
-|---|---:|---:|---:|
-| all retired-vs-kept | 36 | 31 (86%) | — |
-| **same-tier only** | **30** | **30 (100%)** | **30 (100%)** |
-| cross-tier, dropped | 6 | — | — |
+**Both are perfect, so the test cannot distinguish them — and it never
+will.** That is not a temporary shortage of data. It is a property of
+these twelve benchmarks: HF retired the six older ones and kept the six
+newer ones, so on every valid pair the calendar and the scorer agree by
+construction. The six pairs where they could have disagreed are exactly
+the six that are not valid comparisons.
 
-**Restricting to valid comparisons makes the scorer perfect and makes
-the test useless.** Both the scorer and "sort by release date" get every
-one of the 30 right, so the test has *no* power to separate them. This
-is the project's central problem in its sharpest form: the comparisons
-the scorer gets right are exactly the ones a calendar also gets right,
-and the comparisons where they might differ were not valid comparisons.
+**It was retired on power, not on its result.** A test that returns 100%
+and cannot fail is not evidence; it was retired for the same reason a
+test that returns 0% would be — it has no ability to discriminate
+between the hypothesis and its baseline.
 
-The split-level 10/12 headline survives only because it includes the six
-invalid pairs. **MATH Level 5 — the scorer's one "miss" — is a benchmark
-it should never have been asked to rank.**
+## ⚠️ Do not quote the 30/30
+
+**Anyone citing "the scorer gets 30 of 30 on the HF retirement backtest"
+without this page is quoting something false.** The number is real and
+means nothing on its own: the baseline it is supposed to beat scores
+identically, and the comparisons that would have separated them were
+excluded as invalid. Reporting the 100% as vindication would be the
+single most misleading thing this project could say about itself.
+
+## What replaced it
+
+The project's only **live** validation is now:
+
+- the **[forward test](FORWARD_TEST.md)**, sealed 2026-09-22 and
+  maturing **2028-09-22**, whose age baseline is fixed in advance; and
+- **[ARC-AGI-1](ARC_AGI_TEST.md)** if it is built — the only near-term
+  test that could fill the old-but-unsaturated cell these twelve
+  benchmarks do not contain.
+
+Until one of those returns, the honest answer to "does the scoring
+work?" is **no test has shown that it does.**
+
+---
+
+## History, kept rather than deleted
+
+Everything below records what this test showed under successive
+definitions. The numbers are not comparable across revisions — the
+saturation definition, the reproducibility fallback and `HEALTHY_SPREAD`
+all changed — and none of them is a claim about the scorer any more.
 
 ---
 

@@ -68,8 +68,27 @@ one such choice; anchoring on the observed spread distribution instead
 just relocates it to a quantile. The noise anchor is preferred because
 it does not depend on which benchmarks happen to be catalogued.
 
-**Sensitivity — this is a finding, not a footnote.** Defensible values
-run 0.084 to 0.358:
+**Every other parameter was checked the same way on 2026-09-22.** Seven
+of nine reorder the catalog across their defensible range:
+
+| parameter | range | rank moves (of 26) |
+|---|---|---:|
+| `HEALTHY_SPREAD` | 0.084–0.358 | **19** |
+| `SATURATION_TOP_PERCENTILE` | 10–30% | **15** |
+| `MIN_SATURATION_POPULATION` | 10–50 | **13** (3 tier changes) |
+| `LEAKAGE_HALF_LIFE_DAYS` | 365–1460 | 8 |
+| `FULL_CONTAMINATION_RATE` | 0.15–0.50 | 6 |
+| `CONTAMINATION_PENALTY` | 0.50–0.80 | 5 |
+| `SCATTER_TOLERANCE` | 0.04–0.16 | 5 |
+| `ITEM_ERROR_PENALTY` | 0.40–0.80 | 3 |
+| `FULL_ITEM_ERROR_RATE` | 0.10–0.40 | 3 |
+
+Only the last two are close to inert. This is the ceiling on how much
+any ranking here can mean, and it is reproduced in the README so a
+reader of the ranking sees it.
+
+**Sensitivity of HEALTHY_SPREAD itself — a finding, not a footnote.**
+Defensible values run 0.084 to 0.358:
 
 | HEALTHY_SPREAD | mean catalog health | benchmarks whose rank moves |
 |---:|---:|---:|

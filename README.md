@@ -33,13 +33,48 @@ than release date does.** Three tests have been run to a conclusion:
 
 | test | result |
 |---|---|
-| **HF retirement backtest** (June 2024, 12 benchmarks) | On the 30 comparisons that are actually valid, the scorer gets **30/30 — and so does sorting by release date.** The test has no power to separate them. |
+| **HF retirement backtest** (June 2024, 12 benchmarks) | **RETIRED 2026-09-22 as a discriminating test.** On the 30 comparisons that are actually valid the scorer gets 30/30 — **and so does sorting by release date.** It cannot separate them and never will: that is a property of these twelve benchmarks. Kept as a regression check. |
 | **Candidate 1** (OpenAI abandons SWE-Bench Verified) | **Not a valid comparison.** The two benchmarks are in different evidence tiers — 18 models against 196. Exhausted as a test. |
 | **Hindcast** (does trust at T predict later saturation?) | 2 of 4 discordant pairs — a coin flip. Declared descriptive before it was run. |
 
-A fourth, the **[forward test](docs/FORWARD_TEST.md)**, was sealed on
-2026-09-22 and matures in 2028. It is the only one that cannot be gamed,
-and its age baseline is fixed in advance.
+> ⚠️ **Do not quote the backtest's 30/30.** The baseline it is meant to
+> beat scores identically, and the pairs that would have separated them
+> were excluded as invalid. Citing that number as vindication would be
+> the most misleading thing this project could say about itself. See
+> [docs/BACKTEST.md](docs/BACKTEST.md).
+
+**The project's only live validation is the
+[forward test](docs/FORWARD_TEST.md)**, sealed 2026-09-22 and maturing
+**2028-09-22**, with its age baseline fixed in advance — plus
+[ARC-AGI-1](docs/ARC_AGI_TEST.md) if it is built. Until one of those
+returns, the honest answer to "does the scoring work?" is **no test has
+shown that it does.**
+
+### The numbers move when the constants do
+
+Seven of the nine tunable parameters reorder the catalog across their
+defensible ranges. This is published here rather than buried because it
+bounds what any ranking on this page can mean:
+
+| parameter | range tested | benchmarks that change rank (of 26) |
+|---|---|---:|
+| `HEALTHY_SPREAD` | 0.084 – 0.358 | **19** |
+| `SATURATION_TOP_PERCENTILE` | 10% – 30% | **15** |
+| `MIN_SATURATION_POPULATION` | 10 – 50 | **13** (3 change tier) |
+| `LEAKAGE_HALF_LIFE_DAYS` | 365 – 1460 | 8 |
+| `FULL_CONTAMINATION_RATE` | 0.15 – 0.50 | 6 |
+| `CONTAMINATION_PENALTY` | 0.50 – 0.80 | 5 |
+| `SCATTER_TOLERANCE` | 0.04 – 0.16 | 5 |
+| `ITEM_ERROR_PENALTY` | 0.40 – 0.80 | 3 |
+| `FULL_ITEM_ERROR_RATE` | 0.10 – 0.40 | 3 |
+
+`HEALTHY_SPREAD` is the worst: across its range mean catalog health
+moves **58.8 → 45.5**. It was derived on 2026-09-22 from the measured
+cross-source noise floor — 3 × the maximum measured scatter (0.0805) =
+0.24 — and **the multiplier 3 is an invented choice**, named here and not
+only in the commit. No derivation of that constant escapes one such
+choice; anchoring on the observed spread distribution instead just moves
+it to a quantile.
 
 **So: the dossier is the product and the score is a summary of it.** The
 ranking is grouped by how much evidence each score rests on, and scores
