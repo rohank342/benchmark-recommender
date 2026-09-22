@@ -1,8 +1,10 @@
 # Hindcast — pre-registration
 
-**Status: design only. Nothing has been run.** No outcome — no saturation
-at any date later than T — has been computed for any benchmark in this
-document. Awaiting the owner's approval.
+**Status: RUN 2026-09-21 with owner approval. Result at the end, labelled
+DESCRIPTIVE — it counts as evidence neither for nor against the scorer.**
+
+The design below is preserved exactly as registered, before any outcome
+was computed. Nothing in it was modified after the run.
 
 ## The question
 
@@ -245,3 +247,93 @@ which is why a pass is not validation.
 - **Not looked at:** saturation, scores, or any distribution at the
   outcome date for any of the five benchmarks. That is the outcome, and
   it stays uncomputed until this design is approved.
+
+---
+---
+
+# RESULT — run 2026-09-21
+
+**DESCRIPTIVE ONLY. This result counts as evidence neither for nor
+against the scorer, and must not be cited as either.** Five benchmarks,
+seven discordant pairs, effective sample size two to three because MATH
+Level 5 appears in four of the seven. That was established before the run
+and does not change because the numbers came back.
+
+Run exactly as registered. Nothing in the design was modified.
+
+## What happened
+
+| benchmark | released | trust @ T | sat @ T | sat @ outcome | change |
+|---|---|---:|---:|---:|---:|
+| MATH Level 5 | 2021-03-05 | 71.6 | 0.123 | 0.507 | **+0.384** |
+| GPQA Diamond | 2023-11-20 | 65.9 | 0.368 | 0.588 | +0.219 |
+| BIG-Bench Hard | 2022-10-17 | 63.5 | 0.247 | 0.466 | +0.219 |
+| MMLU-Pro | 2024-06-03 | 52.2 | 0.594 | 0.374 | **−0.220** |
+| MuSR | 2023-10-24 | 42.4 | 0.644 | 0.440 | −0.205 |
+
+IFEval excluded by the pre-registered ceiling rule (0.717 at T).
+
+**Primary metric: the scorer is right on 1 of 7 discordant pairs.**
+By the registered thresholds (pass ≥6, fail ≤3) that is a FAIL, and it is
+worse than a coin flip. Discrimination-only: 2 of 8.
+
+Secondary, Spearman against later saturation — a *negative* value would
+mean a good predictor (higher trust → less saturated later):
+
+| predictor | ρ |
+|---|---:|
+| full as-of trust | **+0.800** |
+| discrimination only | +0.600 |
+| release-date order | +0.400 |
+
+All three point the wrong way, and the scorer points wrongest.
+
+Pre-registered drop-MATH check: **0 of 3** without MATH Level 5.
+
+## Why this is descriptive and not a finding
+
+**The outcome variable mean-reverted almost perfectly, so there was
+nothing to predict.**
+
+| | |
+|---|---|
+| correlation(saturation @ T, *change* in saturation) | **−0.971** |
+| spread of saturation @ T | sd 0.223, range 0.123–0.644 |
+| spread of saturation @ outcome | sd 0.079, range 0.374–0.588 |
+
+Every benchmark that started low rose; every benchmark that started high
+fell; all five converged into a 0.21-wide band. A predictor that ranks
+benchmarks by saturation at T is *guaranteed* to look anti-predictive
+against an outcome that reverts this hard, whatever it knows.
+
+The mechanism is not subtle: the v2 population grew from **608 models to
+4,046** between the two dates. Saturation is measured from the top 10 of
+a distribution, and that statistic is not stable when the distribution it
+is drawn from grows sevenfold. MATH Level 5's reading at T rests on the
+608-model cut and moved 0.384 when the population filled in.
+
+So the honest reading is not "the scorer cannot predict saturation". It
+is **"measured saturation on a growing population is not a stable enough
+quantity to predict, or to be predicted from"** — which is a problem for
+the discrimination factor itself, not just for this test.
+
+## What this does establish
+
+Nothing about the scorer. One thing about the method, which is worth more
+than the test would have been:
+
+> The `discrimination` factor is computed from the top 10 of whatever
+> models a source happens to have evaluated. Between two dates nine
+> months apart, on the same source and the same benchmark, that number
+> moved by up to 0.384 with no change in the benchmark itself. Any claim
+> of the form "benchmark X is 59% saturated" is a claim about a
+> population snapshot, not a property of X.
+
+That compounds the population finding in `METHODOLOGY.md`: saturation
+varies by *which* population and by *when the population was sampled*.
+
+## Not done
+
+No weight, threshold or curated value was changed in response. Per the
+registration, any change suggested by this belongs in a separate commit
+on its own evidence.
