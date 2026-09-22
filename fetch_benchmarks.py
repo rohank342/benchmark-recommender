@@ -1251,6 +1251,125 @@ BENCHMARK_CATALOG: tuple[Benchmark, ...] = (
         epoch_source_file="the_agent_company_external.csv",
     ),
     Benchmark(
+        key="mbpp",
+        name="MBPP",
+        category="code generation",
+        aliases=("Mostly Basic Programming Problems", "mbpp", "MBPP (sanitized)"),
+        release_date="2021-08-16",
+        # The 500-problem TEST split, not the 974-problem total. Model
+        # cards almost always report the test split, and recording the
+        # total would overstate what a score is computed over.
+        dataset_size=500,
+        contamination_flagged=True,
+        saturation_flagged=False,
+        independent_evaluators=3,
+        specificity_dimensions=(1, 2, 2, 1, 0),
+        evidence_dates={
+            # CURATE(you): contamination is asserted from the 2021 public
+            # release and MBPP's ubiquity in code pretraining corpora, NOT
+            # from a study that counted overlap. Undated on purpose, so
+            # as-of scoring ignores it.
+        },
+        curation_notes=(
+            "SPECIFICITY: Rubric v2, applied by Claude Code 2026-09-22, adopted by "
+            "owner 2026-09-21. Not independently checked: a second reviewer scoring "
+            "a sample would be the validation. Dimensions (1,2,2,1,0): problems "
+            "written by humans for the benchmark, not drawn from real work (A1); "
+            "the model produces a Python function verified by executing three "
+            "assert statements (B2); one identifiable task type, implementing a "
+            "short function from a description (C2); writing small functions is a "
+            "component of programming work (D1); single short function, one shot "
+            "(E0). "
+            "RESEARCHED 2026-09-22. Austin et al., arXiv 2108.07732 (2021-08-16), "
+            "Google: 974 crowd-sourced Python problems 'solvable by entry-level "
+            "programmers', each with one reference solution averaging 6.8 lines and "
+            "THREE assert-statement unit tests. Split 374 train / 90 validation / "
+            "500 test / 10 few-shot. https://arxiv.org/abs/2108.07732 "
+            "WHY IT IS CATALOGUED: it is the second-most-standard code benchmark "
+            "after HumanEval and the most defensible addition from the model side's "
+            "citation list. It is cited by ONE model in this repo's catalog, which "
+            "is the point of the coverage finding rather than an argument against "
+            "adding it — see docs/MODEL_SIDE_AUDIT.md. "
+            "CURATE(you): NO SCORE DATA. Neither Epoch's export nor the HF "
+            "leaderboards carry MBPP, so saturation is UNMEASURABLE and this entry "
+            "sits in the THIN evidence tier — its health rests on freshness alone. "
+            "EvalPlus publishes MBPP+ and would be the obvious source; it publishes "
+            "no model dates, which is why HumanEval's EvalPlus set is also "
+            "date-less here. "
+            "CURATE(you): contamination_flagged is set on the 2021 public release "
+            "and MBPP's presence in every major code corpus, NOT on a study that "
+            "counted overlap. No rate, no effect, no evidence date — so it is "
+            "invisible to as-of scoring and, since 2026-09-21, carries no numeric "
+            "penalty either. Riddell et al. (arXiv 2403.04811) DID measure MBPP "
+            "overlap — 3.6% to 20.8% of solutions seen, with relative accuracy "
+            "degradations of 4.5% to 28.6% depending on threshold — and those "
+            "figures are deliberately NOT recorded here, because they are drawn "
+            "from three small pre-2024 models (StarCoderBase, Pythia, CodeGen-NL) "
+            "and this catalog's other contamination rates come from corpus-wide "
+            "overlap studies. Recording them would repeat the max-vs-mean and "
+            "controlled-vs-uncontrolled errors this project has already made "
+            "twice. "
+            "CURATE(you): item quality unaudited. MBPP's tests are three asserts "
+            "per problem, which is thinner than HumanEval's, and the sanitized "
+            "subset (427 problems) exists precisely because the original had "
+            "quality issues — a strong hint that item_error_rate is not zero, and "
+            "not a number."
+        ),
+        epoch_source_file=None,
+    ),
+    Benchmark(
+        key="ds_1000",
+        name="DS-1000",
+        category="code generation",
+        aliases=("DS1000", "ds-1000", "DS-1000 (Completion)"),
+        release_date="2022-11-18",
+        dataset_size=1000,
+        contamination_flagged=False,
+        saturation_flagged=False,
+        independent_evaluators=2,
+        specificity_dimensions=(2, 2, 2, 1, 0),
+        evidence_dates={},
+        curation_notes=(
+            "SPECIFICITY: Rubric v2, applied by Claude Code 2026-09-22, adopted by "
+            "owner 2026-09-21. Not independently checked: a second reviewer scoring "
+            "a sample would be the validation. Dimensions (2,2,2,1,0): problems "
+            "collected from real StackOverflow questions, i.e. artifacts that "
+            "existed because someone had the problem (A2); the model writes code "
+            "verified by execution AND surface-form checks on API usage (B2); one "
+            "identifiable task type, data-science code completion (C2); a "
+            "recognisable component of analysis work rather than a whole "
+            "deliverable (D1); single completion, one shot (E0). "
+            "RESEARCHED 2026-09-22. Lai et al., arXiv 2211.11501 (2022-11-18), "
+            "ICML 2023: 1,000 data-science problems across seven libraries (NumPy, "
+            "Pandas, TensorFlow, PyTorch, SciPy, scikit-learn, Matplotlib), "
+            "collected from StackOverflow. https://arxiv.org/abs/2211.11501 "
+            "WHY IT IS CATALOGUED, and it is the interesting one: DS-1000 "
+            "PROACTIVELY DEFENDS AGAINST MEMORIZATION by perturbing each problem "
+            "away from its StackOverflow original, so a model cannot answer by "
+            "recalling the source. That is the difficulty-controlled design this "
+            "catalog has been looking for and could not find for HumanEval — see "
+            "HumanEval's CURATE note on EvoEval. It is the strongest leakage "
+            "defence of any code benchmark here that is not held out. "
+            "The authors also report that of all accepted Codex-002 solutions only "
+            "1.8% were actually incorrect, which is an unusually direct "
+            "false-acceptance measurement and the opposite of the SWE-Bench "
+            "problem. "
+            "CURATE(you): HOLDOUT NOT RECORDED AS A DEFENCE. The perturbation is a "
+            "construction-time defence, not a withheld answer key, so holdout "
+            "stays 'public_static'. Whether this repo's holdout taxonomy should "
+            "have a 'perturbed' value is an open question — it is a real leakage "
+            "defence that the four current values cannot express. "
+            "CURATE(you): the 1.8% false-acceptance figure is NOT recorded as an "
+            "item_error_rate. It measures the opposite quantity (tests that accept "
+            "a wrong answer, rather than reject a right one) on a single 2022 "
+            "model. Putting it in that field would be the one-field-two-quantities "
+            "violation named in CLAUDE.md section 3. "
+            "CURATE(you): NO SCORE DATA in Epoch or the HF leaderboards, so "
+            "saturation is unmeasurable and this entry is THIN tier."
+        ),
+        epoch_source_file=None,
+    ),
+    Benchmark(
         key="triviaqa",
         name="TriviaQA",
         category="general knowledge",

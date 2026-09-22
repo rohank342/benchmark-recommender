@@ -1034,7 +1034,12 @@ class TestEvidenceTiers:
         best_score = max(ranked, key=lambda t: t.health)
         assert best_score.benchmark.name == "MirrorCode"
         assert best_score.evidence_tier == "thin"
-        assert ranked.index(best_score) > len(ranked) - 4
+        # Ranked inside the thin block, i.e. below every full and
+        # partial entry. The block grew when MBPP and DS-1000 were added
+        # (both have no score data), so this counts the block rather
+        # than assuming its size.
+        thin = [t for t in ranked if t.evidence_tier == "thin"]
+        assert ranked.index(best_score) >= len(ranked) - len(thin)
 
     def test_tiers_are_assigned_from_evidence_not_from_score(self):
         for t in score_all_benchmarks():

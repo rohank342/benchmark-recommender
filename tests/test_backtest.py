@@ -262,13 +262,21 @@ class TestSealedForwardTest:
         path = Path(__file__).parent.parent / "data/forward_test/sealed_2026-09-22.json"
         return json.loads(path.read_text()), path
 
-    def test_the_seal_exists_and_covers_the_whole_catalog(self):
+    def test_the_seal_covers_exactly_the_benchmarks_it_sealed(self):
+        """
+        The catalog may grow after the seal — MBPP and DS-1000 were added
+        the same day. docs/FORWARD_TEST.md registered that case in
+        advance: "new benchmarks have no sealed baseline; they are not in
+        the test. Only the sealed 26 count." So the seal must stay at 26
+        and must be a SUBSET of the catalog, never equal to it.
+        """
         from fetch_benchmarks import load_benchmark_catalog
 
         sealed, _ = self._sealed()
         assert sealed["sealed_at"] == "2026-09-22"
         keys = {b["key"] for b in sealed["benchmarks"]}
-        assert keys == {b.key for b in load_benchmark_catalog()}
+        assert len(keys) == 26
+        assert keys <= {b.key for b in load_benchmark_catalog()}
 
     def test_the_seal_is_intact(self):
         """Content hash over the payload, recomputed."""
