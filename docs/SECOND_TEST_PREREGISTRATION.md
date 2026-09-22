@@ -357,3 +357,98 @@ For transparency about what could have leaked into the design:
   candidate at any candidate as-of date. `backtest.py` was not run.
 - Today's scores for the catalog are known from previous work and were
   not consulted for these events.
+
+---
+---
+
+# RESULT — Candidate 1, run 2026-09-21
+
+Run once, as registered, after rubric v2 and the contamination decision
+were committed. **No part of the design was modified.** One-pair
+falsification check.
+
+## Gate 0 — leakage: PASSED
+
+| claim | visible at 2026-02-01? |
+|---|---|
+| SWE-Bench Verified `item_error_rate` | no |
+| SWE-Bench Verified `contamination_flagged` | no |
+| GPQA Diamond `saturation_flagged` | no |
+
+Dated models before the as-of date: SWE-Bench Verified 18, GPQA Diamond
+196. Both clear the minimum of 10.
+
+## The numbers
+
+| | SWE-Bench Verified | GPQA Diamond |
+|---|---:|---:|
+| released | 2024-08-13 | 2023-11-20 |
+| discrimination (×0.40) | 0.288 → 11.53 *(measured, 18 models)* | 0.339 → 13.55 *(measured, 196)* |
+| freshness (×0.20) | 0.601 → 12.01 | 0.466 → 9.32 |
+| reproducibility (×0.20) | 1.000 → 20.00 *(curated)* | 1.000 → 20.00 *(curated)* |
+| specificity (×0.20) | 1.000 → 20.00 | 0.200 → 4.00 |
+| penalties | none | none |
+| **trust at 2026-02-01** | **S = 63.5** | **G = 46.9** |
+
+`G − S = −16.6`
+
+## Verdict: **FAIL**
+
+The registered criterion:
+
+> **FAIL:** `S > G`. The scorer agrees with age and is wrong with it.
+
+`S > G` by 16.6 points. The scorer ranks the benchmark a frontier lab was
+about to publicly abandon **above** the older one that demonstrably stayed
+in use — the same ordering the age baseline gives, on the one pair the
+test was built to separate them.
+
+The registered consequence, quoted:
+
+> Combined with the existing backtest, this would mean the scorer has
+> never been shown to beat age on any discriminating comparison.
+
+That is now the situation. **The scorer has not beaten the age baseline on
+a single discriminating comparison anywhere in this project.**
+
+## The one thing that went the right way
+
+Pre-registered as "recorded, not scored": which factor drives the gap.
+
+| factor | contribution to `G − S` |
+|---|---:|
+| **discrimination** | **+2.02** |
+| reproducibility | 0.00 |
+| freshness | −2.69 |
+| **specificity** | **−16.00** |
+
+**Discrimination pointed the right way.** The measured factor — the one
+the project is actually about — ranked GPQA Diamond as the better
+benchmark at that date, correctly. It was then overwhelmed by
+specificity, which is 20% of the score, has no measurement behind it, and
+contributed −16.00 points on its own.
+
+Specificity here is SWE-Bench Verified at 1.00 (real GitHub issues, real
+patches, real tests) against GPQA Diamond at 0.20 (four-option multiple
+choice). Both are defensible readings of rubric v2. The rubric is doing
+exactly what it says it does — and on this test it is what produces the
+wrong answer, by an order of magnitude more than the measured factor
+produces the right one.
+
+That is a sharper result than a plain FAIL. It is not "the scorer cannot
+see saturation"; it is **"the scorer can see saturation and its own
+judgement factor outvotes it 8:1."**
+
+## What was not done
+
+No weight, threshold or curated value was changed in response. Per the
+registration, any change suggested by this result is a separate decision
+made on its own evidence, in a later commit, citing this document.
+
+## Note on comparability
+
+The registration was written before rubric v2 and the contamination
+decision landed, so the absolute scores here are not the ones that would
+have been produced on the day it was written. The owner sequenced the run
+after those changes deliberately. The design — as-of date, comparator,
+gate, criteria, margin — was followed exactly as registered.
