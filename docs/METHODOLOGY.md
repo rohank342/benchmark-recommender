@@ -184,6 +184,117 @@ GPQA's median delta read 24.5 points when the true figure was 7.9.
 Falls back to `independent_evaluators / 5`, capped at 1.0, with `basis` set
 to `curated` and an explanation naming why the measurement was unavailable.
 
+#### Diagnosis: the fallback rewards being uncheckable
+
+Analysis only, 2026-09-22. Nothing changed, and no treatment is picked here.
+
+**This is the same bug class as the old flat contamination penalty**, which
+was fixed on 2026-09-21. There, a flag nobody had measured cost as much as
+the worst measured contamination. Here, a benchmark nobody *can* check
+scores higher than one that was checked and failed.
+
+> ARC scores **1.000** because its two sources cannot be compared. GPQA
+> Diamond scores **0.000** because its two sources can be compared and
+> disagree by 8.1 points. That one mechanism is 20 of the 30 points by
+> which ARC outranks GPQA.
+
+#### Who gets which, and what each group scores
+
+| | n | mean | median | range |
+|---|---:|---:|---:|---:|
+| **measured** | 6 | **0.485** | 0.572 | 0.000 – 0.892 |
+| **curated fallback** | 20 | **0.580** | 0.500 | 0.200 – 1.000 |
+
+**The fallback is on average more generous than the measurement it stands
+in for** (0.580 vs 0.485). It is not a neutral proxy; it is a bonus for
+being unverifiable.
+
+Four benchmarks receive the maximum 1.000 from the fallback:
+
+| benchmark | why it isn't measured |
+|---|---|
+| **ARC** | two sources, but v1 reports length-normalized scores |
+| **HellaSwag** | same |
+| SWE-Bench Verified | only one source |
+| HumanEval | only one source |
+
+The first two are the sharp cases: a comparison *was* possible and was
+refused on a correctness guard, and the refusal pays out at maximum.
+
+#### What the guard is costing — measured
+
+Lifting the normalization guard for these two (reporting the systematic
+offset separately, which is what the offset/scatter split exists for)
+gives real numbers:
+
+| benchmark | overlap | offset | scatter | measured reproducibility | currently |
+|---|---:|---:|---:|---:|---:|
+| ARC | 40 models | −0.035 | 0.030 | **0.620** | 1.000 |
+| HellaSwag | 36 models | −0.022 | 0.018 | **0.775** | 1.000 |
+
+Both are far below the 1.000 the fallback awards. **Checked and rejected:
+refetching a raw column is not an option** — the archived v1 leaderboard
+publishes exactly one column per benchmark (`ARC`, `HellaSwag`, …) with no
+raw/acc variant, so the data to make a like-for-like comparison does not
+exist in that source.
+
+#### Treatments
+
+Effects on today's scores and on the backtest. **The backtest is affected
+far more than the catalog**, because as-of scoring has no cross-source
+data at all, so *all twelve* benchmarks there take the fallback.
+
+| treatment | invents a parameter? | backtest | benchmarks moved |
+|---|---|---|---|
+| **(a) status quo** | no | 10/12, gap −17.3 | — |
+| **(b) cap at measured mean (0.485)** | **yes** — the cap | 10/12, gap −7.8 | 10 |
+| **(b′) cap at measured median (0.572)** | **yes** — the cap | 10/12, gap −9.4 | 10 |
+| **(c) drop it, renormalize the rest** | **no** | 10/12, gap −8.7 | 20 |
+| **(d) lift the normalization guard** | **no** | no change | 2 |
+
+Largest movers under each:
+
+**(b) cap at mean 0.485** — ARC 45.9 → 35.6, SWE-Bench Verified 41.3 →
+34.4, HumanEval 30.6 → 23.9, TruthfulQA 28.5 → 22.2, HellaSwag 25.6 →
+19.4. Only benchmarks above the cap move; everything at 0.400 or below is
+untouched.
+
+**(c) drop and renormalize** (0.40/0.20/0.20 → 0.50/0.25/0.25 for the 20
+unmeasurable ones, per benchmark) — the widest change, and it moves scores
+*up* as often as down: MirrorCode 76.3 → 90.4, GSO-Bench 74.8 → 83.5, The
+Agent Company 73.3 → 81.6, while ARC 45.9 → 32.4, TruthfulQA 28.5 → 15.6,
+TriviaQA 26.1 → 17.6. Benchmarks with strong measured discrimination gain;
+benchmarks that were leaning on an unearned 1.000 lose.
+
+**(d) lift the guard** — ARC's reproducibility 1.000 → 0.620 and
+HellaSwag's 1.000 → 0.775, nothing else. No effect on the backtest, since
+as-of scoring cannot use cross-source agreement either way.
+
+#### What each treatment asserts
+
+- **(a)** asserts that counting how many groups publish a number is a fair
+  stand-in for whether those numbers agree. The measured-vs-curated means
+  above are direct evidence against that.
+- **(b)** asserts that the fallback should never exceed what measurement
+  typically shows. It is the only treatment requiring a number nobody can
+  source — mean or median of six values, which will move as the seventh
+  measurement arrives. **This is the parameter-inventing option**, and it
+  is the same shape as the half-severity option rejected for contamination.
+- **(c)** asserts that an unmeasurable factor should not contribute at all,
+  and that the remaining factors should carry full weight — mirroring
+  contamination treatment (c), which was adopted. It invents nothing.
+  Its cost is that a benchmark with one evaluator and one with five become
+  indistinguishable, discarding information that, while weak, is real.
+- **(d)** asserts that a systematic normalization difference is an
+  *offset*, which the machinery already isolates, and should not void the
+  scatter measurement. It invents nothing and is narrow. Its risk is real:
+  length normalization is a per-item reweighting, not a constant shift, so
+  part of the 0.030 and 0.018 scatter is the normalization itself — the
+  resulting values are **lower bounds** on true reproducibility, not
+  estimates. (b) and (d) are not mutually exclusive; nor are (c) and (d).
+
+Not picked here. This is the owner's call.
+
 ### specificity — auditable judgement, NOT measurement
 
 How narrowly a benchmark maps to real work, 0–1. 1.0 is "resolve this
