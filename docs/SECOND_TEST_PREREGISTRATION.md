@@ -1,9 +1,10 @@
 # Second test — pre-registration
 
-**Status: design only. Nothing has been run.** No as-of score has been
-computed for any candidate event in this document. Awaiting the owner's
-approval of the event list; changes after approval go in as new commits,
-not rewrites.
+**Status: Candidate 1 RUN 2026-09-21 with owner approval — it FAILED.
+See the result section at the end. Candidate 2 remains unbuilt.**
+
+The design below is preserved exactly as registered, before any score was
+computed. Nothing in it was modified after the run.
 
 ## Why a second test
 
