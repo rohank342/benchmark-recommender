@@ -183,8 +183,13 @@ Under the split that becomes two numbers each, and the claim has to be
 restated. The honest version is *stronger*, because most of the
 HumanEval–MirrorCode gap is measurement health rather than task fit:
 
-- "HumanEval is a weaker measurement than MirrorCode" — supported by
-  measured saturation, contamination and age.
+- "HumanEval is a weaker measurement than MirrorCode" — **SUPERSEDED
+  2026-09-22. This project no longer makes claims that compare
+  benchmarks across evidence tiers.** MirrorCode is THIN tier: 8 scored
+  models, no measurable saturation, a score resting on a release date.
+  It is not ranked against HumanEval and the two numbers were never
+  comparable. The defensible claim is about HumanEval alone — measured
+  saturation, a measured contamination rate, and an uncontrolled effect.
 - "HumanEval is less relevant to real coding work" — a rubric judgement,
   and currently silently folded into the same number.
 

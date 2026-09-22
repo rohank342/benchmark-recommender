@@ -100,7 +100,9 @@ as *summaries of the panel below*, not as a verdict. The existing
 
 **README.** Stop leading with "HumanEval 32.6 vs MirrorCode 95.1" — a
 comparison that spans two populations and rests on 2 and 1 factors
-respectively. Lead with the thing that is actually defensible: *here is
+respectively. *(Done 2026-09-22; the comparison is now marked superseded
+in the README, and evidence tiering makes it formally invalid rather
+than merely unwise.)* Lead with the thing that is actually defensible: *here is
 what is known about each benchmark, with dates and sources, and here is
 what nobody has checked.* The saturation numbers become one line of
 evidence among several rather than the headline.

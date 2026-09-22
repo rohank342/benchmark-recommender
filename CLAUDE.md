@@ -19,11 +19,30 @@ until the leaderboard stops separating them, and public test sets leak into
 training corpora. So "which model is best?" is downstream of a question
 nobody asks: which measurement is still worth believing?
 
-The concrete case, computed from real data: for code generation HumanEval
-scores 30.6/100 while MirrorCode scores 76.3. HumanEval is the famous one —
-164 short functions from 2021, top ten models spanning 7.9 points and
-averaging 92% of the usable range, 8-18% of items in pretraining corpora,
-and scoring 39.4% lower on EvoEval.
+THE CONCRETE CASE, stated as evidence about ONE benchmark rather than as
+a ranking. HumanEval, re-measured 2026-09-22:
+
+  released 2021-07-07, 164 short functions, public and static ever since
+  measured saturation 0.438, over 125 code models submitted to EvalPlus
+  13% of items found in a major pretraining corpus (Riddell et al.)
+  scores fall 39.4% on EvoEval — but EvoEval does NOT control difficulty,
+    so part of that drop is the new problems being harder. Basis recorded
+    as "uncontrolled" for exactly this reason.
+  item quality never audited: None, which means nobody looked
+  measurement health 28.1, resting on 2 of 3 factors — its
+    reproducibility is unmeasurable, because only one source covers it
+
+That is the thesis without a ranking: a benchmark everyone quotes, whose
+leakage is measured, whose contamination effect cannot be cleanly
+separated from difficulty, and whose answer key nobody has checked.
+
+SUPERSEDED HEADLINE, kept so it is not quietly rewritten: this section
+used to read "HumanEval scores 30.6/100 while MirrorCode scores 76.3."
+That comparison is dead. The two are in different EVIDENCE TIERS —
+MirrorCode's score rests on a release date, with 8 scored models and no
+measurable saturation — so they are not ranked against each other and
+the numbers were never comparable. The thesis never needed the
+comparison; see docs/RANK_RANGES.md.
 
 Repo: github.com/rohank342/benchmark-recommender
 Local: ~/benchmark-recommender, branch main, 221 tests, CI green.

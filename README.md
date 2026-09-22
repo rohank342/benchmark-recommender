@@ -82,21 +82,31 @@ are comparable only within a group. If that sounds like a smaller claim
 than "which benchmark should you believe" — it is, and it is the one the
 evidence supports today.
 
-### The concrete case, stated carefully
+### The concrete case, stated as evidence rather than a ranking
 
-HumanEval is the famous code benchmark. It is 164 short functions
-published in 2021; 8–18% of its items appear in major pretraining
-corpora; and the same models score 39.4% lower on EvoEval — a figure this
-project had to correct twice, first because it was attributed to two
-papers that contain neither, then because EvoEval does not control for
-difficulty, so part of that drop is the new problems being harder.
-Measurement health **32.6/100**, resting on 2 of 3 factors.
+**HumanEval**, every figure re-measured 2026-09-22:
 
-MirrorCode scores **95.1** — and sits in the **thin evidence** tier,
-because 8 scored models is too few to measure saturation at all, so its
-score rests on a release date. It is ranked below every benchmark in the
-tiers above it. That is the dossier working: the number is high, the
-evidence is not, and the tool says so instead of ranking it first.
+| | |
+|---|---|
+| released | 2021-07-07 — 164 short functions, public and static since |
+| measured saturation | **0.438**, over **125 code models submitted to EvalPlus** |
+| contamination rate | **13%** of items found in a major pretraining corpus |
+| contamination effect | scores fall **39.4%** on EvoEval — **basis: uncontrolled**, because EvoEval does not hold difficulty constant, so part of that drop is the new problems being harder |
+| item quality | **never audited** — `None`, which here means nobody looked, not that it is clean |
+| measurement health | **28.1**, resting on **2 of 3 factors**; its reproducibility is unmeasurable because only one source covers it |
+
+That is the thesis without a ranking: a benchmark everyone quotes, whose
+leakage is measured, whose contamination effect cannot be cleanly
+separated from difficulty, and whose answer key nobody has checked.
+
+> **Superseded headline, kept rather than deleted.** This section used to
+> read *"HumanEval's measurement health is 32.6/100 and MirrorCode's is
+> 95.1"*. That comparison is dead twice over: the number moved, and the
+> two benchmarks are in **different evidence tiers** — MirrorCode's score
+> rests on a release date, from 8 scored models with no measurable
+> saturation — so they are not ranked against each other.
+> **This project does not make claims that compare benchmarks across
+> evidence tiers.** See [docs/RANK_RANGES.md](docs/RANK_RANGES.md).
 
 ---
 
