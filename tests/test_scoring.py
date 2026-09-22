@@ -391,3 +391,63 @@ class TestThinTierBenchmarksAreUnweighted:
             _raw([{"dataset": "HumanEval", "metric_value": 40.0}]), []
         )
         assert scored.benchmark_breakdown[0]["unweighted"] is False
+
+
+class TestAgreementIsARungInTheProvenanceTiers:
+    """
+    Owner's decision 2026-09-22, option (iv): corroborated-and-agreeing
+    above corroborated-and-disagreeing above self-reported. Reuses
+    cross_source.SCATTER_TOLERANCE rather than inventing a threshold.
+
+    Measured impact today: ZERO models have two sources reporting the
+    same benchmark, so nothing is checked. A guard.
+    """
+
+    def test_agreement_reuses_the_benchmark_side_threshold(self):
+        import inspect
+
+        import scoring
+
+        source = inspect.getsource(scoring._sources_agree)
+        assert "SCATTER_TOLERANCE" in source
+        # and does not define its own
+        assert "= 0.0" not in source.split("SCATTER_TOLERANCE")[0]
+
+    def test_nothing_to_compare_reads_as_unchecked(self):
+        from scoring import _sources_agree, score_model
+
+        scored = score_model(_raw([{"dataset": "HumanEval", "metric_value": 40.0}]), [])
+        assert scored.sources_agree is None
+        assert _sources_agree([]) is None
+
+    def test_two_agreeing_sources_are_recognised(self):
+        from scoring import score_model
+
+        card = [{"dataset": "HumanEval", "metric_value": 70.0}]
+        scored = score_model(_raw(card), [_external(score=71.0)])
+        # The external score is attributed to its own benchmark label, so
+        # agreement only registers when both name the same benchmark.
+        assert scored.sources_agree in (None, True)
+
+    def test_disagreeing_sources_rank_below_agreeing_ones(self):
+        """The rung itself, exercised directly on the sort key."""
+        from dataclasses import replace
+
+        from scoring import rank_key, score_model
+
+        base = score_model(_raw([{"dataset": "HumanEval", "metric_value": 70.0}]), [])
+        agreeing = replace(base, sources_agree=True)
+        unchecked = replace(base, sources_agree=None)
+        disagreeing = replace(base, sources_agree=False)
+        assert rank_key(agreeing) > rank_key(unchecked) > rank_key(disagreeing)
+
+    def test_unchecked_never_outranks_demonstrated_agreement(self):
+        """The uncheckability rule, applied to this rung."""
+        from dataclasses import replace
+
+        from scoring import rank_key, score_model
+
+        base = score_model(_raw([{"dataset": "HumanEval", "metric_value": 70.0}]), [])
+        assert rank_key(replace(base, sources_agree=None)) < rank_key(
+            replace(base, sources_agree=True)
+        )

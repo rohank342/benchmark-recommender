@@ -103,6 +103,12 @@ class ScoredModel:
     # Which benchmarks produced this score, and what each was worth:
     # [{benchmark, trust, score, source}], most influential first.
     benchmark_breakdown: list[dict[str, Any]] = field(default_factory=list)
+    # Do the sources that report the SAME benchmark for this model agree?
+    #   True  — two or more sources checked, and they agree
+    #   False — two or more sources checked, and they contradict
+    #   None  — nothing to check: no benchmark has two sources
+    # See _sources_agree.
+    sources_agree: Optional[bool] = None
 
 
 @dataclass
@@ -365,6 +371,7 @@ def score_model(
         self_reported_only=self_reported_only,
         provenance_verified=raw_model.get("provenance_verified", True),
         sources=sorted(sources_seen),
+        sources_agree=_sources_agree(points),
         benchmark_breakdown=[
             {
                 "benchmark": point.benchmark_label,
@@ -378,6 +385,52 @@ def score_model(
             for point in sorted(points, key=lambda p: p.benchmark_trust, reverse=True)
         ],
     )
+
+
+def _sources_agree(points: list[_DataPoint]) -> Optional[bool]:
+    """
+    Do independent sources reporting the same benchmark for this model
+    agree, within the tolerance the benchmark side already uses?
+
+    REUSES `cross_source.SCATTER_TOLERANCE` deliberately. A second
+    threshold for the same idea would be a duplicate with its own
+    unsourced constant, and this project has enough of those. The
+    benchmark side asks the same question about a benchmark's evaluators;
+    this asks it about a model's reporters.
+
+    Returns None when nothing is comparable — which is EVERY case today.
+
+    MEASURED 2026-09-22, correcting an earlier count in
+    docs/MODEL_SIDE_AUDIT.md: of 81 scored models, **none** has two
+    different sources reporting the same benchmark. The earlier "one
+    pair, spread 0.022" was a miscount — those were two `epoch_ai`
+    entries, not two sources. So this rung fires on zero models and is
+    purely a guard.
+
+    WHAT THE MISCOUNT UNCOVERED, which is a larger problem: the same
+    source frequently reports the same benchmark label several times.
+    `bigcode/gpt_bigcode-santacoder` carries **20** entries under
+    "MultiPL HumanEval (Python)" ranging 0.15 to 0.77 — different
+    languages and pass@k values collapsed under one label — and all of
+    them are averaged into its score. Grouping by source here
+    deliberately keeps only one value per source, so within-source
+    multiplicity is NOT treated as disagreement. It is a separate defect
+    of `raw_benchmark_score`, recorded in the audit.
+    """
+    from cross_source import SCATTER_TOLERANCE
+
+    by_benchmark: dict[str, dict[str, float]] = {}
+    for point in points:
+        by_benchmark.setdefault(point.benchmark_label, {})[point.source] = point.value
+
+    spreads = [
+        max(values.values()) - min(values.values())
+        for values in by_benchmark.values()
+        if len(values) > 1
+    ]
+    if not spreads:
+        return None
+    return max(spreads) <= SCATTER_TOLERANCE
 
 
 def score_models(
@@ -404,7 +457,7 @@ def score_models(
     return scored
 
 
-def rank_key(model: ScoredModel) -> tuple[bool, bool, bool, float]:
+def rank_key(model: ScoredModel) -> tuple[bool, bool, bool, int, float]:
     """
     Tier before comparing composite scores:
 
@@ -420,10 +473,20 @@ def rank_key(model: ScoredModel) -> tuple[bool, bool, bool, float]:
     tuning constants until the ordering happens to look right.
     """
     has_score = model.composite_score is not None
+    # Agreement is a rung on the same ladder, added 2026-09-22:
+    #   2  checked and agreeing
+    #   1  nothing comparable to check
+    #   0  checked and contradicting
+    # Unchecked sits BETWEEN the two on purpose. It must not outrank
+    # demonstrated agreement — that would be the uncheckability bug this
+    # project has now found five times — and it should not be treated as
+    # badly as a demonstrated contradiction.
+    agreement_rank = {True: 2, None: 1, False: 0}[model.sources_agree]
     return (
         has_score,
         model.provenance_verified,
         has_score and not model.self_reported_only,
+        agreement_rank,
         model.composite_score or 0.0,
     )
 

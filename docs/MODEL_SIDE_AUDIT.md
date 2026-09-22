@@ -255,8 +255,28 @@ weighting one.
 | | |
 |---|---|
 | scored models with 2+ sources | **6 of 81 (7%)** |
-| model/benchmark pairs where two sources report the SAME benchmark | **1** |
-| that pair's spread | **0.022** (MiniMax-M2.7 on Terminal Bench) |
+| model/benchmark pairs where two **different sources** report the same benchmark | **0** |
+
+**CORRECTED 2026-09-22 (second pass).** An earlier version of this
+section reported "1 pair, spread 0.022 (MiniMax-M2.7 on Terminal
+Bench)". That was a miscount: those were two `epoch_ai` entries, not two
+sources. **There is no cross-source disagreement in the dataset at all**,
+so the finding is even lower-impact than first measured.
+
+**What the miscount uncovered is larger.** The same source routinely
+reports the same benchmark label several times — different pass@k
+values, different languages, different runs — and every one of them is
+averaged into the model's score:
+
+| model | label | entries | range |
+|---|---|---:|---|
+| `bigcode/gpt_bigcode-santacoder` | MultiPL HumanEval (Python) | **20** | 0.15 – 0.77 |
+| `bigscience/bloomz-560m` | HumanEval | 3 | 0.022 – 0.090 |
+| `Qwen/Qwen2.5-Coder-32B-Instruct` | Aider polyglot | 2 | 0.080 – 0.164 |
+
+A five-fold range under one label, silently averaged, is finding 3
+(`raw_benchmark_score` pooling incomparable quantities) in its most
+concrete form.
 
 **There is exactly one instance of measurable disagreement in the entire
 dataset, and it is 2.2 points.** The 45-vs-85 example in the audit above
