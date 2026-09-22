@@ -126,6 +126,16 @@ FROM the standard rather than amending it:
     Scoring is identical for both; only the wording changes. Charging a
     bound more harshly would mean inventing a severity the evidence does
     not contain.
+  - A FIELD HOLDING TWO INCOMPARABLE QUANTITIES IS A VIOLATION OF THIS
+    SECTION, even when both values are sourced. contamination_effect held
+    HumanEval's 0.394 (EvoEval, difficulty NOT controlled) beside GSM8K's
+    0.051 (GSM1k, difficulty-matched); both were real published numbers
+    and the penalty formula could not tell that they measured different
+    things. "Sourced" is necessary and not sufficient — the question is
+    whether two values in one field can be compared. The remedy is a
+    basis field: item_error_rate_basis, contamination_effect_basis. Scoring
+    stays identical across bases, because discounting one would mean
+    inventing a correction; only the wording changes.
   - A value assigned by Claude Code rather than the owner must say that in
     curation_notes. Four task_specificity values currently carry
     "assigned by Claude Code 2026-09-21, not yet reviewed by the owner".
@@ -271,6 +281,28 @@ This is the kind of thing worth hunting.
   and object placement runs 2-5 options per item; the real aggregate is
   0.371. Assumed chance levels are a whole class of this bug — check the
   items, not the description.
+- TOP-K OF N IS NOT ONE STATISTIC. Saturation read the top 10 models,
+  which is the top 30% of a 33-model population and the top 0.2% of a
+  4,575-model one. Readings moved by up to 0.81 with no change to the
+  benchmark. Fixed 2026-09-22 with a percentile; any "top k" over
+  variable-sized groups is this bug.
+- BEING UNCHECKABLE USED TO PAY. Two separate mechanisms rewarded having
+  no evidence: an unquantified contamination flag took the maximum
+  penalty multiplier, and an unmeasurable reproducibility fell back to an
+  evaluator count whose mean (0.580) was HIGHER than the measurement it
+  replaced (0.485). ARC scored 1.000 because its sources could not be
+  compared. Whenever a fallback exists, check whether it pays better than
+  the thing it stands in for.
+- A TEST CAN BE "PASSED" BY HAVING NOTHING TO SAY. Candidate 1 flipped
+  from FAIL to PASS when SWE-Bench Verified's discrimination became
+  unmeasurable (18 models, below the minimum) and dropped out of its
+  score. The pre-registration had already named this as evidence
+  AGAINST. A result that improves because a factor vanished is not a
+  result.
+- COMPARING TWO BENCHMARKS CAN MEAN COMPARING TWO POPULATIONS. Candidate
+  1 put SWE-Bench Verified (18 dated models) against GPQA Diamond (196)
+  and read the top 56% against the top 5%. This was caught only by
+  auditing a result that had already been reported.
 - A claimed DIRECTION of effect is as inventable as a number. "Raising the
   baseline will raise saturation" was written into a commit message as
   fact and was backwards: both saturation terms are fractions of
@@ -308,58 +340,43 @@ independent dated decision (see docs/BACKTEST_DESIGN.md), or the forward
 test at item 7, which cannot be gamed because the outcome has not
 happened yet.
 
-1. A SECOND DATED TEST, pre-registered. The existing backtest cannot
-   separate the scorer from age, because every retired benchmark in it is
-   old and every kept one is new. A second test only helps if it contains
-   old-but-still-discriminating or new-but-saturated cases, and if the age
-   baseline and the scorer predict DIFFERENT outcomes. Verified candidate
-   events with dates and sources are in docs/BACKTEST_DESIGN.md.
-2. SPECIFICITY is now rubric-based (v2, adopted 2026-09-21) and computed
-   from five stored dimensions per benchmark. That makes it AUDITABLE
-   JUDGEMENT, not measurement, and no second reviewer has scored anything
-   against the rubric — that check is the highest-value thing the owner
-   could personally do. It is also the factor that cost the scorer
-   Candidate 1: discrimination pointed the right way by +2.02 and
-   specificity pointed the wrong way by -16.00.
-   docs/SCORE_SPLIT_PROPOSAL.md proposes separating it out entirely.
-3. SATURATION IS NOT A PROPERTY OF A BENCHMARK, it is a property of a
-   population snapshot, and this is now measured twice over:
-   - BY POPULATION: MATH Level 5 reads 0.938 on Epoch and 0.507 on the v2
-     leaderboard; HellaSwag 0.524 vs 0.907; GPQA 0.894 vs 0.588. The
-     catalog mixes four populations and the ranking is not like-for-like.
-   - BY SAMPLE DATE: over nine months on the SAME source, saturation
-     readings mean-reverted almost perfectly (correlation between level
-     and change = -0.971) as the v2 population grew 608 -> 4,046 models.
-   Both are in docs/METHODOLOGY.md and docs/HINDCAST_PREREGISTRATION.md.
-   This undermines the discrimination factor itself and is now the most
-   serious technical problem in the project.
-4. THE REPRODUCIBILITY FALLBACK REWARDS BEING UNCHECKABLE. ARC scores
-   1.000 because its two sources CANNOT be compared (different
-   normalizations), while GPQA scores 0.000 because its two sources CAN
-   be and disagree. That single mechanism is 20 of the 30 points by which
-   ARC outranks GPQA. It is the same error as the old contamination rule,
-   which was fixed; this one has not been.
-4. REPRODUCIBILITY is measured for 6 of 26 — and the backtest uses NONE of
-   those measurements, because as-of scoring has no cross-source data and
-   falls back to the curated count. GSM8K gets full marks at the 2024
-   cutoff from an unsourced count of 5 while today's measurement says
-   0.134. Making curated evidence time-varying would fix this and several
-   other as-of distortions.
-5. SWE-BENCH VERIFIED'S UPPER BOUND IS UNKNOWN. 0.164 is a floor from
-   OpenAI's audit of 27.6% of the set; the other 362 problems have never
-   been examined. Separately, a 2026 preprint reports 28.5% of a 49-task
-   sample accept an INCORRECT patch — the opposite error. If both hold,
-   the benchmark is wrong in both directions and a single item_error_rate
-   may be the wrong shape for it.
-6. Add HumanEval+ as its own entry. The gap between it and HumanEval is
-   direct evidence about how much the original's thin tests let through.
-7. A FORWARD TEST. The backtest shows saturated benchmarks score low; the
-   claim the tool actually makes is that HIGH scores predict a benchmark
-   still discriminating in two years. Untested, and unfalsifiable until
-   time passes — which is an argument for starting the clock now.
-8. LiveCodeBench has no fetchable score export (leaderboard inlines data in
-   a JS bundle). Only benchmark with unmeasured saturation.
-9. Model-side VRAM numbers are derived, never measured.
+1. DECIDE WHAT THIS PROJECT IS. Every test of the score has now been run
+   to a conclusion and none established that it beats a calendar. The
+   catalog underneath — dated evidence, audits, measured saturation,
+   cross-source agreement, provenance — is where every real finding came
+   from. docs/DIRECTION.md argues both readings ("a scorer" vs "an
+   evidence dossier") and recommends one. This gates most of the rest.
+2. SATURATION'S REMAINING DEPENDENCE ON THE SUBMISSION PIPELINE. The
+   percentile fixed top-k-of-n, but a benchmark's health still depends on
+   whether anyone still submits to the leaderboard that scores it — v1's
+   six move by exactly zero because it was archived. No fix proposed.
+3. HEALTHY_SPREAD = 0.20 IS MIS-CALIBRATED against the new percentile
+   band; every reading in the catalog fell (mean 0.297). Deliberately not
+   retuned, because retuning while looking at test results is the one
+   thing the standing rule forbids. Needs a basis that is not a test.
+4. LESS DATA CAN MEAN A HIGHER SCORE. Drop-and-renormalize plus the
+   30-model minimum means a benchmark with 8 scored models keeps only
+   freshness — MirrorCode tops the catalog at 95.1 on 1/3 factors. The
+   thin-evidence display makes it visible; nothing makes it right.
+5. RELEVANCE IS A PROPERTY OF A (BENCHMARK, TASK) PAIR, scored
+   per-benchmark as an approximation. See docs/SCORE_SPLIT_PROPOSAL.md.
+6. A GENUINELY INDEPENDENT DATED TEST. Candidate 1 is exhausted — it
+   cannot discriminate scorer from calendar with the data available.
+   docs/BACKTEST_DESIGN.md lists candidates; ARC-AGI-1 as an
+   old-but-unsaturated case remains the highest-value one and needs a
+   fetcher.
+7. SWE-BENCH VERIFIED'S UPPER BOUND IS UNKNOWN. 0.164 is a floor from an
+   audit of 27.6% of the set; a 2026 preprint reports the opposite error
+   (28.5% accept an incorrect patch) on a 49-task sample.
+8. HUMANEVAL'S 0.394 IS NOT A CLEAN CONTAMINATION EFFECT, and no
+   difficulty-controlled replacement exists — Riddell et al.'s control
+   group saw 16 of the 31 overlapping problems. HumanEval+ is the
+   obvious candidate for a controlled variant.
+9. A FORWARD TEST. Untested and unfalsifiable until time passes, which
+   is an argument for starting the clock now.
+10. LiveCodeBench still has no fetchable score export; it is the only
+   benchmark with no measured saturation at all.
+11. Model-side VRAM numbers are derived, never measured.
 
 ═══════════════════════════════════════════════════════════════════════
 9. HOW I WANT YOU TO WORK
