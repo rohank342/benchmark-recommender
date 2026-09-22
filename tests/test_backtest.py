@@ -247,3 +247,52 @@ class TestSweBenchFloorIsNotVisibleInThePast:
 
         old = replace(find_benchmark("SWE-Bench Verified"), item_error_rate=0.10)
         assert score_benchmark(old, as_of=CUTOFF).trust_score == then.trust_score
+
+
+class TestSealedForwardTest:
+    """
+    The sealed baseline is evidence, not a cache. A later run must add a
+    new dated file, never overwrite this one.
+    """
+
+    def _sealed(self):
+        import json
+        from pathlib import Path
+
+        path = Path(__file__).parent.parent / "data/forward_test/sealed_2026-09-22.json"
+        return json.loads(path.read_text()), path
+
+    def test_the_seal_exists_and_covers_the_whole_catalog(self):
+        from fetch_benchmarks import load_benchmark_catalog
+
+        sealed, _ = self._sealed()
+        assert sealed["sealed_at"] == "2026-09-22"
+        keys = {b["key"] for b in sealed["benchmarks"]}
+        assert keys == {b.key for b in load_benchmark_catalog()}
+
+    def test_the_seal_is_intact(self):
+        """Content hash over the payload, recomputed."""
+        import hashlib
+        import json
+
+        sealed, _ = self._sealed()
+        claimed = sealed.pop("sha256_of_payload_without_this_field")
+        blob = json.dumps(sealed, indent=2, sort_keys=True)
+        assert hashlib.sha256(blob.encode()).hexdigest() == claimed
+
+    def test_every_parameter_needed_to_score_it_was_sealed(self):
+        sealed, _ = self._sealed()
+        params = sealed["parameters"]
+        for needed in (
+            "health_weights", "healthy_spread", "saturation_top_percentile",
+            "min_saturation_population", "leakage_half_life_days",
+            "cross_source_scatter_tolerance",
+        ):
+            assert needed in params, needed
+
+    def test_each_benchmark_sealed_its_population_and_model_count(self):
+        """The hindcast died on population comparability; this is the guard."""
+        sealed, _ = self._sealed()
+        for b in sealed["benchmarks"]:
+            assert "population" in b and "models_measured" in b
+            assert "tier" in b and b["tier"] in ("full", "partial", "thin")
