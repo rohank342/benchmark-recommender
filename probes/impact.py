@@ -108,7 +108,13 @@ def weights() -> None:
             known = find_benchmark(point["benchmark"])
             tier = tier_of.get(known.name) if known else "unrecognised"
             by_tier[tier] += 1
-            weighted[tier] += point["trust"]
+            # THE WEIGHT, not the health. These differ: an unweighted
+            # point keeps its health for display but carries weight 0.
+            # Summing "trust" here reported thin-tier benchmarks as 1%
+            # of total weight when the thin-tier exclusion guarantees
+            # they are 0% — this column was misreporting the exact
+            # property it exists to check.
+            weighted[tier] += 0.0 if point["unweighted"] else point["trust"] / 100.0
 
     total = sum(by_tier.values())
     print(f"\ncitations by the evidence tier of the benchmark cited ({total} total):\n")
