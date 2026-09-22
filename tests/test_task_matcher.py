@@ -35,11 +35,15 @@ class TestMatching:
 
 
 class TestRecommendation:
-    def test_returns_benchmarks_ranked_by_trust(self):
+    def test_returns_benchmarks_tiered_then_ranked(self):
+        """
+        Changed 2026-09-22: ranking is tiered by evidence depth first,
+        so scores are monotone WITHIN a tier, not across the list.
+        """
         _, benchmarks = recommend_benchmarks("code generation")
         assert benchmarks
-        scores = [b.trust_score for b in benchmarks]
-        assert scores == sorted(scores, reverse=True)
+        keys = [(b.tier_rank, -b.trust_score) for b in benchmarks]
+        assert keys == sorted(keys)
 
     def test_popular_benchmark_does_not_win_by_default(self):
         """HumanEval is the famous code benchmark and should not lead."""

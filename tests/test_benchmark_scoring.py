@@ -984,3 +984,68 @@ class TestUnmeasurableFactorsAreDropped:
         assert "rests on" in frame.columns
         assert "Thin evidence" in header
         assert "LiveCodeBench" in header
+
+
+class TestEvidenceTiers:
+    """
+    Fix for the inversion that drop-and-renormalize created: a score
+    resting on one factor was arithmetically comparable to one resting
+    on three, and outranked it. Tiers stop the comparison.
+    """
+
+    def test_the_tiers_are_the_clusters_the_catalog_actually_has(self):
+        """
+        Derived, not chosen. Counting (used, measured) gives exactly
+        three groups with nothing in between — if a later catalog fills
+        the gaps these boundaries must be re-derived.
+        """
+        import collections
+
+        shape = collections.Counter(
+            (t.evidence["factors_used"], len(t.evidence["measured"]))
+            for t in score_all_benchmarks()
+        )
+        assert set(shape) == {(3, 2), (2, 1), (1, 0)}, dict(shape)
+
+    def test_ranking_never_crosses_a_tier(self):
+        ranked = score_all_benchmarks()
+        ranks = [t.tier_rank for t in ranked]
+        assert ranks == sorted(ranks), "a lower-evidence benchmark outranked a higher one"
+
+    def test_within_a_tier_the_higher_score_wins(self):
+        ranked = score_all_benchmarks()
+        for a, b in zip(ranked, ranked[1:]):
+            if a.tier_rank == b.tier_rank:
+                assert a.health >= b.health
+
+    def test_the_highest_score_in_the_catalog_is_in_the_lowest_tier(self):
+        """
+        The inversion in one assertion. MirrorCode scores highest and is
+        ranked last, because its score rests on a release date.
+        """
+        ranked = score_all_benchmarks()
+        best_score = max(ranked, key=lambda t: t.health)
+        assert best_score.benchmark.name == "MirrorCode"
+        assert best_score.evidence_tier == "thin"
+        assert ranked.index(best_score) > len(ranked) - 4
+
+    def test_tiers_are_assigned_from_evidence_not_from_score(self):
+        for t in score_all_benchmarks():
+            measured = len(t.evidence["measured"])
+            if t.evidence_tier == "full":
+                assert measured >= 2 and t.evidence["factors_used"] >= 3
+            elif t.evidence_tier == "partial":
+                assert measured == 1
+            else:
+                assert measured == 0
+
+    def test_the_ui_groups_by_tier_visibly(self):
+        import app
+
+        header, frame = app.rank_benchmarks("writing python functions")
+        assert "evidence" in frame.columns
+        assert "Grouped by how much evidence" in header
+        assert "comparable **within** a group only" in header
+        # And the headline must not be the thin-tier benchmark that
+        # scores highest.
+        assert "MirrorCode" not in header.split("Healthiest")[1][:120]

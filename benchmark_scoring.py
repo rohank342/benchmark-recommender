@@ -194,6 +194,45 @@ class BenchmarkTrust:
     primary_source: Optional[str] = None
 
     @property
+    def evidence_tier(self) -> str:
+        """
+        How much evidence this score rests on: "full", "partial", "thin".
+
+        DERIVED FROM THE CATALOG, NOT CHOSEN. Counting (factors used,
+        factors measured) across all 26 benchmarks on 2026-09-22 gives
+        exactly three clusters with nothing in between:
+
+            (3 used, 2 measured)  8 benchmarks   discrimination AND
+                                                 reproducibility measured
+            (2 used, 1 measured) 15 benchmarks   discrimination measured,
+                                                 reproducibility dropped
+            (1 used, 0 measured)  3 benchmarks   nothing measured;
+                                                 freshness alone
+
+        No threshold had to be invented because no benchmark sits near
+        one. If a later catalog fills the gaps, these boundaries stop
+        falling out of the data and must be re-derived rather than kept.
+
+        WHY TIERS AND NOT A MULTIPLIER: renormalizing makes a thin score
+        arithmetically comparable to a thick one, which is exactly what
+        it is not. This is the same argument the model side already
+        makes about provenance — a multiplier cannot express "an
+        unverified number is not evidence" — applied to benchmarks.
+        """
+        used = self.evidence["factors_used"]
+        measured = len(self.evidence["measured"])
+        if measured >= 2 and used >= 3:
+            return "full"
+        if measured >= 1:
+            return "partial"
+        return "thin"
+
+    @property
+    def tier_rank(self) -> int:
+        """0 = most evidence. Sort key; never compare scores across tiers."""
+        return {"full": 0, "partial": 1, "thin": 2}[self.evidence_tier]
+
+    @property
     def evidence(self) -> dict:
         """
         What the health score actually rests on.
@@ -730,9 +769,17 @@ def score_benchmark(
 
 
 def score_all_benchmarks(as_of: Optional[str] = None) -> list[BenchmarkTrust]:
-    """Every catalogued benchmark, most trustworthy first."""
+    """
+    Every catalogued benchmark, TIERED BY EVIDENCE DEPTH then ranked by
+    health within a tier.
+
+    A benchmark whose score rests on one factor is never shown above one
+    resting on three, whatever the numbers say. That asserts something:
+    that a ranking is for deciding what to believe, and more evidence
+    outranks a higher number computed from less.
+    """
     scored = [score_benchmark(b, as_of) for b in load_benchmark_catalog()]
-    scored.sort(key=lambda t: t.trust_score, reverse=True)
+    scored.sort(key=lambda t: (t.tier_rank, -t.trust_score))
     return scored
 
 

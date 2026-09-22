@@ -132,6 +132,7 @@ def rank_benchmarks(task_description: str) -> tuple[str, pd.DataFrame]:
         rows.append(
             {
                 "benchmark": benchmark.name,
+                "evidence": TIER_LABELS[trust.evidence_tier],
                 "health": trust.health,
                 "relevance": trust.relevance,
                 "saturation": saturation,
@@ -144,6 +145,24 @@ def rank_benchmarks(task_description: str) -> tuple[str, pd.DataFrame]:
 
     header = match.explanation
     top = benchmarks[0]
+
+    # Tiering is the primary grouping, not a footnote. A score resting
+    # on one factor is not rankable against one resting on three, so the
+    # list is grouped and never sorted across groups.
+    by_tier = {}
+    for t in benchmarks:
+        by_tier.setdefault(t.evidence_tier, []).append(t)
+    if len(by_tier) > 1:
+        header += "\n\n**Grouped by how much evidence each score rests on.** "
+        header += " · ".join(
+            f"{TIER_LABELS[tier]}: {len(items)}"
+            for tier, items in sorted(by_tier.items(), key=lambda kv: kv[1][0].tier_rank)
+        )
+        header += (
+            ". Scores are comparable **within** a group only. A benchmark with "
+            "one measured factor is not ranked above one with three, whatever "
+            "the number says."
+        )
 
     # Saturation — 40% of every score — is measured on whichever model
     # population a source happens to cover, and the readings differ
@@ -198,6 +217,14 @@ def rank_benchmarks(task_description: str) -> tuple[str, pd.DataFrame]:
     return header, pd.DataFrame(rows)
 
 
+# Shown instead of the bare tier name: someone scanning the list must
+# not be able to read a thin score as a strong one.
+TIER_LABELS = {
+    "full": "🟩 FULL EVIDENCE (3 factors, 2 measured)",
+    "partial": "🟨 PARTIAL EVIDENCE (2 factors, 1 measured)",
+    "thin": "🟥 THIN EVIDENCE (1 factor, none measured)",
+}
+
 SOURCE_URL_PATTERN = re.compile(r"https?://[^\s|)]+")
 
 
@@ -221,7 +248,8 @@ def benchmark_detail(name: str) -> str:
     benchmark = trust.benchmark
     lines = [
         f"## {benchmark.name}",
-        f"**Measurement health {trust.health:.1f}/100** ({trust.evidence_summary}) · "
+        f"**{TIER_LABELS[trust.evidence_tier]}** — "
+        f"**measurement health {trust.health:.1f}/100** ({trust.evidence_summary}) · "
         f"**Task relevance {trust.relevance:.0f}/100** — these are separate "
         f"questions and are deliberately not combined "
         f"([why](docs/SCORE_SPLIT_PROPOSAL.md)).",
