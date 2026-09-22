@@ -495,3 +495,27 @@ support the same statistic. The percentile definition surfaces that as
 **Candidate 1 is therefore exhausted as a test.** It cannot discriminate
 between scorer and calendar with the data available, and no further run
 of it should be reported as evidence either way.
+
+---
+
+## RERUN 2026-09-22 — the comparison is not valid, so there is no result
+
+Run for the record only. **Candidate 1 was declared exhausted on
+2026-09-22 and this run draws no conclusion.**
+
+| | SWE-Bench Verified | GPQA Diamond |
+|---|---|---|
+| tier at the as-of date | **THIN** (1/3 factors) | **PARTIAL** (2/3, 1 measured) |
+| health | 60.1 | 59.0 |
+
+Under evidence tiering a thin-tier score cannot be ranked against a
+partial-tier one. **The two sides of this test are in different tiers, so
+there is nothing to compare** — stronger than the previous finding that
+its "pass" did not count.
+
+The underlying cause was identified two sessions ago and has only
+sharpened: SWE-Bench Verified had 18 dated models at the as-of date and
+GPQA Diamond had 196. That was never a like-for-like comparison; the
+scoring machinery has simply become honest enough to say so.
+
+**No further run of Candidate 1 should be reported as evidence.**

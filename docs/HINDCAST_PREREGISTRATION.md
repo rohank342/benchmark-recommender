@@ -373,3 +373,27 @@ growing population.
 **Still DESCRIPTIVE.** Three discordant pairs across five benchmarks
 drawn from the backtest's own set cannot be evidence for or against
 anything.
+
+---
+
+## RERUN 2026-09-22 (second rerun) — supersedes both runs above
+
+Evidence tiering and a derived `HEALTHY_SPREAD = 0.24`. MATH Level 5 is
+excluded a second way now: it is THIN at T, and a thin-tier benchmark
+cannot be compared with a partial-tier one at all.
+
+| benchmark | trust @ T | sat @ T | sat @ outcome | change |
+|---|---:|---:|---:|---:|
+| MMLU-Pro | 91.3 | 0.130 | 0.158 | +0.028 |
+| IFEval | 79.8 | 0.217 | 0.300 | +0.083 |
+| BIG-Bench Hard | 71.2 | 0.216 | 0.185 | −0.031 |
+| MuSR | 69.6 | 0.361 | 0.055 | −0.306 |
+| GPQA Diamond | 60.7 | 0.505 | 0.190 | −0.315 |
+
+**4 discordant pairs; the scorer is right on 2.** By the registered
+thresholds that is **INCONCLUSIVE** — and 2 of 4 is exactly what a coin
+flip returns.
+
+Still **DESCRIPTIVE**. Four pairs across five benchmarks drawn from the
+backtest's own set is not evidence in either direction, and was declared
+so before any of the three runs.

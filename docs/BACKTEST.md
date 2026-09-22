@@ -2,60 +2,39 @@
 
 **Run it:** `python backtest.py` (add `--sweep` for the diagnostics).
 
-**Result at 12 benchmarks: 10/12, separation lost by 28.9 points.** One
-benchmark lands on the wrong side. No weights were changed in response.
+**Result at 12 benchmarks: 10/12 on the split, separation lost by 26.9
+points. On the 30 comparisons that are actually valid, 30/30 — and so is
+the age baseline.**
 
-*Updated 2026-09-22 (fourth run). Two input changes, both argued from
-evidence and neither made with this test in view: unmeasurable factors
-stopped contributing (8/12 → 10/12, gap −20.6 → −10.3), then saturation
-moved to a percentile definition (gap → −28.9). **Every earlier number
-in this document was computed under a saturation definition now known to
-be artifactual** — see [SATURATION_MEASUREMENT.md](SATURATION_MEASUREMENT.md).
-They are superseded, not contradicted.*
+*Updated 2026-09-22 (fifth run), after evidence tiering and a derived
+HEALTHY_SPREAD. Every earlier number in this document was computed under
+a saturation definition and a threshold now superseded; they are kept as
+history, not as claims.*
 
-**The one miss is now MATH Level 5**, which HF kept and which ranks 11th
-of 12 — because its 2024 population is 29 models, below the minimum a
-percentile needs, so its discrimination is dropped and it is scored on
-freshness and reproducibility alone. That is a limit of the data, not a
-finding about MATH Level 5.
+## The thing to read first
 
-*Updated 2026-09-22 (third run): the score was split into measurement
-health and task relevance, and the backtest scores HEALTH. Specificity is
-no longer in the score, which moved this from 10/12 to 8/12 — exactly
-what the exploratory run in [SCORE_SPLIT_PROPOSAL.md](SCORE_SPLIT_PROPOSAL.md)
-predicted before the split was adopted. The split was adopted on the
-argument that health and relevance are different questions, not on any
-test result, and this is the test result it cost.*
+Evidence tiering (see [METHODOLOGY.md](METHODOLOGY.md)) says a score
+resting on one factor cannot be ranked against one resting on three. Six
+of this test's 36 retired-vs-kept pairs turn out to span tiers — all six
+involve **MATH Level 5**, which has 29 models at the cutoff and is
+therefore THIN. Those six were never valid comparisons.
 
-**One consequence worth stating: the specificity sensitivity analysis
-below is now vacuous.** Relevance is not in the score, so no rubric
-change to any of the twelve can move this result at all. A test pins
-that.
+| | pairs | scorer | age baseline |
+|---|---:|---:|---:|
+| all retired-vs-kept | 36 | 31 (86%) | — |
+| **same-tier only** | **30** | **30 (100%)** | **30 (100%)** |
+| cross-tier, dropped | 6 | — | — |
 
-*Updated 2026-09-21 (second run): quantifying GSM8K's contamination
-effect from GSM1k's per-model table — a CURATE item that predates this
-result and was identified as the fix before it existed — moved GSM8K from
-62.5 to 59.7 at the cutoff and narrowed the gap from 20.1 to 17.3. The
-verdict did not change: still 10/12, still GSM8K ranked 4th, still no
-separation.*
+**Restricting to valid comparisons makes the scorer perfect and makes
+the test useless.** Both the scorer and "sort by release date" get every
+one of the 30 right, so the test has *no* power to separate them. This
+is the project's central problem in its sharpest form: the comparisons
+the scorer gets right are exactly the ones a calendar also gets right,
+and the comparisons where they might differ were not valid comparisons.
 
-*Updated 2026-09-21, after two owner decisions: specificity is now
-computed from [rubric v2](SPECIFICITY_RUBRIC.md), and an unquantified
-contamination flag no longer carries a numeric penalty
-([METHODOLOGY.md](METHODOLOGY.md)). Both were committed from their own
-evidence before this was run.*
-
-**The verdict is now a stable failure, not a close one.** The previous
-run was 10/12 with a 0.6-point gap that a 0.04 change in one unreviewed
-judgement could flip. This run is 10/12 with a 20.1-point gap that
-**nothing** in the sensitivity analysis below can flip. The scorer has
-stopped being marginally wrong and started being clearly wrong about
-separation.
-
-**This used to pass.** At 8 benchmarks it scored 8/8 with perfect
-separation and an 8.2-point margin. Completing both sides of the decision
-turned that into a partial failure, and the two decisions above widened
-it.
+The split-level 10/12 headline survives only because it includes the six
+invalid pairs. **MATH Level 5 — the scorer's one "miss" — is a benchmark
+it should never have been asked to rank.**
 
 ---
 
