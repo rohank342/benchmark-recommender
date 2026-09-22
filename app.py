@@ -430,8 +430,24 @@ def recommend(
                 "model_id": m["model_id"],
                 "composite_score": m["composite_score"],
                 # Which benchmarks produced this score, strongest trust first.
+                # An averaged value must not look like a single
+                # measurement: where a source reported one label several
+                # times, the count and spread are shown next to it.
                 "scored_on": " | ".join(
-                    f"{b['benchmark']} ({b['trust']:.0f} trust → {b['score']:.2f})"
+                    f"{b['benchmark']} "
+                    + (
+                        "(unweighted"
+                        + (", composite" if b.get("composite_of") else "")
+                        + f" → {b['score']:.2f})"
+                        if b.get("unweighted")
+                        else f"({b['trust']:.0f} trust → {b['score']:.2f})"
+                    )
+                    + (
+                        f" ⚠ mean of {b['repeated']['entries']} entries "
+                        f"spanning {b['repeated']['spread']:.2f}"
+                        if b.get("repeated")
+                        else ""
+                    )
                     for b in breakdown[:3]
                 )
                 or "—",

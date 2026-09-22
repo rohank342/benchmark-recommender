@@ -532,3 +532,55 @@ class TestCompositeIndexesAreMarked:
         components = COMPOSITE_COMPONENTS["artificial_analysis_coding_index"]
         assert find_benchmark("Terminal Bench") is not None
         assert any("Terminal-Bench" in c for c in components)
+
+
+class TestRepeatedEntriesAreNotSilentlyAveraged:
+    """
+    The same source often reports one label several times and those were
+    averaged with nothing saying so. Measured 2026-09-22: 15 of 81 scored
+    models have such a group; 5 groups exceed the benchmark side's 0.08
+    scatter tolerance; the worst spans 0.62 across 20 entries.
+
+    The repeats are NOT disagreement — they are incomparable
+    configurations under one label (pass@1 vs pass@100; Aider's `diff`
+    vs `whole` edit format). The averaging is unchanged pending a
+    decision; the reporting is not optional.
+    """
+
+    def test_a_repeated_group_reports_its_size_and_spread(self):
+        from scoring import score_model
+
+        scored = score_model(
+            _raw(
+                [
+                    {"dataset": "HumanEval", "metric_name": "pass@1", "metric_value": 20.0},
+                    {"dataset": "HumanEval", "metric_name": "pass@100", "metric_value": 80.0},
+                ]
+            ),
+            [],
+        )
+        note = scored.benchmark_breakdown[0]["repeated"]
+        assert note["entries"] == 2
+        assert note["spread"] == pytest.approx(0.60)
+        assert note["values"] == [0.2, 0.8]
+
+    def test_a_single_entry_carries_no_note(self):
+        from scoring import score_model
+
+        scored = score_model(_raw([{"dataset": "HumanEval", "metric_value": 40.0}]), [])
+        assert scored.benchmark_breakdown[0]["repeated"] is None
+
+    def test_the_score_is_unchanged_by_the_reporting(self):
+        """This session's change is disclosure only."""
+        from scoring import score_model
+
+        scored = score_model(
+            _raw(
+                [
+                    {"dataset": "HumanEval", "metric_name": "pass@1", "metric_value": 20.0},
+                    {"dataset": "HumanEval", "metric_name": "pass@100", "metric_value": 80.0},
+                ]
+            ),
+            [],
+        )
+        assert scored.raw_benchmark_score == pytest.approx(0.50)

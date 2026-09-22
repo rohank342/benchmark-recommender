@@ -507,3 +507,80 @@ and preserves the evidence for display.
 
 **Only the Winogrande XL alias is safe**, and it is worth one line. The
 other three are exactly the kind of match that looks free and is not.
+
+---
+---
+
+# Repeated labels: measured, and the cause found — 2026-09-22
+
+## Measurement
+
+Command: a grouping of `benchmark_breakdown` by `(benchmark, source)`
+over `data/models_raw.json`, run this session.
+
+| | |
+|---|---|
+| model/label/source groups with 2+ entries | **15**, across 15 of 81 scored models |
+| spread: min / median / max | 0.000 / 0.043 / **0.620** |
+| groups exceeding the benchmark side's 0.08 scatter tolerance | **5** |
+
+Largest groups:
+
+| spread | entries | model | label | source |
+|---:|---:|---|---|---|
+| **0.620** | 20 | `bigcode/gpt_bigcode-santacoder` | MultiPL HumanEval (Python) | hub card |
+| 0.084 | 2 | `Qwen/Qwen2.5-Coder-32B-Instruct` (×4 repo variants) | Aider polyglot | epoch |
+| 0.074 | 2 | `MiniMaxAI/MiniMax-M2.1` | Terminal Bench | epoch |
+| 0.068 | 3 | `bigscience/bloomz-560m` | HumanEval | hub card |
+
+## Why the repeats exist — inspected, not guessed
+
+**They are not disagreement. They are incomparable configurations
+collapsed under one label**, which is the one-field-two-quantities bug
+appearing a third time.
+
+**Hub cards — different `metric_name` under one `dataset`.** The 20
+santacoder entries are `pass@1`, `pass@10`, `pass@100` and `exact_match`
+all labelled "MultiPL HumanEval (Python)":
+
+```
+{"dataset": "MultiPL HumanEval (Python)", "metric_name": "pass@1",   "metric_value": 0.18}
+{"dataset": "MultiPL HumanEval (Python)", "metric_name": "pass@10",  "metric_value": 0.29}
+{"dataset": "MultiPL HumanEval (Python)", "metric_name": "pass@100", "metric_value": 0.49}
+```
+
+`pass@100` exceeds `pass@1` by construction. Averaging them is not
+reconciling a disagreement, it is adding different quantities.
+
+**Epoch — a distinguishing column this repo drops.** Aider polyglot's
+export carries an `Edit format` column:
+
+| Percent correct | Edit format | Percent using correct edit format |
+|---:|---|---:|
+| 8.0 | `diff` | 71.6 |
+| 16.4 | `whole` | 99.6 |
+
+Same model, same date, two evaluation protocols, averaged to 12.2. This
+is the same class as the `GSM8K (PAL)` alias declined last session:
+same problems, different protocol, different score.
+
+## Options — no pick
+
+| option | asserts | invents? |
+|---|---|---|
+| **(i)** status quo | that a mean of pass@1 and pass@100 is a number | — |
+| **(ii)** weight none when they disagree beyond 0.08 | that repeats are disagreement | nothing, but **the premise is wrong** — they are different metrics, and 0.08 is a tolerance for measurement noise, not for `pass@k` |
+| **(iii)** pick one by a rule the data supports | that one configuration is canonical | **the metadata exists for both cases**: `metric_name` for hub cards, `Edit format` for Epoch. The rule would be "prefer the benchmark's canonical protocol" — `pass@1` for HumanEval-family, and the edit format the benchmark's own leaderboard reports |
+| **(iv)** carry the configuration into the label | that `HumanEval (pass@1)` and `HumanEval (pass@100)` are different series | nothing; it is the largest change, and it is what the data actually says |
+
+**(ii) is the option this session's investigation argues against**, and
+that is worth stating since it was the obvious candidate before the
+cause was known.
+
+## What changed this session
+
+**Disclosure only. No score moved.** Every repeated group now reports
+its size, spread and values in `benchmark_breakdown["repeated"]`, and
+the model table shows `⚠ mean of 20 entries spanning 0.62` next to the
+averaged value. An averaged number can no longer look like a single
+measurement.

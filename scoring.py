@@ -386,6 +386,41 @@ def score_model(
             benchmark_breakdown=[],
         )
 
+    # SILENT AVERAGING ENDS HERE (2026-09-22). The same source often
+    # reports one benchmark label several times, and those entries were
+    # averaged with nothing saying so. Investigated this session: the
+    # repeats are NOT disagreement, they are incomparable configurations
+    # collapsed under one label.
+    #
+    #   Hub cards  different metric_name under one dataset —
+    #              bigcode/gpt_bigcode-santacoder carries pass@1 0.18,
+    #              pass@10 0.29 and pass@100 0.49 all labelled "MultiPL
+    #              HumanEval (Python)". pass@100 exceeds pass@1 by
+    #              construction, so averaging them is meaningless.
+    #   Epoch      a distinguishing column this repo drops. Aider
+    #              polyglot's export has "Edit format", and
+    #              Qwen2.5-Coder-32B-Instruct scores 8.0 with `diff`
+    #              against 16.4 with `whole` — two protocols, averaged
+    #              to 12.2.
+    #
+    # The averaging itself is unchanged pending a decision. What changes
+    # is that every repeated group now reports its size, spread and
+    # values, so an averaged number can no longer look like a single
+    # measurement.
+    repeats: dict[tuple[str, str], list[float]] = {}
+    for point in points:
+        repeats.setdefault((point.benchmark_label, point.source), []).append(point.value)
+
+    def _repeat_note(point: _DataPoint) -> Optional[dict[str, Any]]:
+        values = repeats[(point.benchmark_label, point.source)]
+        if len(values) < 2:
+            return None
+        return {
+            "entries": len(values),
+            "spread": round(max(values) - min(values), 4),
+            "values": sorted(round(v, 4) for v in values),
+        }
+
     raw_benchmark_score = _benchmark_weighted_mean(points)
     trust_score = compute_trust_score(len(sources_seen), ages_days, self_reported_only)
     composite_score = round(raw_benchmark_score * trust_score, 4)
@@ -417,6 +452,9 @@ def score_model(
                 # A published aggregate over other benchmarks, not a
                 # benchmark. Listed so a reader can see what it contains.
                 "composite_of": COMPOSITE_COMPONENTS.get(point.benchmark_label),
+                # None unless this source reported this label more than
+                # once; then the group's size, spread and values.
+                "repeated": _repeat_note(point),
             }
             for point in sorted(points, key=lambda p: p.benchmark_trust, reverse=True)
         ],
