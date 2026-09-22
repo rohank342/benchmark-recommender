@@ -20,6 +20,7 @@ Run one, or run them all:
     python probes/findings.py noise         # [5] scatter, and HEALTHY_SPREAD
     python probes/findings.py cliff         # [6] the population threshold
     python probes/findings.py modelside     # [7] citations, tiers, repeats
+    python probes/findings.py correlations  # [8] what predicts the retirement
 
 Touches no network; everything comes from data/.
 """
@@ -338,6 +339,62 @@ def modelside() -> None:
     )
 
 
+def correlations() -> None:
+    """[8] What actually predicts HF's retire/keep decision."""
+    import datetime
+
+    from backtest import CUTOFF, REPLACEMENTS, RETIRED
+    from benchmark_scoring import measure_saturation, score_benchmark
+    from fetch_benchmarks import find_benchmark, load_benchmark_scores
+
+    def pearson(xs, ys):
+        mx, my = statistics.mean(xs), statistics.mean(ys)
+        num = sum((a - mx) * (b - my) for a, b in zip(xs, ys))
+        den = (
+            sum((a - mx) ** 2 for a in xs) * sum((b - my) ** 2 for b in ys)
+        ) ** 0.5
+        return num / den
+
+    print(f"\n[8] WHAT PREDICTS THE RETIREMENT DECISION — as of {CUTOFF}\n")
+    cutoff = datetime.date.fromisoformat(CUTOFF)
+    age, saturation, kept, health = [], [], [], []
+    for name in RETIRED + REPLACEMENTS:
+        b = find_benchmark(name)
+        age.append((cutoff - datetime.date.fromisoformat(b.release_date)).days)
+        scores = load_benchmark_scores(b)
+        saturation.append(
+            None if scores is None else measure_saturation(scores.before(CUTOFF))[0]
+        )
+        kept.append(0 if name in RETIRED else 1)
+        health.append(score_benchmark(b, as_of=CUTOFF).health)
+
+    sat_pairs = [(s, k) for s, k in zip(saturation, kept) if s is not None]
+    age_sat = [(a, s) for a, s in zip(age, saturation) if s is not None]
+    print(f"  saturation measurable at the cutoff for {len(sat_pairs)} of 12\n")
+    print(
+        f"  r(age, kept)                 {pearson(age, kept):+.3f}   "
+        "negative = older benchmarks were retired"
+    )
+    print(f"  r(health, kept)              {pearson(health, kept):+.3f}")
+    print(
+        f"  r(saturation, kept)          "
+        f"{pearson([p[0] for p in sat_pairs], [p[1] for p in sat_pairs]):+.3f}   "
+        f"(n={len(sat_pairs)})"
+    )
+    print(
+        f"  r(age, measured saturation)  "
+        f"{pearson([p[0] for p in age_sat], [p[1] for p in age_sat]):+.3f}   "
+        f"(n={len(age_sat)})"
+    )
+    print(
+        "\n  Age predicts the decision far better than the composite health\n"
+        "  score does, and measured saturation -- the factor carrying the\n"
+        "  most weight -- barely predicts it at all. Age and saturation are\n"
+        "  also only weakly related, so saturation is not standing in for\n"
+        "  age; it is adding little on this set either way."
+    )
+
+
 REPORTS = {
     "humaneval": humaneval,
     "coverage": coverage,
@@ -346,6 +403,7 @@ REPORTS = {
     "noise": noise,
     "cliff": cliff,
     "modelside": modelside,
+    "correlations": correlations,
 }
 
 

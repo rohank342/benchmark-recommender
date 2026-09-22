@@ -131,7 +131,7 @@ catalog. Scored as of 2024-06-01, using only evidence that was public by
 then, do the retired six rank below the replacements?
 
 Headline result: **10 of 12 correct, separation lost by 26.9 points**,
-with MATH Level 5 (kept) ranking below five retired benchmarks. [3][8]
+with MATH Level 5 (kept) ranking below five retired benchmarks. [3][9]
 
 That number is not the finding. The finding is what happens when the
 test is scored pairwise and compared against a baseline: [3]
@@ -164,7 +164,7 @@ test returning 0% would not be.
 ### 3.2 The single-factor comparison — the sharpest negative result
 
 Isolating each health factor at weight 1.0, against the trivial baseline
-of sorting by release date and calling the newer half "kept": [8]
+of sorting by release date and calling the newer half "kept": [9]
 
 | ranked by | correct | separation gap |
 |---|---:|---:|
@@ -191,7 +191,30 @@ running the command the project's own brief names as its headline
 diagnostic. Two figures quoted in that brief ("separation lost by 0.6
 points"; "four different single-weight changes each produce 12/12") did
 not survive re-measurement: the gap is −26.9 and **no** weight setting in
-the sweep reaches 12/12. [8]
+the sweep reaches 12/12. [9]
+
+### 3.2b What actually predicts the decision
+
+Correlating each candidate signal against HF's retire/keep label across
+the twelve, at the cutoff: [8]
+
+| signal | r with "kept" |
+|---|---:|
+| **release date** (age) | **−0.793** |
+| the composite health score | +0.502 |
+| measured saturation | −0.198 (n=11) |
+
+Age predicts the decision far better than the score built to predict it.
+Measured saturation — the factor carrying the most weight — barely
+predicts it at all, and `r(age, saturation) = +0.202` shows saturation is
+not merely standing in for age either. On this set it adds little in
+any direction.
+
+*Corrections to this project's own record, both re-measured here:* the
+brief states `r(age, saturation) = +0.01` and `r(saturation, label) =
++0.300`. They are **+0.202** and **−0.198**. The conclusion drawn from
+them — that saturation adds almost nothing over age on these twelve — is
+unchanged and, on the second figure, stronger than recorded.
 
 ### 3.3 Candidate 1 — pre-registered, run, failed
 
@@ -472,7 +495,7 @@ observed spread distribution instead just moves the choice to a quantile.
 And the sensitivity is itself a finding. Across the defensible range
 0.084 (3× median scatter) to 0.358 (90th percentile of observed spreads),
 mean catalog health moves from **56.2 to 43.8** and up to **19 of 28**
-benchmarks change rank. [9] A constant whose plausible range reorders the
+benchmarks change rank. [10] A constant whose plausible range reorders the
 catalog is not a detail.
 
 ### 5.2 `MIN_SATURATION_POPULATION` — a cliff
@@ -494,7 +517,7 @@ Five benchmarks sit within 15 models of it: [6]
 | GSO-Bench | 38 | measured |
 
 Moving the threshold to 40 changes **3 tiers and 13 ranks**; moving it
-anywhere from 20 to 35 changes nothing at all. [10] The instability is not
+anywhere from 20 to 35 changes nothing at all. [11] The instability is not
 smooth — it is a step, and three benchmarks are standing within five
 models of it.
 
@@ -596,9 +619,10 @@ All run 2026-09-22 against committed data; nothing touches the network.
 5. `python probes/findings.py noise`
 6. `python probes/findings.py cliff`
 7. `python probes/findings.py modelside`
-8. `python backtest.py --sweep`
-9. `python probes/impact.py parameter HEALTHY_SPREAD 0.084 0.197 0.24 0.358`
-10. `python probes/impact.py parameter MIN_SATURATION_POPULATION 20 25 30 35 40`
+8. `python probes/findings.py correlations`
+9. `python backtest.py --sweep`
+10. `python probes/impact.py parameter HEALTHY_SPREAD 0.084 0.197 0.24 0.358`
+11. `python probes/impact.py parameter MIN_SATURATION_POPULATION 20 25 30 35 40`
 
 Test suite: `python -m pytest -q` — 279 passing as of this writing. The
 suite runs **offline against committed data**, which means a dependency
