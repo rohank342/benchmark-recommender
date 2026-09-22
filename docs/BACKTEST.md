@@ -2,8 +2,15 @@
 
 **Run it:** `python backtest.py` (add `--sweep` for the diagnostics).
 
-**Result at 12 benchmarks: 10/12, separation lost by 20.1 points.** Two
+**Result at 12 benchmarks: 10/12, separation lost by 17.3 points.** Two
 benchmarks land on the wrong side. No weights were changed in response.
+
+*Updated 2026-09-21 (second run): quantifying GSM8K's contamination
+effect from GSM1k's per-model table — a CURATE item that predates this
+result and was identified as the fix before it existed — moved GSM8K from
+62.5 to 59.7 at the cutoff and narrowed the gap from 20.1 to 17.3. The
+verdict did not change: still 10/12, still GSM8K ranked 4th, still no
+separation.*
 
 *Updated 2026-09-21, after two owner decisions: specificity is now
 computed from [rubric v2](SPECIFICITY_RUBRIC.md), and an unquantified
@@ -57,7 +64,7 @@ the score means nothing without them.
 | 1 | MATH Level 5 | kept | 71.6 | 29 |
 | 2 | GPQA Diamond | kept | 65.9 | 33 |
 | 3 | BIG-Bench Hard | kept | 63.5 | 81 |
-| 4 | **GSM8K** | **retired** | **62.5** | 142 |
+| 4 | **GSM8K** | **retired** | **59.7** | 142 |
 | 5 | MMLU-Pro | kept | 52.2 | 608 |
 | 6 | IFEval | kept | 47.9 | 608 |
 | 7 | MMLU | retired | 45.0 | 172 |
@@ -75,7 +82,7 @@ the score means nothing without them.
 ### Where it goes wrong, and why
 
 **GSM8K (retired) ranks 4th of 12**, above three benchmarks HF kept. It
-sits 20.1 points above the weakest kept benchmark, and that single
+sits 17.3 points above the weakest kept benchmark, and that single
 placement is the whole of the lost separation.
 
 The cause is traceable to one decision. GSM8K's contamination flag —
@@ -108,7 +115,7 @@ one change at a time, and rescore.
 |---|---|
 | correct count across all 82 runs | **10/12 every time** |
 | separation across all 82 runs | **lost every time** |
-| gap range | −22.1 to −18.1 (baseline −20.1) |
+| gap range | −22.1 to −18.1 (at the −20.1 baseline; the gap is now −17.3 and the analysis has not been rerun) |
 
 None of these changes were applied.
 
