@@ -1056,3 +1056,42 @@ class TestEvidenceTiers:
         # And the headline must not be the thin-tier benchmark that
         # scores highest.
         assert "MirrorCode" not in header.split("Healthiest")[1][:120]
+
+
+class TestEvidenceViewIsThePrimaryArtifact:
+    """Reading B: the dossier is the product, the score summarises it."""
+
+    def test_the_detail_page_says_what_it_is(self):
+        import app
+
+        page = app.benchmark_detail("GSM8K")
+        assert "This page is the product" in page
+        assert "not a verdict" in page
+
+    def test_the_detail_page_shows_evidence_dates(self):
+        import app
+
+        page = app.benchmark_detail("GSM8K")
+        assert "When each claim became public" in page
+        assert "2024-05-01" in page  # GSM1k
+
+    def test_the_detail_page_lists_what_nobody_established(self):
+        import app
+
+        page = app.benchmark_detail("GSM8K")
+        assert "What nobody has established" in page
+
+    def test_penalties_carry_their_basis(self):
+        import app
+
+        page = app.benchmark_detail("SWE-Bench Verified")
+        assert "lower_bound" in page
+        page = app.benchmark_detail("HumanEval")
+        assert "uncontrolled" in page
+
+    def test_the_ranking_is_labelled_a_summary(self):
+        import app
+
+        header, _ = app.rank_benchmarks("general knowledge questions")
+        assert "summary of the evidence" in header
+        assert "never been shown to rank benchmarks better" in header

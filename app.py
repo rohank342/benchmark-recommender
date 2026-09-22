@@ -128,7 +128,8 @@ def rank_benchmarks(task_description: str) -> tuple[str, pd.DataFrame]:
         # breakdown, the per-source saturation readings, the curation
         # notes and their sources — lives in the detail panel, because a
         # paragraph of reasoning crammed into a dataframe cell is not
-        # readable and the reasoning is the point of the tool.
+        # readable, and the reasoning is the product — the table is an
+        # index into it.
         rows.append(
             {
                 "benchmark": benchmark.name,
@@ -163,6 +164,12 @@ def rank_benchmarks(task_description: str) -> tuple[str, pd.DataFrame]:
             "one measured factor is not ranked above one with three, whatever "
             "the number says."
         )
+    header += (
+        "\n\n*This ranking is a summary of the evidence on each benchmark's "
+        "page, not a verdict. The composite score has never been shown to rank "
+        "benchmarks better than release date does — open a benchmark to see "
+        "what is actually established.*"
+    )
 
     # Saturation — 40% of every score — is measured on whichever model
     # population a source happens to cover, and the readings differ
@@ -204,7 +211,10 @@ def rank_benchmarks(task_description: str) -> tuple[str, pd.DataFrame]:
             "among the open community). Compare within a population — the "
             "'measured over' column — before comparing across the table."
         )
-    # Name-and-shame the popular-but-weak, since that's the point of the tool.
+    # Name-and-shame the popular-but-weak. This is a claim about the
+    # MEASUREMENT, which the evidence supports; it is not a claim that
+    # the composite ranking is better than sorting by release date,
+    # which no test has established.
     # The threshold applies to HEALTH only. A benchmark can be a fine
     # measurement of something you do not need; that is a filter, not a
     # warning.
@@ -246,8 +256,17 @@ def benchmark_detail(name: str) -> str:
         return f"*No benchmark called {name!r} in the catalog.*"
 
     benchmark = trust.benchmark
+    dates = benchmark.evidence_dates or {}
     lines = [
         f"## {benchmark.name}",
+        "",
+        "> **This page is the product.** The scores below summarise it; "
+        "they are not a verdict. What the evidence establishes and what "
+        "nobody has checked are both listed, and the composite score has "
+        "never been shown to rank benchmarks better than release date "
+        "does — see the tests in `docs/BACKTEST.md` and "
+        "`docs/FORWARD_TEST.md`.",
+        "",
         f"**{TIER_LABELS[trust.evidence_tier]}** — "
         f"**measurement health {trust.health:.1f}/100** ({trust.evidence_summary}) · "
         f"**Task relevance {trust.relevance:.0f}/100** — these are separate "
@@ -270,9 +289,44 @@ def benchmark_detail(name: str) -> str:
     if trust.penalties:
         lines += [
             "",
-            "### Penalties applied",
+            "### Penalties applied, with their basis",
             "",
-            *(f"- {penalty}" for penalty in trust.penalties),
+        ]
+        for penalty in trust.penalties:
+            basis = ""
+            if "mislabelled" in penalty:
+                basis = f" *(basis: {benchmark.item_error_rate_basis})*"
+            elif "scores fall" in penalty:
+                basis = f" *(basis: {benchmark.contamination_effect_basis})*"
+            lines.append(f"- {penalty}{basis}")
+
+    if dates:
+        lines += [
+            "",
+            "### When each claim became public",
+            "",
+            "*This is what lets the benchmark be scored as it looked in the "
+            "past without using evidence from the future.*",
+            "",
+            "| claim | public since |",
+            "|---|---|",
+            *(f"| `{claim}` | {when} |" for claim, when in sorted(dates.items())),
+        ]
+
+    unresolved = [
+        fragment.strip()
+        for fragment in benchmark.curation_notes.split("CURATE(you):")[1:]
+    ]
+    if unresolved:
+        lines += [
+            "",
+            "### What nobody has established",
+            "",
+            "*Open questions, recorded rather than filled in with a plausible "
+            "number.*",
+            "",
+            *(f"- {fragment[:400]}{'…' if len(fragment) > 400 else ''}"
+              for fragment in unresolved),
         ]
 
     if trust.saturation_by_source:

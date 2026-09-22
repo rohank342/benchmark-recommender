@@ -81,7 +81,9 @@ Model side (downstream, weaker):
   app.py                     Gradio, two tabs.
   docs/METHODOLOGY.md        Every formula and threshold, plus a list of
                              where the methodology is weakest.
-  docs/BACKTEST.md           The one real validation, and its limits.
+  docs/BACKTEST.md           SUPERSEDED as a validation — on its valid
+                             comparisons it cannot separate the scorer
+                             from a calendar. Kept as history.
   docs/BACKTEST_DESIGN.md    What that validation can and cannot establish.
                              The age-vs-saturation correlations live here.
   docs/SPECIFICITY_RUBRIC.md The ADOPTED rubric (v2) for task_specificity.

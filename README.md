@@ -1,22 +1,67 @@
 # Benchmark Recommender
 
-**Which benchmark should you believe?** Popularity is not evidence that a
-benchmark still works. Labs optimize against well-known benchmarks until the
-leaderboard stops separating models, and public test sets leak into training
-data — so HumanEval and MMLU keep getting quoted long after they stopped
-discriminating. This scores *benchmarks* first. Model rankings are downstream:
-a model's result is worth what the benchmark that produced it is worth.
+**An evidence dossier on 26 LLM benchmarks.** For each one: what has been
+measured, what was read out of a paper and by whom, when each claim became
+public, and — stated as plainly as the rest — what nobody has established.
 
-The concrete case. For code generation, **HumanEval's measurement health
-is 32.6/100 and MirrorCode's is 95.1** — though MirrorCode's rests on
-1 of 3 factors and HumanEval's on 2, which the table says out loud. HumanEval is the famous one. It is also 164 short
-functions published in 2021, whose top 20% of 125 scored models span little
-of the usable range — measured, not asserted — while
-8–18% of its items appear in major pretraining corpora and the same models
-score 39.4% lower on a decontaminated variant. MirrorCode is from 2026, holds
-back ~34% of its tests so solutions can't be memorized, and its top ten still
-spread out. Neither number is a matter of opinion about which benchmark is
-fashionable.
+The premise is still that popularity is not evidence a benchmark works.
+Labs optimize against well-known benchmarks until the leaderboard stops
+separating models, and public test sets leak into training data. The
+project's answer to that is **the per-benchmark evidence**, not the
+composite score.
+
+## What this establishes, and what it does not
+
+**Established, and reproducible from the committed data:**
+
+- **Measured saturation** for 23 of 26, computed from real score
+  distributions, each labelled with the model population it was measured
+  on and the number of models behind it.
+- **Cross-source agreement** for 8 of 26 — the same models scored by two
+  evaluators, split into a systematic offset and irreproducible scatter.
+- **Contamination and item-quality audits** for the benchmarks where a
+  study exists, each carrying a *basis*: whether an error rate is an
+  estimate or a demonstrated floor, whether a contamination effect
+  controlled for difficulty or did not.
+- **A date on every curated claim**, which is what allows a benchmark to
+  be scored as it would have looked in the past without using evidence
+  from the future.
+- **What nobody has checked**, marked in the entry rather than omitted.
+
+**NOT established — the composite score does not rank benchmarks better
+than release date does.** Three tests have been run to a conclusion:
+
+| test | result |
+|---|---|
+| **HF retirement backtest** (June 2024, 12 benchmarks) | On the 30 comparisons that are actually valid, the scorer gets **30/30 — and so does sorting by release date.** The test has no power to separate them. |
+| **Candidate 1** (OpenAI abandons SWE-Bench Verified) | **Not a valid comparison.** The two benchmarks are in different evidence tiers — 18 models against 196. Exhausted as a test. |
+| **Hindcast** (does trust at T predict later saturation?) | 2 of 4 discordant pairs — a coin flip. Declared descriptive before it was run. |
+
+A fourth, the **[forward test](docs/FORWARD_TEST.md)**, was sealed on
+2026-09-22 and matures in 2028. It is the only one that cannot be gamed,
+and its age baseline is fixed in advance.
+
+**So: the dossier is the product and the score is a summary of it.** The
+ranking is grouped by how much evidence each score rests on, and scores
+are comparable only within a group. If that sounds like a smaller claim
+than "which benchmark should you believe" — it is, and it is the one the
+evidence supports today.
+
+### The concrete case, stated carefully
+
+HumanEval is the famous code benchmark. It is 164 short functions
+published in 2021; 8–18% of its items appear in major pretraining
+corpora; and the same models score 39.4% lower on EvoEval — a figure this
+project had to correct twice, first because it was attributed to two
+papers that contain neither, then because EvoEval does not control for
+difficulty, so part of that drop is the new problems being harder.
+Measurement health **32.6/100**, resting on 2 of 3 factors.
+
+MirrorCode scores **95.1** — and sits in the **thin evidence** tier,
+because 8 scored models is too few to measure saturation at all, so its
+score rests on a release date. It is ranked below every benchmark in the
+tiers above it. That is the dossier working: the number is high, the
+evidence is not, and the tool says so instead of ranking it first.
 
 ---
 
@@ -29,8 +74,8 @@ committed data:
 
 | | coverage |
 |---|---|
-| Saturation (the `discrimination` factor) | 25 of 26 benchmarks |
-| Cross-source agreement (`reproducibility`) | 6 of 26 |
+| Saturation (the `discrimination` factor) | 23 of 26 benchmarks |
+| Cross-source agreement (`reproducibility`) | 8 of 26 |
 
 **Curated** — read out of papers and reports by a human, cited in each entry's
 `curation_notes` with a date:
@@ -50,15 +95,26 @@ anybody's finding:
   judgement, not measurement** — five judgements have replaced one, and
   neither the rubric nor any score against it has been checked by a second
   reviewer.
-- `independent_evaluators` for the 20 benchmarks where agreement can't be
+- `independent_evaluators` for the 18 benchmarks where agreement can't be
   measured. Winogrande's 4 and GSM8K's 5 are partly unsourced: three of
-  each can be named, the rest cannot.
-- Every weight and threshold: the 40/20/20/20 factor split, the two-year
-  leakage half-life, the penalty curves.
+  each can be named, the rest cannot. **Since 2026-09-22 this count no
+  longer enters any score** — an unmeasurable factor contributes nothing —
+  but it is still shown.
+- Every weight and threshold: the 0.50/0.25/0.25 health split, the two-year
+  leakage half-life, the penalty curves. `HEALTHY_SPREAD` was derived from
+  the measured noise floor on 2026-09-22 (0.24) after seven months of being
+  a chosen number; **its defensible range is 0.084–0.358, across which mean
+  catalog health moves 13 points and ~20 of 26 benchmarks change rank.**
 
-The UI reports `measured` / `curated` / `unknown` per factor, per benchmark, so
-you can see which kind of number you're looking at. If a number in the table
-traces back to a guess, the guess is visible.
+The UI reports `measured` / `curated` / `unknown` per factor, per benchmark,
+groups the ranking by evidence tier, and names the model population behind
+every saturation reading. If a number traces back to a guess, the guess is
+visible.
+
+**Saturation figures this project published before 2026-09-22 are on a
+different scale** — the definition changed from a fixed top-10 to the top
+20% of a stated population, and every reading fell (mean |Δ| 0.297). Old
+and new saturation numbers are not comparable.
 
 ---
 
@@ -66,19 +122,23 @@ traces back to a guess, the guess is visible.
 
 The ones that undercut the project, stated plainly:
 
-**The weights are uncalibrated and the backtest now fails clearly.**
-40% discrimination, 20% each for freshness, reproducibility and
-specificity, with a two-year leakage half-life. These are judgement calls,
-and **[the backtest fails](docs/BACKTEST.md)**. Scored as of June 2024
-against HF's retirement decision it gets 10 of 12 and **loses separation
-by 20 points** — GSM8K, which HF retired, ranks 4th of 12, above three
-benchmarks HF kept. A sensitivity analysis over 82 single-point changes to
-the most subjective input moves the verdict **not once**, so this is a
-stable failure rather than a close call. Sorting benchmarks by release
-date also gets 10 of 12, so the four weighted factors still do not beat
-ranking by age. The only single weight change that reaches 12/12 is
-raising *freshness* to 0.50 — making the scorer act more like the calendar
-baseline it cannot beat. No weights were changed.
+**The composite score has never been shown to beat a calendar.** The
+health weights (0.50 discrimination / 0.25 freshness / 0.25
+reproducibility) are a proportional rescaling of uncalibrated judgement
+calls. On the backtest's 30 valid comparisons the scorer gets 30/30 —
+and so does sorting by release date, so the test cannot tell them apart.
+Candidate 1 turned out not to be a valid comparison at all. The hindcast
+returned a coin flip. **No weight was ever changed in response to any of
+these**, and the [forward test](docs/FORWARD_TEST.md) is sealed to find
+out whether the scoring means anything.
+
+**A score can rest on one factor or three, and the highest score in the
+catalog rests on one.** Unmeasurable factors contribute nothing and the
+rest are renormalized, which makes a thin score arithmetically
+comparable to a thick one — which it is not. Evidence tiers stop the
+comparison: 8 benchmarks are full evidence, 15 partial, 3 thin, and the
+ranking never crosses a tier. MirrorCode scores 95.1 and ranks below all
+23 benchmarks above its tier.
 
 **Saturation depends on which models you measure, and the ranking spans
 four populations.** 26 benchmarks are read on Epoch (20), the v2
@@ -185,7 +245,7 @@ internal-use-only and not ours to redistribute.
 | [`backtest.py`](backtest.py) | Scores benchmarks as of a past date and checks against HF's June 2024 retirement. |
 | [`scoring.py`](scoring.py) | Model scoring, weighted by benchmark trust. |
 | [`fetch_models.py`](fetch_models.py), [`hardware_filter.py`](hardware_filter.py), [`device_profiles.py`](device_profiles.py) | The model side: Hub fetching, VRAM estimation, what each device can actually run. |
-| [`app.py`](app.py) | Two tabs: which benchmark to trust, then which model to use. |
+| [`app.py`](app.py) | Two tabs: the benchmark dossier and ranking, then the model view. |
 
 **Further reading:** [docs/METHODOLOGY.md](docs/METHODOLOGY.md) for how every
 number is computed and what evidence standard it had to meet.

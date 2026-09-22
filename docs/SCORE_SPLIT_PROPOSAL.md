@@ -101,7 +101,7 @@ baked into it, applying the same judgement twice in different forms.
 | consumer | use today | under the split |
 |---|---|---|
 | `app.py:135` benchmark table `trust` column | single number | two columns: `health`, `relevance`. Sort by health; relevance is a second axis, not a tiebreak |
-| `app.py:148` "Most trustworthy for this task" | `max(trust_score)` | **needs a decision**: rank by health within a task category, or show the health leader and the relevance leader separately when they differ |
+| `app.py:148` "Most trustworthy for this task" | `max(trust_score)` | **RESOLVED 2026-09-22**: ranks by health within the highest-evidence tier present, and says which population it was measured on |
 | `app.py:151` low-trust warning, `trust_score < 35` | flags weak benchmarks | threshold applies to **health only**. A benchmark can be a fine measurement of the wrong thing; that is not a warning, it is a filter |
 | `app.py:182` detail panel header | `{trust:.1f}/100` | two headline numbers |
 | `app.py:311,418` model tab | already a separate model-side trust | unchanged; the naming collision gets worse and the existing note explaining it needs expanding |
