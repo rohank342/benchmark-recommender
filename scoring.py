@@ -38,26 +38,30 @@ from benchmark_scoring import BenchmarkTrust, trust_by_key
 from enrich_scores import ExternalScore, ExternalScoreIndex, build_external_index
 from fetch_benchmarks import find_benchmark
 
-# Weight given to a data point whose benchmark isn't in the catalog —
-# composite indices like Artificial Analysis' coding index, or a model
-# card citing something unrecognized. Middling on purpose: an unknown
-# benchmark is not evidence of a bad one, but it can't be trusted like a
-# benchmark that has been assessed.
-# TODO(you): shrink this as the catalog grows to cover what sources report.
+# REMOVED FROM SCORING 2026-09-22 (owner's decision, option (iii)).
 #
-# CHECKED 2026-09-22 for the score split and LEFT AT 45.0. The worry was
-# that 45.0 was calibrated against the old combined scale; measuring
-# both distributions shows they barely moved:
+# There used to be an UNKNOWN_BENCHMARK_TRUST = 45.0 here: the weight
+# given to a result on a benchmark the catalog has never assessed. It was
+# CHOSEN, not derived — the pivot commit (e965175) called it "middling on
+# purpose" and left a TODO to shrink it as the catalog grew — and it then
+# survived two changes to the scale it was expressed in.
 #
-#   old combined:  mean 44.4, median 41.5, range 15.7-76.3
-#   health only:   mean 43.0, median 43.5, range 14.6-72.9
+# An unassessed benchmark now forms its own tier BELOW thin: it carries
+# no weight, and its result is shown as unweighted evidence. A model
+# whose every result is unassessed is not ranked against models with
+# weighted evidence; it is displayed with its numbers and a note saying
+# so.
 #
-# So 45.0 still sits just above the middle of the catalog, which is what
-# it was chosen to do. Changing it would have been an unforced parameter
-# change justified by nothing. It stays a placeholder rather than a
-# measurement, which is why it is not derived from the distribution
-# above — adding benchmarks must not quietly move it.
-UNKNOWN_BENCHMARK_TRUST = 45.0
+# Why not re-derive it: any derivation from the health distribution has
+# to pick a statistic, which is the same invented choice the old value
+# made, and it would move every time a benchmark is added. Under Reading
+# B the model tab's job is to inform, not to rank on a default.
+#
+# The constant is gone rather than set to zero, so nothing can read it
+# back. Nothing else in the codebase used it.
+UNASSESSED_TIER_NOTE = (
+    "every benchmark this model reports on is outside the catalog"
+)
 
 # --- Trust discount tuning knobs -------------------------------------
 # TODO(you): these are reasonable starting guesses, not calibrated
@@ -103,6 +107,10 @@ class ScoredModel:
     # Which benchmarks produced this score, and what each was worth:
     # [{benchmark, trust, score, source}], most influential first.
     benchmark_breakdown: list[dict[str, Any]] = field(default_factory=list)
+    # True when at least one result is on a benchmark the catalog has
+    # assessed and can weight. False when every result is unassessed or
+    # thin-tier — such a model is shown, not ranked.
+    has_weighted_evidence: bool = False
     # Do the sources that report the SAME benchmark for this model agree?
     #   True  — two or more sources checked, and they agree
     #   False — two or more sources checked, and they contradict
@@ -171,7 +179,11 @@ def _weighted_point(
         value=value,
         benchmark_label=str(label) if label else "unidentified benchmark",
         benchmark_key=None,
-        benchmark_trust=UNKNOWN_BENCHMARK_TRUST,
+        # Unassessed: displayed, never weighted. The 0.0 is not a
+        # judgement that the benchmark is bad — `unweighted` is what
+        # carries the meaning, and the UI shows the result regardless.
+        benchmark_trust=0.0,
+        unweighted=True,
         source=source,
     )
 
@@ -372,6 +384,7 @@ def score_model(
         provenance_verified=raw_model.get("provenance_verified", True),
         sources=sorted(sources_seen),
         sources_agree=_sources_agree(points),
+        has_weighted_evidence=any(p.weight > 0 for p in points),
         benchmark_breakdown=[
             {
                 "benchmark": point.benchmark_label,
@@ -457,7 +470,7 @@ def score_models(
     return scored
 
 
-def rank_key(model: ScoredModel) -> tuple[bool, bool, bool, int, float]:
+def rank_key(model: ScoredModel) -> tuple[bool, bool, bool, bool, int, float]:
     """
     Tier before comparing composite scores:
 
@@ -486,6 +499,15 @@ def rank_key(model: ScoredModel) -> tuple[bool, bool, bool, int, float]:
         has_score,
         model.provenance_verified,
         has_score and not model.self_reported_only,
+        # BELOW provenance and self-reporting, deliberately. An earlier
+        # draft put weighted evidence above them, which let a
+        # self-reported number on a catalogued benchmark outrank an
+        # independently corroborated one on an unassessed benchmark —
+        # inverting this module's founding rule that an unverified
+        # number is not evidence. Weighting separates models WITHIN the
+        # verified-and-corroborated group; it does not outrank
+        # verification itself.
+        model.has_weighted_evidence,
         agreement_rank,
         model.composite_score or 0.0,
     )

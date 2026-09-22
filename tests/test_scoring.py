@@ -304,15 +304,58 @@ class TestBenchmarkWeighting:
             > strong_where_it_doesnt.raw_benchmark_score
         )
 
-    def test_unrecognized_benchmark_gets_a_middling_weight(self):
-        from scoring import UNKNOWN_BENCHMARK_TRUST, score_model
+    def test_an_unassessed_benchmark_carries_no_weight_but_is_shown(self):
+        """
+        Owner's decision 2026-09-22, option (iii). The old
+        UNKNOWN_BENCHMARK_TRUST = 45.0 was chosen, not derived, and
+        survived two changes to the scale it was expressed in. An
+        unassessed benchmark now carries no weight and is displayed.
+        """
+        import scoring
 
-        result = score_model(
+        assert not hasattr(scoring, "UNKNOWN_BENCHMARK_TRUST")
+
+        result = scoring.score_model(
             _raw([{"dataset": "SomeInternalEval", "metric_value": 70.0}]), []
         )
         entry = result.benchmark_breakdown[0]
         assert entry["recognized"] is False
-        assert entry["trust"] == UNKNOWN_BENCHMARK_TRUST
+        assert entry["unweighted"] is True
+        # Shown, not discarded.
+        assert entry["benchmark"] == "SomeInternalEval"
+        assert entry["score"] == pytest.approx(0.70)
+        # And the model is flagged as having nothing weightable.
+        assert result.has_weighted_evidence is False
+
+    def test_a_model_with_no_weighted_evidence_ranks_below_one_with_some(self):
+        from scoring import rank_key, score_model
+
+        assessed = score_model(_raw([{"dataset": "HumanEval", "metric_value": 30.0}]), [])
+        unassessed = score_model(
+            _raw([{"dataset": "SomeInternalEval", "metric_value": 95.0}]), []
+        )
+        assert assessed.has_weighted_evidence is True
+        assert unassessed.has_weighted_evidence is False
+        assert rank_key(assessed) > rank_key(unassessed)
+
+    def test_weighting_never_outranks_verification(self):
+        """
+        The rung sits BELOW provenance and self-reporting. A
+        self-reported number on a catalogued benchmark must not beat an
+        independently corroborated one on an unassessed benchmark.
+        """
+        from dataclasses import replace
+
+        from scoring import rank_key, score_model
+
+        base = score_model(_raw([{"dataset": "HumanEval", "metric_value": 30.0}]), [])
+        self_reported_assessed = replace(
+            base, self_reported_only=True, has_weighted_evidence=True
+        )
+        corroborated_unassessed = replace(
+            base, self_reported_only=False, has_weighted_evidence=False
+        )
+        assert rank_key(corroborated_unassessed) > rank_key(self_reported_assessed)
 
     def test_breakdown_names_what_drove_the_score(self):
         from scoring import score_model

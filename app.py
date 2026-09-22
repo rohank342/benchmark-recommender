@@ -450,6 +450,16 @@ def recommend(
                 "sources": ", ".join(m["sources"]) or "—",
                 "corroborated": m["composite_score"] is not None
                 and not m["self_reported_only"],
+                # Owner's decision 2026-09-22: a model whose every result
+                # is on a benchmark outside the catalog is shown, not
+                # ranked against models with weighted evidence.
+                "evidence": (
+                    "weighted"
+                    if m["has_weighted_evidence"]
+                    else "unweighted — every benchmark this model reports "
+                    "on is outside the catalog"
+                ),
+                "has_weighted_evidence": m["has_weighted_evidence"],
                 "provenance_verified": m["provenance_verified"],
                 "size_known": m["size_known"],
                 "downloads": m["downloads"],
@@ -461,8 +471,14 @@ def recommend(
     # (an unknown-size row can't be said to fit), then confirmed
     # provenance, then corroborated, then self-reported, then unscored.
     df = df.sort_values(
-        by=["size_known", "provenance_verified", "corroborated", "composite_score"],
-        ascending=[False, False, False, False],
+        by=[
+            "size_known",
+            "provenance_verified",
+            "corroborated",
+            "has_weighted_evidence",
+            "composite_score",
+        ],
+        ascending=[False, False, False, False, False],
         na_position="last",
     )
     return df.reset_index(drop=True)
