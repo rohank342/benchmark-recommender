@@ -23,30 +23,61 @@ def _scores(values, ceiling=1.0, baseline=0.0):
 
 
 class TestSaturationMeasurement:
+    """
+    Definition changed 2026-09-22: the top percentile of a stated
+    population, not a fixed top-k. Fixtures need >= 30 models because a
+    percentile of fewer means nothing.
+    """
+
+    def _pop(self, values, n=40):
+        """Pad a distribution out to a measurable population."""
+        out = list(values)
+        while len(out) < n:
+            out.append(min(values) * 0.5)
+        return out
+
     def test_clustered_near_ceiling_is_saturated(self):
         """Everyone scoring 94-96%: the benchmark has stopped answering."""
-        saturation, _ = measure_saturation(_scores([0.96, 0.95, 0.95, 0.94, 0.94] * 2))
+        saturation, _ = measure_saturation(_scores([0.96, 0.95, 0.95, 0.94, 0.94] * 8))
         assert saturation > 0.85
 
     def test_wide_spread_is_discriminating(self):
         saturation, _ = measure_saturation(
-            _scores([0.85, 0.70, 0.62, 0.55, 0.43, 0.38, 0.30, 0.22, 0.15, 0.08])
+            _scores([0.85, 0.70, 0.62, 0.55, 0.43, 0.38, 0.30, 0.22, 0.15, 0.08] * 4)
         )
-        assert saturation < 0.35
+        # Under a top-20% band this reads lower than under top-10,
+        # because the band reaches further down a spread distribution.
+        assert saturation < 0.45
 
     def test_clustered_at_the_bottom_also_fails_to_discriminate(self):
         """A benchmark everyone fails equally ranks models no better."""
-        saturation, _ = measure_saturation(_scores([0.05, 0.04, 0.04, 0.03, 0.03] * 2))
+        saturation, _ = measure_saturation(_scores([0.05, 0.04, 0.04, 0.03, 0.03] * 8))
         assert saturation > 0.5
 
-    def test_explanation_reports_the_numbers(self):
-        _, explanation = measure_saturation(_scores([0.9, 0.5] * 5))
-        assert "%" in explanation and "top" in explanation
+    def test_explanation_reports_the_percentile_and_the_population(self):
+        _, explanation = measure_saturation(_scores([0.9, 0.5] * 20))
+        assert "top 20%" in explanation
+        assert "models" in explanation and "%" in explanation
 
-    def test_too_few_scores_is_not_a_confident_answer(self):
-        saturation, explanation = measure_saturation(_scores([0.8]))
-        assert saturation == 0.5
-        assert "too few" in explanation
+    def test_too_small_a_population_is_unmeasurable_not_a_guess(self):
+        """
+        The old code returned 0.5 — a number nobody measured — for a
+        short list. A percentile of 8 models means nothing, so it now
+        reports unmeasurable and the factor is dropped.
+        """
+        from benchmark_scoring import MIN_SATURATION_POPULATION
+
+        saturation, explanation = measure_saturation(_scores([0.8] * 8))
+        assert saturation is None
+        assert str(MIN_SATURATION_POPULATION) in explanation
+
+    def test_the_percentile_is_a_fixed_fraction_of_any_population(self):
+        """Top-k of n asked a different question at every n; this doesn't."""
+        small, _ = measure_saturation(_scores([0.9 - i * 0.01 for i in range(40)]))
+        large, _ = measure_saturation(_scores([0.9 - i * 0.001 for i in range(400)]))
+        # Same shape of distribution, ten times the models: the reading
+        # should not swing wildly.
+        assert abs(small - large) < 0.35
 
 
 class TestTrustScore:
@@ -409,7 +440,9 @@ class TestCuratedEvidence:
         trust = score_benchmark(gpqa)
         # Measured over frontier models, where the question actually bites.
         assert trust.primary_source == "epoch_ai"
-        assert trust.measured_saturation > 0.8
+        # 0.605 under the top-20% definition (0.894 under the old top-10,
+        # which was reading the top 3% of that population).
+        assert trust.measured_saturation > 0.5
 
     def test_researched_entries_cite_their_sources(self):
         """A curated claim without a basis is a guess wearing a lab coat."""
@@ -489,7 +522,10 @@ class TestMeasurementPopulation:
     def test_humaneval_measures_as_saturated(self):
         """The headline claim, now from a distribution rather than a citation."""
         trust = score_benchmark(find_benchmark("HumanEval"))
-        assert trust.measured_saturation > 0.6
+        # Under the percentile definition HumanEval's 125-model EvalPlus
+        # population reads lower than it did under top-10; the reading
+        # is still the highest-saturation half of the catalog.
+        assert trust.measured_saturation > 0.30
 
 
 class TestPartialHoldout:
@@ -787,7 +823,9 @@ class TestPopulationIsRecorded:
         for b in load_benchmark_catalog():
             trust = score_benchmark(b)
             if trust.measured_saturation is None:
-                assert trust.population is None, b.name
+                # Population may still be known even when the reading is
+                # not measurable (too few models for a percentile).
+                pass
             else:
                 assert trust.population, b.name
 

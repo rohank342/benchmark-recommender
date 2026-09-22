@@ -27,7 +27,8 @@ one empirical check on them, and its limits.
 
 ### discrimination — measured
 
-From the score distribution. Take the top 10 models, and compute two things
+From the score distribution. Take the **top 20% of a stated population**
+(minimum 30 models, else reported unmeasurable), and compute two things
 against the usable range (ceiling minus random baseline):
 
 - **spread** — how far the top 10 span
@@ -43,6 +44,16 @@ Both terms are there because there are two ways to stop discriminating. A
 benchmark everyone aces ranks models no better than one everyone fails
 equally — proximity to the ceiling alone would miss the second case
 entirely.
+
+**The percentile replaced a fixed top-10 on 2026-09-22.** Top-k of n asks
+a different question at every n — top 10 of 33 models is the top 30%, top
+10 of 4,575 is the top 0.2% — and that artifact moved readings by up to
+0.81 with no change to the benchmark. 20% was chosen as the most stable
+band at every minimum-population threshold tested. Full derivation and
+the limits of the fix: [SATURATION_MEASUREMENT.md](SATURATION_MEASUREMENT.md).
+**Absolute saturation levels are not comparable to anything this project
+published before that date** — every reading fell, because a wider band
+sees a wider spread.
 
 **Which population?** Sources cover different model populations and give
 genuinely different answers: GPQA Diamond reads 89% saturated among Epoch's

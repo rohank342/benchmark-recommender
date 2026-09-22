@@ -453,3 +453,45 @@ decision landed, so the absolute scores here are not the ones that would
 have been produced on the day it was written. The owner sequenced the run
 after those changes deliberately. The design — as-of date, comparator,
 gate, criteria, margin — was followed exactly as registered.
+
+---
+
+## RERUN 2026-09-22 — supersedes the result above
+
+The original run used a saturation definition now known to be
+artifactual (top-k of n; see [SATURATION_MEASUREMENT.md](SATURATION_MEASUREMENT.md)).
+This rerun uses the percentile definition. It **supersedes** the earlier
+result rather than contradicting it.
+
+| | SWE-Bench Verified | GPQA Diamond |
+|---|---:|---:|
+| health at 2026-02-01 | **60.1** | **64.2** |
+| models before the as-of date | 18 | 196 |
+| rests on | **1/3 factors** — discrimination AND reproducibility dropped | 2/3 factors, 1 measured |
+
+`G − S = +4.1` → **PASS by the registered criterion, clear margin.**
+
+### This pass does not count, by the pre-registration's own terms
+
+The registration listed as evidence *against* the scorer:
+
+> **A pass driven by freshness or specificity rather than
+> discrimination.** That would mean the measured factor contributed
+> nothing and the result came from a judgement call and a calendar.
+
+That is what happened, in a stronger form than anticipated. SWE-Bench
+Verified had **18 dated models** at the as-of date, below the
+30-model minimum a percentile needs, so its discrimination is not merely
+outvoted — **it is not in the score at all**. Its 60.1 rests on freshness
+alone. The scorer "passed" by having nothing to say.
+
+The original failure and this pass have the same underlying cause,
+identified in the previous session: the two sides of this comparison
+were never measuring the same thing. 18 models and 196 models do not
+support the same statistic. The percentile definition surfaces that as
+"unmeasurable" instead of silently reading the top 56% against the top
+5%, which is an improvement in honesty and **not** a result.
+
+**Candidate 1 is therefore exhausted as a test.** It cannot discriminate
+between scorer and calendar with the data available, and no further run
+of it should be reported as evidence either way.

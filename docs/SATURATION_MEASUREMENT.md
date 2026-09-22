@@ -1,8 +1,79 @@
 # Saturation is measured wrong — design options
 
-**Design only. Nothing implemented, nothing changed.** This is the
-biggest open question in the project and is meant to be decided
-deliberately.
+**Definition (2) was ADOPTED and IMPLEMENTED 2026-09-22.** The analysis
+below is preserved as written; the implemented rule and its consequences
+are at the end.
+
+## IMPLEMENTED: top 20% of a stated population, minimum 30 models
+
+**The percentile was chosen from the data, not preferred.** Across 20
+cohort-vs-full-population pairs, mean |Δ| by band:
+
+| band | min pop 10 | min pop 30 | min pop 50 | min pop 100 |
+|---|---:|---:|---:|---:|
+| top 1% | 0.113 | 0.103 | 0.095 | 0.096 |
+| top 5% | 0.126 | 0.117 | 0.113 | 0.117 |
+| top 10% | 0.111 | 0.093 | 0.092 | 0.088 |
+| **top 20%** | **0.076** | **0.057** | **0.052** | **0.056** |
+| top-10 (old) | 0.170 | 0.136 | 0.115 | 0.113 |
+
+Top 20% is the most stable band **at every threshold tested**, by
+roughly 2× over every alternative — so this is not a threshold artifact.
+The tiebreak rule (choose whatever is closest to old top-10 behaviour on
+large populations) did not apply, because no other band was equally
+defensible.
+
+**Minimum population 30**, from the same table: the largest improvement
+step is 10 → 30, and it flattens after. Below 30, saturation is reported
+as **unmeasurable** rather than estimated, and the drop-and-renormalize
+rule then excludes it. This removes MirrorCode (8 models) and The Agent
+Company (16) from measured saturation entirely.
+
+**The population is part of the definition.** `SATURATION_TOP_PERCENTILE`
+means nothing without saying *of what* — the top 20% of frontier models
+and the top 20% of community submissions answer different questions, and
+GPQA Diamond now reads 0.605 on the first and 0.088 on the second. The
+explanation string names the population, and readings remain comparable
+only within one.
+
+### What it fixed, measured
+
+The top-k-of-n artifact is gone: mean |Δ| between a fixed cohort and the
+full population falls from **0.136 to 0.057**.
+
+### What it did NOT fix — open work
+
+1. **A benchmark's health still depends on who submits to its
+   leaderboard.** An archived leaderboard yields a frozen reading; v1's
+   six benchmarks still move by exactly zero because nothing is being
+   added. The percentile makes the reading *stable*; it does not make it
+   *independent of the submission pipeline*.
+2. **`HEALTHY_SPREAD = 0.20` is now mis-calibrated.** It was set against
+   top-10 spreads. A top-20% band reaches further down the distribution,
+   so spreads are systematically wider and **every reading in the
+   catalog fell** — mean |Δ| 0.297, max 0.604 (TruthfulQA 0.875 → 0.271).
+   Relative ordering is largely preserved; absolute levels are not
+   comparable to anything published before today. Retuning the constant
+   is deliberately NOT done here: it would be a parameter change made
+   while looking at test results.
+3. **It interacts badly with drop-and-renormalize.** A benchmark below
+   the minimum population loses discrimination, and the remaining
+   factors are renormalized — so *less data can mean a higher score*.
+   MirrorCode now tops the catalog at 95.1 on 1/3 factors. The
+   thin-evidence display exists to make this visible; it does not make
+   it right.
+
+### The three reruns
+
+| test | before | after | note |
+|---|---|---|---|
+| HF backtest | 10/12, gap −10.3 | **10/12, gap −28.9** | MATH Level 5 now the miss: 29 models at the cutoff, so its discrimination is dropped |
+| Candidate 1 | FAIL, G−S −16.6 | **"PASS", G−S +4.1** | **does not count** — SWE-Bench rests on 1/3 factors, discrimination dropped |
+| Hindcast | 1/7 discordant | **1/3 discordant** | still FAIL, still descriptive |
+
+All three **supersede** their earlier results rather than contradicting
+them: the old numbers were computed under a definition now known to be
+artifactual.
 
 ## The problem in one sentence
 

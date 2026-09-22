@@ -104,7 +104,20 @@ FACTOR_WEIGHTS = {**HEALTH_WEIGHTS, "specificity": 1.0}
 LEAKAGE_HALF_LIFE_DAYS = 730
 
 # Top-k models used to measure how tightly the leaders cluster.
-SATURATION_TOP_K = 10
+# Saturation is measured over the top percentile of a stated population.
+# The population is PART of the definition, not a label beside it: the
+# top 20% of frontier models and the top 20% of community submissions
+# answer different questions, and readings are comparable only within a
+# population. See BenchmarkScores.population.
+SATURATION_TOP_PERCENTILE = 20.0
+
+# Below this many models a percentile selects too few to mean anything,
+# and saturation is reported as unmeasurable rather than estimated from
+# a handful. Chosen from the stability table in
+# docs/SATURATION_MEASUREMENT.md: the largest improvement step is from
+# 10 to 30, and it flattens after.
+MIN_SATURATION_POPULATION = 30
+
 
 # A spread this wide across the top-k (as a fraction of the usable score
 # range) counts as fully discriminating.
@@ -277,7 +290,7 @@ def _days_since(iso_date: Optional[str], as_of: Optional[str] = None) -> Optiona
     return (reference - parsed).days
 
 
-def measure_saturation(scores: BenchmarkScores) -> tuple[float, str]:
+def measure_saturation(scores: BenchmarkScores) -> tuple[Optional[float], str]:
     """
     How saturated is this benchmark, from its own score distribution?
 
@@ -290,9 +303,30 @@ def measure_saturation(scores: BenchmarkScores) -> tuple[float, str]:
     """
     usable_range = max(scores.ceiling - scores.random_baseline, 1e-6)
     ranked = sorted(scores.scores, reverse=True)
-    top = ranked[:SATURATION_TOP_K]
-    if len(top) < 2:
-        return 0.5, "too few scores to measure the spread"
+
+    # DEFINITION CHANGED 2026-09-22: the top PERCENTILE of a stated
+    # population, not a fixed top-k. See docs/SATURATION_MEASUREMENT.md.
+    #
+    # Top-k of n is a different question at every n: top 10 of 33 models
+    # is the top 30%, top 10 of 4,575 is the top 0.2%. That artifact
+    # alone moved readings by up to 0.81 with no change to the
+    # benchmark. A fixed fraction asks "how do the best fifth of THIS
+    # population look?" at every size.
+    #
+    # 20% was chosen from the data, not preferred: across 20
+    # cohort-vs-full-population pairs it is the most stable band at
+    # every minimum-population threshold tested (mean |delta| 0.052-0.076
+    # against 0.113-0.170 for top-10), and it is the most stable by
+    # roughly 2x over every alternative. It answers a broader question
+    # than top-10 did, which is the honest cost.
+    if len(ranked) < MIN_SATURATION_POPULATION:
+        return None, (
+            f"only {len(ranked)} models scored; "
+            f"{MIN_SATURATION_POPULATION} needed for a percentile to mean anything"
+        )
+
+    k = max(2, int(round(len(ranked) * SATURATION_TOP_PERCENTILE / 100.0)))
+    top = ranked[:k]
 
     spread = (max(top) - min(top)) / usable_range
     headroom_used = (statistics.mean(top) - scores.random_baseline) / usable_range
@@ -304,8 +338,9 @@ def measure_saturation(scores: BenchmarkScores) -> tuple[float, str]:
     saturation = min(1.0, 0.65 * tightness + 0.35 * headroom_used)
 
     explanation = (
-        f"top {len(top)} models span {spread * 100:.1f} points of the usable range "
-        f"and average {headroom_used * 100:.0f}% of it"
+        f"the top {SATURATION_TOP_PERCENTILE:.0f}% of {len(ranked)} "
+        f"{scores.population} ({len(top)} models) span {spread * 100:.1f} points "
+        f"of the usable range and average {headroom_used * 100:.0f}% of it"
     )
     return saturation, explanation
 
@@ -317,6 +352,13 @@ def _discrimination_factor(
 ) -> tuple[Factor, Optional[float]]:
     if scores is not None:
         saturation, explanation = measure_saturation(scores)
+    if scores is not None and saturation is None:
+        # Too small a population for a percentile to mean anything. Not
+        # a measurement, so it must not be scored as one — fall through
+        # to the curated path, which the drop-and-renormalize rule then
+        # excludes entirely.
+        scores = None
+    if scores is not None:
         population = describe_population(scores.source)
         detail = f"{explanation}, across {len(scores.scores)} {population}"
 
@@ -324,9 +366,11 @@ def _discrimination_factor(
         # a benchmark can be saturated at the frontier and still spread
         # out weaker models, and conflating the two misleads.
         others = [
-            (s.source, measure_saturation(s)[0])
+            (s.source, value)
             for s in load_score_sets(benchmark)
             if s.source != scores.source
+            for value in [measure_saturation(s)[0]]
+            if value is not None
         ]
         divergent = [
             (source, value) for source, value in others if abs(value - saturation) > 0.15
@@ -675,8 +719,10 @@ def score_benchmark(
         measured_saturation=saturation,
         models_measured=len(scores.scores) if scores else 0,
         saturation_by_source={
-            s.source: (round(measure_saturation(s)[0], 3), len(s.scores))
+            s.source: (round(value, 3), len(s.scores))
             for s in load_score_sets(benchmark)
+            for value in [measure_saturation(s)[0]]
+            if value is not None
         },
         primary_source=scores.source if scores else None,
         agreement=agreement_for(benchmark) if as_of is None else None,

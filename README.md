@@ -7,10 +7,11 @@ data — so HumanEval and MMLU keep getting quoted long after they stopped
 discriminating. This scores *benchmarks* first. Model rankings are downstream:
 a model's result is worth what the benchmark that produced it is worth.
 
-The concrete case. For code generation, **HumanEval scores 30.6/100 and
-MirrorCode scores 76.3.** HumanEval is the famous one. It is also 164 short
-functions published in 2021, whose top ten models now span 7.9 points of the
-usable range and average 92% of it — measured, from 125 models' scores — while
+The concrete case. For code generation, **HumanEval's measurement health
+is 32.6/100 and MirrorCode's is 95.1** — though MirrorCode's rests on
+1 of 3 factors and HumanEval's on 2, which the table says out loud. HumanEval is the famous one. It is also 164 short
+functions published in 2021, whose top 20% of 125 scored models span little
+of the usable range — measured, not asserted — while
 8–18% of its items appear in major pretraining corpora and the same models
 score 39.4% lower on a decontaminated variant. MirrorCode is from 2026, holds
 back ~34% of its tests so solutions can't be memorized, and its top ten still

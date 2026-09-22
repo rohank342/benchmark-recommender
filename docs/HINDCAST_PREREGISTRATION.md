@@ -337,3 +337,39 @@ varies by *which* population and by *when the population was sampled*.
 No weight, threshold or curated value was changed in response. Per the
 registration, any change suggested by this belongs in a separate commit
 on its own evidence.
+
+---
+
+## RERUN 2026-09-22 — supersedes the result above
+
+Percentile saturation definition. Supersedes rather than contradicts the
+earlier run, which used a definition now known to be artifactual.
+
+**Eligible set shrank from 5 to 5 with a substitution**: MATH Level 5 is
+now excluded (29 models at T, below the 30-model minimum), and IFEval
+re-enters (its saturation at T is now 0.217, under the 0.70 ceiling rule
+that previously excluded it at 0.717).
+
+| benchmark | trust @ T | sat @ T | sat @ outcome | change |
+|---|---:|---:|---:|---:|
+| MMLU-Pro | 91.3 | 0.130 | 0.158 | +0.028 |
+| IFEval | 79.8 | 0.217 | 0.262 | +0.045 |
+| MuSR | 74.1 | 0.294 | 0.055 | −0.239 |
+| BIG-Bench Hard | 71.2 | 0.216 | 0.185 | −0.031 |
+| GPQA Diamond | 63.9 | 0.457 | 0.088 | −0.369 |
+
+**Discordant pairs: 3, down from 7. Scorer correct on 1 of 3.**
+By the registered thresholds (pass ≥6/7, fail ≤3/7) this is a **FAIL** —
+and with three pairs it is even less interpretable than the seven-pair
+version was.
+
+**The mean reversion is weaker but has not gone.** Three of five
+readings still moved toward the middle, and the two largest movers are
+the two that started highest. The percentile definition reduced the
+artifact (readings no longer swing 0.8) without removing the underlying
+problem: the population still grows, and the metric still reads a
+growing population.
+
+**Still DESCRIPTIVE.** Three discordant pairs across five benchmarks
+drawn from the backtest's own set cannot be evidence for or against
+anything.

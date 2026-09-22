@@ -227,30 +227,28 @@ class TestBenchmarkWeighting:
             < on_mirrorcode.benchmark_breakdown[0]["trust"]
         )
 
-    def test_swe_bench_verified_no_longer_scores_below_humaneval(self):
+    def test_swe_bench_health_versus_humaneval_is_now_close(self):
         """
-        The inversion is gone, and the reason is worth recording.
+        Rewritten 2026-09-22. The old inversion (SWE-Bench below
+        HumanEval) was caused by the flat unquantified-contamination
+        penalty and disappeared when that was fixed. Under the
+        percentile saturation definition and drop-and-renormalize the
+        two are close again, with HumanEval slightly ahead on HEALTH —
+        because SWE-Bench carries an evidence-backed item-quality
+        penalty and has only one source, so its reproducibility is
+        dropped entirely.
 
-        Until 2026-09-21 SWE-Bench Verified scored 26.4 against HumanEval's
-        28.7. The cause was never that SWE-Bench is worse: it was that an
-        unquantified contamination flag took the full flat penalty, which
-        equalled what severity=1 produces. The owner adopted treatment (c)
-        — an unmeasured flag is a warning carrying no numeric penalty — and
-        SWE-Bench moved to 41.3 while HumanEval, whose contamination IS
-        measured, did not move at all.
-
-        That asymmetry is the point of the decision: measuring now changes
-        the score, and not measuring no longer costs the maximum.
+        Health is not the whole picture and the UI does not present it
+        as such: SWE-Bench leads on relevance 100 to 60.
         """
         from benchmark_scoring import score_benchmark
         from fetch_benchmarks import find_benchmark
 
         swe = score_benchmark(find_benchmark("SWE-Bench Verified"))
         humaneval = score_benchmark(find_benchmark("HumanEval"))
-        assert swe.trust_score > humaneval.trust_score
-        # SWE-Bench still carries its evidence-backed item-quality penalty.
-        assert any("mislabelled" in p for p in swe.penalties), swe.penalties
-        # ...and the unquantified flag is still SAID, just not charged.
+        assert abs(swe.health - humaneval.health) < 15
+        assert swe.relevance > humaneval.relevance
+        # The unquantified flag still warns without charging.
         assert any(p.startswith("WARNING:") for p in swe.penalties), swe.penalties
 
     def test_an_unquantified_flag_warns_without_charging(self):

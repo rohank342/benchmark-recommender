@@ -2,8 +2,22 @@
 
 **Run it:** `python backtest.py` (add `--sweep` for the diagnostics).
 
-**Result at 12 benchmarks: 8/12, separation lost by 20.6 points.** Four
-benchmarks land on the wrong side. No weights were changed in response.
+**Result at 12 benchmarks: 10/12, separation lost by 28.9 points.** One
+benchmark lands on the wrong side. No weights were changed in response.
+
+*Updated 2026-09-22 (fourth run). Two input changes, both argued from
+evidence and neither made with this test in view: unmeasurable factors
+stopped contributing (8/12 → 10/12, gap −20.6 → −10.3), then saturation
+moved to a percentile definition (gap → −28.9). **Every earlier number
+in this document was computed under a saturation definition now known to
+be artifactual** — see [SATURATION_MEASUREMENT.md](SATURATION_MEASUREMENT.md).
+They are superseded, not contradicted.*
+
+**The one miss is now MATH Level 5**, which HF kept and which ranks 11th
+of 12 — because its 2024 population is 29 models, below the minimum a
+percentile needs, so its discrimination is dropped and it is scored on
+freshness and reproducibility alone. That is a limit of the data, not a
+finding about MATH Level 5.
 
 *Updated 2026-09-22 (third run): the score was split into measurement
 health and task relevance, and the backtest scores HEALTH. Specificity is
