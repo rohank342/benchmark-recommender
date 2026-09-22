@@ -447,7 +447,21 @@ def score_benchmark(
             descriptions.append(f"{rate:.0%} of items in pretraining data")
         if effect is not None:
             severities.append(min(effect / FULL_CONTAMINATION_EFFECT, 1.0))
-            descriptions.append(f"scores fall {effect:.0%} when decontaminated")
+            # The basis changes the wording only; see
+            # Benchmark.contamination_effect_basis. A drop measured
+            # against a difficulty-matched set means something different
+            # from a drop against an unmatched one, and the reader
+            # deserves to know which they are looking at.
+            if benchmark.contamination_effect_basis == "difficulty_controlled":
+                descriptions.append(
+                    f"scores fall {effect:.0%} on a difficulty-matched fresh set"
+                )
+            else:
+                descriptions.append(
+                    f"scores fall {effect:.0%} on a variant whose difficulty "
+                    "was not controlled, so part of that is difficulty rather "
+                    "than memorization"
+                )
 
         if severities:
             # Take the worse of the two: a modest overlap rate that

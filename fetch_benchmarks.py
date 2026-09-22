@@ -92,6 +92,25 @@ class Benchmark:
     # but its inflation is severe, because 164 short functions leave
     # little room for partial memorization to not help.
     contamination_effect: Optional[float] = None
+    # WHAT KIND of effect measurement it is. Same pattern as
+    # item_error_rate_basis, and for the same reason: two numbers of the
+    # same magnitude can mean different things.
+    #
+    #   "difficulty_controlled" — the comparison set was built to match
+    #       the original's difficulty, so the drop is close to pure
+    #       contamination. GSM1k did this deliberately (human solve
+    #       rates, solution steps, answer magnitude).
+    #   "uncontrolled" — the comparison set is harder, easier, or
+    #       unknown, so the drop mixes memorization with difficulty.
+    #       EvoEval's LLM-evolved variants of HumanEval are this.
+    #
+    # SCORING IS IDENTICAL for both, deliberately. Discounting an
+    # uncontrolled figure would mean inventing a correction nobody has
+    # measured. What this changes is what the tool SAYS, so a reader can
+    # tell a 39% that may be mostly difficulty from a 5% that is not.
+    # Default is "uncontrolled": assuming a study controlled for
+    # difficulty when nobody checked is the optimistic error.
+    contamination_effect_basis: str = "uncontrolled"
     # Fraction of items whose grading is wrong: mislabelled answers, tests
     # that reject correct solutions, questions with no correct option.
     # Distinct from contamination and saturation — a benchmark can be
@@ -396,6 +415,22 @@ BENCHMARK_CATALOG: tuple[Benchmark, ...] = (
             "quantities and the penalty formula cannot tell them apart. Fixing it "
             "means finding a difficulty-controlled variant for HumanEval "
             "(HumanEval+ is the obvious candidate), not adjusting 0.394. "
+            "INVESTIGATED 2026-09-22 AND NOT RESOLVED. Riddell et al. Table 3 "
+            "decouples memorization from difficulty by comparing accuracy on "
+            "the STACK-overlapping subset (DS, 31 of 164) against its "
+            "complement, for models trained on the STACK and models trained on "
+            "the PILE. Difference-in-differences on those four rows gives +8.1 "
+            "points of contamination-attributable gap (exposed mean +41.5, "
+            "control mean +33.4). THAT NUMBER IS NOT USABLE: the control is not "
+            "unexposed. The paper reports |DS n P| = 16, so 16 of the 31 "
+            "STACK-overlapping problems are ALSO in the PILE — 52% of the "
+            "control group saw the material it is supposed to control for. "
+            "The design cannot separate 'the subset is easier' from 'both "
+            "groups are contaminated', and the two have opposite implications. "
+            "So 0.394 stands, with contamination_effect_basis=\'uncontrolled\'. "
+            "What would settle it: an unexposed control (a model whose training "
+            "corpus provably excludes both), or a difficulty-matched fresh set "
+            "for HumanEval in the way GSM1k is for GSM8K. Neither exists. "
             "CURATE(you): saturation is still ASSERTED here, not measured — no "
             "Epoch score file. An EvalPlus export would let the 39.4% figure be "
             "reproduced in-repo rather than cited."
@@ -903,6 +938,10 @@ BENCHMARK_CATALOG: tuple[Benchmark, ...] = (
         # "up to 8%", which is a maximum. See the notes for why this is
         # only partly comparable to HumanEval's 0.394.
         contamination_effect=0.051,
+        # GSM1k was built to match GSM8K's difficulty distribution —
+        # human solve rates, solution steps, answer magnitude — so this
+        # is close to a pure contamination measurement.
+        contamination_effect_basis="difficulty_controlled",
         saturation_flagged=True,
         independent_evaluators=5,
         specificity_dimensions=(1, 1, 1, 0, 1),

@@ -316,7 +316,7 @@ class TestCuratedEvidence:
         assert humaneval.contamination_effect > 0.35
         trust = score_benchmark(humaneval)
         # The effect, not the mild rate, should be driving the penalty.
-        assert any("decontaminated" in p for p in trust.penalties)
+        assert any("scores fall" in p for p in trust.penalties)
         assert trust.trust_score < 35
 
     def test_refreshed_benchmarks_do_not_age_like_static_ones(self):
@@ -689,7 +689,7 @@ class TestNewlyAddedBenchmarks:
         assert gsm8k.known_at("contamination_effect", "2024-06-01")
 
         then = score_benchmark(gsm8k, as_of="2024-06-01")
-        assert any("decontaminated" in p for p in then.penalties), then.penalties
+        assert any("scores fall" in p for p in then.penalties), then.penalties
 
     def test_the_two_effect_figures_are_not_the_same_measurement(self):
         """
@@ -769,3 +769,59 @@ class TestUiWarnsAboutMixedPopulations:
         _, frame = app.rank_benchmarks("general knowledge questions")
         assert "measured over" in frame.columns
         assert all(str(v).strip() for v in frame["measured over"])
+
+
+class TestContaminationEffectBasis:
+    """
+    0.394 (EvoEval, difficulty uncontrolled) and 0.051 (GSM1k,
+    difficulty-matched) sit in the same field. The penalty cannot tell
+    them apart, so the wording has to.
+    """
+
+    def test_the_default_is_the_pessimistic_reading(self):
+        """Assuming a study controlled for difficulty is the optimistic error."""
+        from fetch_benchmarks import Benchmark
+
+        assert Benchmark(
+            key="t", name="T", category="code generation",
+            specificity_dimensions=(1, 1, 1, 1, 1),
+        ).contamination_effect_basis == "uncontrolled"
+
+    def test_every_basis_is_one_of_the_two_allowed_values(self):
+        for b in load_benchmark_catalog():
+            assert b.contamination_effect_basis in (
+                "difficulty_controlled", "uncontrolled"
+            ), b.name
+
+    def test_only_gsm8k_claims_difficulty_control(self):
+        controlled = [
+            b.name for b in load_benchmark_catalog()
+            if b.contamination_effect_basis == "difficulty_controlled"
+        ]
+        assert controlled == ["GSM8K"], controlled
+
+    def test_the_two_render_differently(self):
+        gsm8k = score_benchmark(find_benchmark("GSM8K"))
+        humaneval = score_benchmark(find_benchmark("HumanEval"))
+        assert any("difficulty-matched" in p for p in gsm8k.penalties), gsm8k.penalties
+        assert any("was not controlled" in p for p in humaneval.penalties), (
+            humaneval.penalties
+        )
+
+    def test_the_basis_changes_wording_but_never_the_score(self):
+        from dataclasses import replace
+
+        humaneval = find_benchmark("HumanEval")
+        flipped = replace(humaneval, contamination_effect_basis="difficulty_controlled")
+        assert score_benchmark(flipped).trust_score == pytest.approx(
+            score_benchmark(humaneval).trust_score
+        )
+
+    def test_benchmarks_with_no_effect_are_unaffected(self):
+        """MMLU and MMLU-Pro have a rate but no effect; the basis is moot."""
+        for name in ("MMLU", "MMLU-Pro"):
+            b = find_benchmark(name)
+            assert b.contamination_effect is None
+            assert not any(
+                "difficulty" in p for p in score_benchmark(b).penalties
+            ), name
