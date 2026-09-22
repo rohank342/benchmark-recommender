@@ -31,13 +31,19 @@ class TestComparability:
         b = _set("hf", _models(30), normalization="baseline")
         report = compare_sources(a, b)
         assert not report.comparable
-        assert "different quantities" in report.reason
+        assert "different scales" in report.reason
         assert reproducibility_from_agreement(report) is None
 
-    def test_length_normalized_is_also_refused(self):
+    def test_length_normalized_is_now_comparable(self):
+        """
+        Changed 2026-09-22. acc_norm and raw accuracy are both accuracy
+        in 0-1 — a different quantity on the SAME scale, which is
+        exactly what the offset/scatter split handles. Refusing it fell
+        through to the curated count, which paid the maximum.
+        """
         a = _set("epoch_ai", _models(30), normalization="none")
         b = _set("hf", _models(30), normalization="length")
-        assert not compare_sources(a, b).comparable
+        assert compare_sources(a, b).comparable
 
     def test_too_few_shared_models_is_refused(self):
         a = _set("epoch_ai", _models(MIN_OVERLAP - 1))
@@ -111,12 +117,12 @@ class TestRealCatalog:
         assert report.scatter > 0.05
         assert reproducibility_from_agreement(report) < 0.2
 
-    def test_length_normalized_benchmarks_fall_back(self):
-        """ARC and HellaSwag can't be compared — v1 used acc_norm."""
+    def test_length_normalized_benchmarks_are_now_measured(self):
+        """ARC and HellaSwag: acc_norm vs raw is same-scale, so comparable."""
         for name in ("ARC (AI2 Reasoning Challenge)", "HellaSwag"):
             report = agreement_for(find_benchmark(name))
-            assert not report.comparable
-            assert "normalized" in report.reason
+            assert report.comparable, name
+            assert report.overlap >= 10, name
 
     def test_single_source_benchmarks_have_no_report(self):
         assert agreement_for(find_benchmark("SWE-Bench Verified")) is None
@@ -131,10 +137,9 @@ class TestFactorIntegration:
         assert measured["reproducibility"].basis == "measured"
         assert "scored by both" in measured["reproducibility"].explanation
 
-        curated = {f.name: f for f in score_benchmark(find_benchmark("HellaSwag")).factors}
+        # TruthfulQA has one source, so there is nothing to compare.
+        curated = {f.name: f for f in score_benchmark(find_benchmark("TruthfulQA")).factors}
         assert curated["reproducibility"].basis == "curated"
-        # And it must say why the better measurement was unavailable.
-        assert "cross-source check unavailable" in curated["reproducibility"].explanation
 
     def test_single_source_benchmark_uses_the_count_silently(self):
         from benchmark_scoring import score_benchmark
@@ -152,3 +157,44 @@ class TestFactorIntegration:
         factor = {f.name: f for f in score_benchmark(gpqa).factors}["reproducibility"]
         assert factor.basis == "measured"
         assert factor.value < 0.2  # the measurement disagrees
+
+
+class TestNormalizationScaleGuard:
+    """
+    Fixed 2026-09-22. The guard refused any normalization mismatch, which
+    paid ARC and HellaSwag the maximum 1.000 for being uncheckable.
+    """
+
+    def test_same_scale_different_normalization_is_now_comparable(self):
+        from cross_source import agreement_for
+        from fetch_benchmarks import find_benchmark
+
+        for name in ("ARC (AI2 Reasoning Challenge)", "HellaSwag"):
+            report = agreement_for(find_benchmark(name))
+            assert report is not None and report.comparable, name
+            assert report.overlap >= 10, name
+
+    def test_a_different_scale_is_still_refused(self):
+        """v2's chance-rescaling is not accuracy and must stay refused."""
+        from dataclasses import replace
+
+        from cross_source import compare_sources
+        from fetch_benchmarks import find_benchmark, load_score_sets
+
+        a, b = load_score_sets(find_benchmark("ARC (AI2 Reasoning Challenge)"))[:2]
+        report = compare_sources(replace(a, normalization="baseline"), b)
+        assert not report.comparable
+        assert "different scales" in report.reason
+
+    def test_being_uncheckable_no_longer_outscores_being_checked(self):
+        """
+        The bug in one assertion: ARC used to score 1.000 because its
+        sources could not be compared. Measured, it is 0.620.
+        """
+        from benchmark_scoring import score_benchmark
+        from fetch_benchmarks import find_benchmark
+
+        arc = score_benchmark(find_benchmark("ARC (AI2 Reasoning Challenge)"))
+        factor = {f.name: f for f in arc.factors}["reproducibility"]
+        assert factor.basis == "measured"
+        assert factor.value < 0.8

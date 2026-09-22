@@ -55,6 +55,38 @@ from typing import Optional
 from fetch_benchmarks import Benchmark, BenchmarkScores, load_score_sets
 from model_matching import match_key
 
+# Which normalizations are on the SAME SCALE and can therefore be
+# compared model-for-model, with their difference reported as an offset.
+#
+# FIXED 2026-09-22. The guard used to refuse any comparison where the two
+# normalizations differed at all, which conflated two different problems:
+#
+#   "none" vs "length" — BOTH are accuracy in 0-1. acc_norm reweights by
+#       answer length, so it is a different quantity, but it is the same
+#       KIND of quantity on the same scale. The offset/scatter split
+#       exists precisely to handle a systematic difference like this:
+#       report the offset, measure the scatter.
+#   "none" vs "baseline" — NOT the same scale. v2's rescale maps chance
+#       to 0, so GPQA's raw 0.26 becomes 1.2. Comparing that against a
+#       raw column measures the rescaling; it is what made GPQA's median
+#       delta read 24.5 points when the truth was 7.9.
+#
+# Refusing the first cost more than it saved: ARC and HellaSwag both had
+# a comparison that was possible, and the refusal fell through to the
+# curated evaluator count, which paid them the MAXIMUM 1.000. Being
+# uncheckable was worth more than being checked.
+#
+# CAVEAT, and it is a real one: length normalization is a per-item
+# reweighting rather than a constant shift, so some of the scatter it
+# produces is the normalization itself. Reproducibility measured across
+# a length/none pair is a LOWER BOUND on the true value, not an
+# estimate. That is still far better than 1.000.
+NORMALIZATION_SCALE = {
+    "none": "accuracy",
+    "length": "accuracy",
+    "baseline": "chance-rescaled",
+}
+
 # Fewer shared models than this and the median difference is noise.
 MIN_OVERLAP = 10
 
@@ -119,10 +151,12 @@ def compare_sources(a: BenchmarkScores, b: BenchmarkScores) -> AgreementReport:
         benchmark_key=a.benchmark_key, source_a=a.source, source_b=b.source, overlap=0
     )
 
-    if a.normalization != b.normalization:
+    if NORMALIZATION_SCALE.get(a.normalization) != NORMALIZATION_SCALE.get(
+        b.normalization
+    ):
         report.reason = (
             f"{a.source} reports {a.normalization or 'none'}-normalized scores and "
-            f"{b.source} reports {b.normalization or 'none'} — different quantities"
+            f"{b.source} reports {b.normalization or 'none'} — different scales"
         )
         return report
 
