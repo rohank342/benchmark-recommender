@@ -284,7 +284,7 @@ class TestBenchmarkWeighting:
         strong_where_it_counts = score_model(
             _raw(
                 [
-                    {"dataset": "MirrorCode", "metric_value": 80.0},
+                    {"dataset": "Terminal Bench", "metric_value": 80.0},
                     {"dataset": "HumanEval", "metric_value": 20.0},
                 ]
             ),
@@ -293,7 +293,7 @@ class TestBenchmarkWeighting:
         strong_where_it_doesnt = score_model(
             _raw(
                 [
-                    {"dataset": "MirrorCode", "metric_value": 20.0},
+                    {"dataset": "Terminal Bench", "metric_value": 20.0},
                     {"dataset": "HumanEval", "metric_value": 80.0},
                 ]
             ),
@@ -325,3 +325,69 @@ class TestBenchmarkWeighting:
         # Sorted by trust, so the reader sees the strongest evidence first.
         trusts = [b["trust"] for b in result.benchmark_breakdown]
         assert trusts == sorted(trusts, reverse=True)
+
+
+class TestThinTierBenchmarksAreUnweighted:
+    """
+    Owner's decision 2026-09-22, option (ii). A benchmark whose health
+    rests on no measured factor carries no weight; its result is still
+    reported.
+
+    Measured impact today: ZERO. No model in data/models_raw.json cites
+    a thin-tier benchmark (0 of 187 citations). This is a guard.
+    """
+
+    def test_a_thin_tier_result_carries_no_weight(self):
+        from benchmark_scoring import score_benchmark
+        from fetch_benchmarks import find_benchmark
+        from scoring import score_model
+
+        mirrorcode = score_benchmark(find_benchmark("MirrorCode"))
+        assert mirrorcode.evidence_tier == "thin"
+
+        scored = score_model(
+            _raw([{"dataset": "MirrorCode", "metric_value": 90.0}]), []
+        )
+        point = scored.benchmark_breakdown[0]
+        assert point["unweighted"] is True
+
+    def test_a_thin_result_does_not_move_the_weighted_mean(self):
+        from scoring import score_model
+
+        alone = score_model(_raw([{"dataset": "HumanEval", "metric_value": 40.0}]), [])
+        with_thin = score_model(
+            _raw(
+                [
+                    {"dataset": "HumanEval", "metric_value": 40.0},
+                    {"dataset": "MirrorCode", "metric_value": 95.0},
+                ]
+            ),
+            [],
+        )
+        assert with_thin.raw_benchmark_score == pytest.approx(
+            alone.raw_benchmark_score
+        )
+
+    def test_the_thin_result_is_still_reported(self):
+        """Excluded from the weighting, not from the evidence."""
+        from scoring import score_model
+
+        scored = score_model(
+            _raw(
+                [
+                    {"dataset": "HumanEval", "metric_value": 40.0},
+                    {"dataset": "MirrorCode", "metric_value": 95.0},
+                ]
+            ),
+            [],
+        )
+        labels = {p["benchmark"] for p in scored.benchmark_breakdown}
+        assert "MirrorCode" in labels
+
+    def test_partial_and_full_tier_results_still_weigh(self):
+        from scoring import score_model
+
+        scored = score_model(
+            _raw([{"dataset": "HumanEval", "metric_value": 40.0}]), []
+        )
+        assert scored.benchmark_breakdown[0]["unweighted"] is False

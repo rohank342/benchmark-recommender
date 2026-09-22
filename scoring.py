@@ -114,9 +114,26 @@ class _DataPoint:
     benchmark_key: Optional[str]  # catalog key, if recognized
     benchmark_trust: float  # 0-100
     source: str
+    # DECISION 2026-09-22 (owner), option (ii): a benchmark whose health
+    # score rests on no measured factor at all — THIN tier — carries NO
+    # weight here. Its result is still reported, as unweighted evidence
+    # beside the score.
+    #
+    # Why: a thin health score is computed from a release date. Letting
+    # it weight a model's result would reintroduce, one layer down, the
+    # inversion evidence tiering was added to stop.
+    #
+    # IT CHANGES NOTHING TODAY. No model result in data/models_raw.json
+    # cites a thin-tier benchmark — 0 of 187 citations, measured with
+    # probes/impact.py. This is a guard, adopted because it invents no
+    # parameter and matches the dossier framing: evidence that cannot
+    # carry weight is shown rather than discarded.
+    unweighted: bool = False
 
     @property
     def weight(self) -> float:
+        if self.unweighted:
+            return 0.0
         return self.benchmark_trust / 100.0
 
 
@@ -141,6 +158,7 @@ def _weighted_point(
             # chosen, and applying it twice was the bug the score split
             # was adopted to fix.
             benchmark_trust=trust.health,
+            unweighted=trust.evidence_tier == "thin",
             source=source,
         )
     return _DataPoint(
@@ -354,6 +372,8 @@ def score_model(
                 "score": round(point.value, 4),
                 "source": point.source,
                 "recognized": point.benchmark_key is not None,
+                # Shown beside the score rather than folded into it.
+                "unweighted": point.unweighted,
             }
             for point in sorted(points, key=lambda p: p.benchmark_trust, reverse=True)
         ],
