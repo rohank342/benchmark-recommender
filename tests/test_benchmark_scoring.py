@@ -660,16 +660,49 @@ class TestNewlyAddedBenchmarks:
         assert musr.dataset_size == 756
         assert "MEASURED 2026-09-21 by probing" in musr.curation_notes
 
-    def test_gsm8k_does_not_record_a_maximum_as_an_effect(self):
+    def test_gsm8k_records_a_mean_not_the_published_maximum(self):
         """
-        GSM1k reports drops of "up to 13%" — a maximum. Every other
-        contamination_effect here is a mean, so storing it would compare
-        different quantities.
+        Resolved 2026-09-21. The paper's headline "up to 8%" is a MAXIMUM
+        across models; every contamination_effect here is a mean across a
+        model set, so storing 0.08 would have compared different
+        quantities. probes/gsm1k_effect.py extracts the per-model table
+        from the paper and takes the mean relative drop: 0.051.
         """
         gsm8k = find_benchmark("GSM8K")
         assert gsm8k.contamination_flagged
-        assert gsm8k.contamination_effect is None
-        assert "MAXIMUM" in gsm8k.curation_notes
+        assert gsm8k.contamination_effect == pytest.approx(0.051)
+        # Not the maximum, and not the absolute-points figure.
+        assert gsm8k.contamination_effect < 0.08
+        assert "MEAN of those" in gsm8k.curation_notes
+        # 63 models, reproducible from the paper.
+        assert "probes/gsm1k_effect.py" in gsm8k.curation_notes
+
+    def test_the_gsm1k_evidence_predates_the_backtest_cutoff(self):
+        """
+        Unlike almost every other piece of evidence in this catalog, this
+        one IS visible to the backtest — the paper is dated 2024-05-01 and
+        the cutoff is 2024-06-01. Pinned because that is unusual and makes
+        this value one of the few that can move the backtest.
+        """
+        gsm8k = find_benchmark("GSM8K")
+        assert gsm8k.evidence_dates["contamination_effect"] == "2024-05-01"
+        assert gsm8k.known_at("contamination_effect", "2024-06-01")
+
+        then = score_benchmark(gsm8k, as_of="2024-06-01")
+        assert any("decontaminated" in p for p in then.penalties), then.penalties
+
+    def test_the_two_effect_figures_are_not_the_same_measurement(self):
+        """
+        Both HumanEval (0.394) and GSM8K (0.051) sit in contamination_effect
+        and the penalty treats them identically, but GSM1k controlled for
+        difficulty and EvoEval did not. The catalog has to say so.
+        """
+        humaneval = find_benchmark("HumanEval")
+        assert humaneval.contamination_effect == pytest.approx(0.394)
+        assert "NOT A CLEAN CONTAMINATION EFFECT" in humaneval.curation_notes
+        assert "EvoEval" in humaneval.curation_notes
+        # And the miscitation is recorded rather than silently fixed.
+        assert "CITATION CORRECTED" in humaneval.curation_notes
 
     def test_instruction_following_category_is_matchable(self):
         from task_matcher import match_task

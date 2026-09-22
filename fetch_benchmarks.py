@@ -378,9 +378,24 @@ BENCHMARK_CATALOG: tuple[Benchmark, ...] = (
             "RESEARCHED 2026-09-20. The canonical case for this project. "
             "Contamination is quantified, not just suspected: 8-18% of items appear "
             "in major open-weight pretraining corpora, and across 51 LLMs scores "
-            "fall by an average of 39.4% when the same models are evaluated on "
-            "decontaminated variants. 164 short functions, public since 2021. "
-            "https://arxiv.org/pdf/2403.04811 | https://arxiv.org/pdf/2412.01526 "
+            "fall by an average of 39.4% on EvoEval. 164 short functions, public "
+            "since 2021. https://arxiv.org/pdf/2403.04811 "
+            "CITATION CORRECTED 2026-09-21. The 39.4%/51-LLM figure was previously "
+            "attributed to the two papers cited here. It is in NEITHER. Riddell et "
+            "al. (2403.04811) covers 12 models across three families and reports "
+            "relative degradations of 25.9%, 57.1% and 43.2% for HumanEval at the "
+            "exact-match threshold; Bradbury and More (2412.01526) covers four "
+            "models with 4.75-13.75 point drops. The 39.4% across 51 LLMs is "
+            "EvoEval (Xia et al.). The overlap-rate range does come from Riddell. "
+            "CURATE(you): 0.394 IS NOT A CLEAN CONTAMINATION EFFECT. EvoEval "
+            "problems are LLM-evolved transformations of HumanEval problems with no "
+            "control for difficulty, so the drop mixes memorization with the new "
+            "problems simply being harder. GSM8K 0.051 — from GSM1k, which WAS "
+            "difficulty-matched by construction — is a cleaner measurement of the "
+            "same field, which means this field currently holds two different "
+            "quantities and the penalty formula cannot tell them apart. Fixing it "
+            "means finding a difficulty-controlled variant for HumanEval "
+            "(HumanEval+ is the obvious candidate), not adjusting 0.394. "
             "CURATE(you): saturation is still ASSERTED here, not measured — no "
             "Epoch score file. An EvalPlus export would let the 39.4% figure be "
             "reproduced in-repo rather than cited."
@@ -883,12 +898,21 @@ BENCHMARK_CATALOG: tuple[Benchmark, ...] = (
         dataset_size=8500,
         contamination_flagged=True,
         item_error_rate=0.02,  # creators' own quality-control estimate
+        # MEAN relative drop across the 63 models in GSM1k's Appendix F
+        # table, computed by probes/gsm1k_effect.py. NOT the published
+        # "up to 8%", which is a maximum. See the notes for why this is
+        # only partly comparable to HumanEval's 0.394.
+        contamination_effect=0.051,
         saturation_flagged=True,
         independent_evaluators=5,
         specificity_dimensions=(1, 1, 1, 0, 1),
         evidence_dates={
             "saturation_flagged": "2024-06-26",  # HF retirement announcement
             "contamination_flagged": "2024-05-01",  # GSM1k, arXiv 2405.00332
+            # Same paper, same date. PREDATES the 2024-06-01 backtest
+            # cutoff, so unlike most evidence here it IS visible to the
+            # backtest and does move it.
+            "contamination_effect": "2024-05-01",
             "item_error_rate": "2021-10-27",  # stated in the original paper
         },
         curation_notes=(
@@ -897,18 +921,40 @@ BENCHMARK_CATALOG: tuple[Benchmark, ...] = (
             "8.5K grade-school word problems taking 2-8 elementary arithmetic steps, "
             "with natural-language solutions. Retired from HF's Open LLM Leaderboard "
             "in June 2024 with the rest of the v1 set. "
-            "CONTAMINATION: Scale AI commissioned GSM1k, a fresh set mirroring "
-            "GSM8K's style, and found accuracy drops of UP TO 13% on it, with Phi "
-            "and Mistral families showing systematic overfitting across sizes while "
-            "frontier models showed little. A model's probability of generating a "
-            "GSM8K example correlates with its GSM8K-to-GSM1k gap (Spearman r^2 = "
-            "0.32), which is about as direct as memorization evidence gets. "
-            "https://arxiv.org/abs/2405.00332 "
-            "CURATE(you): contamination_effect is deliberately NOT set. The "
-            "published 13% is a MAXIMUM across models; every other effect figure in "
-            "this catalog (HumanEval's 0.394) is a mean across a model set. "
-            "Recording 0.13 here would silently compare a max against means. The "
-            "paper reports per-family numbers — extracting a mean is the fix. "
+            "CONTAMINATION — QUANTIFIED 2026-09-21, resolving the CURATE marker "
+            "that asked for a mean instead of the published maximum. Scale AI "
+            "commissioned GSM1k, 1,205 problems written by human annotators to "
+            "mirror GSM8K's style AND its difficulty distribution (human solve "
+            "rates, solution steps, answer magnitude), so the comparison isolates "
+            "memorization rather than difficulty. Phi and Mistral families show "
+            "systematic overfitting across sizes; frontier models show little. A "
+            "model\'s probability of generating a GSM8K example correlates with "
+            "its GSM8K-to-GSM1k gap (Spearman r^2 = 0.36). "
+            "https://arxiv.org/abs/2405.00332 (v4, NeurIPS 2024 D&B) "
+            "HOW 0.051 WAS COMPUTED: from the per-model table in Appendix F of "
+            "the paper itself (63 models, standard LM-Eval-Harness prompt), "
+            "extracted by probes/gsm1k_effect.py. For each model, relative drop = "
+            "(GSM8K - GSM1k) / GSM8K; contamination_effect is the MEAN of those. "
+            "Mean 0.051, median 0.044, mean absolute drop 2.1 points, max absolute "
+            "drop 8.0 points — the last reproduces the paper\'s headline \'up to "
+            "8%\', which is how the parse was validated. Excluding the two models "
+            "scoring under 10% on GSM8K (gpt2-xl, pythia-12b, whose tiny "
+            "denominators inflate a ratio) gives 0.044; no filter was applied, "
+            "because any threshold would be a choice nobody can source. "
+            "CORRECTION: the previous note said \'up to 13%\' and r^2 = 0.32. "
+            "Those are v1 figures. The published v4 says 8% and 0.36. "
+            "CURATE(you) — THE DEFINITION IS NOT FULLY COMPARABLE TO HUMANEVAL\'S "
+            "0.394, and the field cannot express the difference. The arithmetic "
+            "matches (mean relative drop across a broad model set: 63 here, 51 "
+            "there) but the control sets do not. GSM1k holds difficulty constant "
+            "by construction, so its 5.1% is close to pure contamination. "
+            "HumanEval\'s 0.394 comes from EvoEval, whose problems are LLM-evolved "
+            "transformations of the originals with no difficulty control, so that "
+            "figure mixes contamination with the transformed problems simply being "
+            "harder. Two numbers in one field measuring different things is the "
+            "same class of error the original CURATE marker here was written to "
+            "avoid — one level up. Recorded rather than hidden: the honest fix is "
+            "a separate field, or an EvoEval-equivalent for GSM8K, not a fudge. "
             "ITEM QUALITY: 0.02 is the creators' own estimate from their quality "
             "control, the same kind of self-reported figure that turned out to be "
             "far too low for SWE-Bench Verified. Treat it as a floor of a different "
