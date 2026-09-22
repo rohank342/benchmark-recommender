@@ -59,10 +59,33 @@ class TestTrustScore:
         # measured factors, which is the point: it did not need the penalty.
         assert any(p.startswith("WARNING:") for p in trust.penalties), trust.penalties
 
-    def test_recent_task_specific_benchmark_scores_higher(self):
+    def test_swe_bench_now_scores_below_hellaswag_and_why(self):
+        """
+        Uncomfortable and pinned deliberately. SWE-Bench Verified (2024,
+        real GitHub issues) scores 24.1 on measurement health; HellaSwag
+        (2019, retired by HF for saturation) scores 27.1.
+
+        It is not a claim that HellaSwag is the better benchmark. It is
+        what happens when health counts only what was measured:
+
+          HellaSwag  3/3 factors, 2 measured — including a reproducibility
+                     of 0.775 that only became measurable on 2026-09-22
+                     when the normalization guard was fixed.
+          SWE-Bench  2/3 factors, reproducibility dropped entirely (one
+                     source), plus an evidence-backed item-quality
+                     penalty for a >=16% error floor.
+
+        SWE-Bench leads on RELEVANCE 100 vs 10, which is exactly the
+        distinction the score split exists to keep visible. A reader
+        seeing only health is seeing half the picture, which is why the
+        UI shows both.
+        """
         swe = score_benchmark(find_benchmark("SWE-Bench Verified"))
         hellaswag = score_benchmark(find_benchmark("HellaSwag"))
-        assert swe.trust_score > hellaswag.trust_score
+        assert swe.health < hellaswag.health
+        assert swe.relevance > hellaswag.relevance
+        assert swe.evidence["dropped"] == ["reproducibility"]
+        assert hellaswag.evidence["dropped"] == []
 
     def test_humaneval_ranks_below_its_reputation(self):
         """The thesis in one assertion: fame and validity have come apart."""
@@ -854,3 +877,72 @@ class TestContaminationEffectBasis:
             assert not any(
                 "difficulty" in p for p in score_benchmark(b).penalties
             ), name
+
+
+class TestUnmeasurableFactorsAreDropped:
+    """
+    Decision 2026-09-22 (c), mirroring the contamination treatment: a
+    health factor that cannot be measured contributes nothing, and the
+    rest are renormalized. Absence of measurement is not a finding.
+    """
+
+    def test_an_unmeasurable_factor_carries_no_weight(self):
+        mirrorcode = score_benchmark(find_benchmark("MirrorCode"))
+        factors = {f.name: f for f in mirrorcode.factors}
+        assert factors["reproducibility"].basis != "measured"
+        assert factors["reproducibility"].weight == 0.0
+        assert "not measurable" in factors["reproducibility"].explanation
+
+    def test_the_survivors_are_renormalized_to_full_weight(self):
+        from benchmark_scoring import HEALTH_WEIGHTS
+
+        for b in load_benchmark_catalog():
+            trust = score_benchmark(b)
+            carrying = [
+                f for f in trust.factors
+                if f.name in HEALTH_WEIGHTS and f.weight > 0
+            ]
+            assert sum(f.weight for f in carrying) == pytest.approx(1.0), b.name
+
+    def test_freshness_is_never_dropped(self):
+        """
+        It is 'curated' because the release date is, but it is computed
+        exactly rather than proxied, so the rule must not touch it.
+        """
+        from benchmark_scoring import FALLBACK_CAPABLE
+
+        assert "freshness" not in FALLBACK_CAPABLE
+        for b in load_benchmark_catalog():
+            factors = {f.name: f for f in score_benchmark(b).factors}
+            assert factors["freshness"].weight > 0, b.name
+
+    def test_being_uncheckable_no_longer_pays(self):
+        """
+        The point of the change. A benchmark with one evaluator and one
+        with five now score identically on that axis — both excluded —
+        rather than the unverifiable one being paid more.
+        """
+        from dataclasses import replace
+
+        one = find_benchmark("MirrorCode")
+        five = replace(one, independent_evaluators=5)
+        assert score_benchmark(one).health == pytest.approx(score_benchmark(five).health)
+
+    def test_evidence_reports_what_the_score_rests_on(self):
+        live = score_benchmark(find_benchmark("LiveCodeBench"))
+        assert live.evidence["factors_used"] == 1
+        assert live.evidence["dropped"] == ["discrimination", "reproducibility"]
+        assert "1/3 factors" in live.evidence_summary
+
+        gpqa = score_benchmark(find_benchmark("GPQA Diamond"))
+        assert gpqa.evidence["factors_used"] == 3
+        assert gpqa.evidence["dropped"] == []
+        assert len(gpqa.evidence["measured"]) == 2
+
+    def test_the_ui_surfaces_thin_evidence(self):
+        import app
+
+        header, frame = app.rank_benchmarks("writing python functions")
+        assert "rests on" in frame.columns
+        assert "Thin evidence" in header
+        assert "LiveCodeBench" in header

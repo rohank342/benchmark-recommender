@@ -181,8 +181,34 @@ different normalizations, or fewer than 10 models overlap. Both guards
 matter: comparing a baseline-normalized column against a raw one once made
 GPQA's median delta read 24.5 points when the true figure was 7.9.
 
-Falls back to `independent_evaluators / 5`, capped at 1.0, with `basis` set
-to `curated` and an explanation naming why the measurement was unavailable.
+**Since 2026-09-22 there is no fallback.** A health factor that cannot be
+measured contributes **nothing**, and the remaining health factors are
+renormalized to carry full weight — mirroring the contamination
+treatment adopted the day before. The evaluator count is still computed
+and shown, but it no longer enters the score.
+
+Why: the curated fallback was *more generous* than the measurement it
+stood in for (curated mean 0.580 against measured 0.485), so being
+uncheckable paid better than being checked. Absence of measurement is
+not a finding, in either direction.
+
+**What it costs:** a benchmark with one evaluator and one with five now
+score identically on this axis. That count is weak evidence, but it is
+evidence, and this discards it.
+
+**Freshness is deliberately exempt.** Its basis is `curated` because the
+release date is curated, but it is computed exactly rather than proxied —
+there is no measurement for it to be missing. Only `discrimination` and
+`reproducibility` have a measurement path to fall off
+(`FALLBACK_CAPABLE`).
+
+**Because scores now rest on different numbers of factors, the UI says
+which.** `BenchmarkTrust.evidence` reports factors used, how many were
+measured versus curated, and which were dropped. Two scores of 70 are
+not the same evidence if one averaged three factors and the other rests
+on a release date — and the benchmarks scoring highest currently rest on
+the *least*: MirrorCode's 90.5 is 2/3 factors, LiveCodeBench's 73.6 is
+1/3, while GPQA Diamond's 14.6 is the only 3/3 with two measured.
 
 #### Diagnosis: the fallback rewards being uncheckable
 

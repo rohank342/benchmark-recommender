@@ -286,8 +286,8 @@ class TestBenchmarkWeighting:
         strong_where_it_counts = score_model(
             _raw(
                 [
-                    {"dataset": "SWE-bench Verified", "metric_value": 80.0},
-                    {"dataset": "HellaSwag", "metric_value": 20.0},
+                    {"dataset": "MirrorCode", "metric_value": 80.0},
+                    {"dataset": "HumanEval", "metric_value": 20.0},
                 ]
             ),
             [],
@@ -295,8 +295,8 @@ class TestBenchmarkWeighting:
         strong_where_it_doesnt = score_model(
             _raw(
                 [
-                    {"dataset": "SWE-bench Verified", "metric_value": 20.0},
-                    {"dataset": "HellaSwag", "metric_value": 80.0},
+                    {"dataset": "MirrorCode", "metric_value": 20.0},
+                    {"dataset": "HumanEval", "metric_value": 80.0},
                 ]
             ),
             [],

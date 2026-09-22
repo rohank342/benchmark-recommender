@@ -56,52 +56,39 @@ class TestNoLeakage:
 
 
 class TestResult:
-    def test_the_result_is_eight_of_twelve(self):
+    def test_the_result_is_ten_of_twelve(self):
         """
-        Re-pinned 2026-09-22 after the score split. Dropping specificity
-        from the score moved this from 10/12 to 8/12, exactly as the
-        exploratory run in docs/SCORE_SPLIT_PROPOSAL.md predicted before
-        the split was adopted.
+        Re-pinned 2026-09-22 after unmeasurable factors stopped
+        contributing. 8/12 -> 10/12, gap -20.6 -> -10.3.
 
-        The split was adopted on the argument that measurement health and
-        task relevance are different questions, NOT on any test result —
-        and this is the test result it cost.
+        THIS IS NOT VINDICATION. The change was made because the curated
+        fallback paid more than the measurement it replaced (curated mean
+        0.580 vs measured 0.485), which is an evidence argument that
+        stands whatever the test does. It happened to help; the split
+        before it happened to hurt. Neither was chosen for its effect
+        here, and nothing may be.
         """
         outcomes = run_retirement_test()
         matrix = confusion(outcomes)
         correct = matrix["true_retire"] + matrix["true_keep"]
-        assert correct == 8, f"backtest moved: {correct}/12"
+        assert correct == 10, f"backtest moved: {correct}/12"
 
-    def test_four_benchmarks_are_now_on_the_wrong_side(self):
-        """
-        Two retired benchmarks outrank kept ones and two kept ones rank
-        below retired ones. Pinned so a later change that alters this is
-        noticed, not so that it is defended.
-        """
+    def test_gsm8k_is_the_only_one_on_the_wrong_side(self):
         outcomes = run_retirement_test()
         weakest_kept = min(o.score for o in outcomes if o.label == "replacement")
         overlapping = sorted(
             o.name for o in outcomes if o.label == "retired" and o.score > weakest_kept
         )
-        assert overlapping == [
-            "ARC (AI2 Reasoning Challenge)", "GSM8K", "MMLU", "Winogrande"
-        ], overlapping
+        assert overlapping == ["GSM8K"], overlapping
 
-        retired_best = max(
-            (o for o in outcomes if o.label == "retired"), key=lambda o: o.score
-        )
-        assert retired_best.name == "GSM8K"
-
-    def test_separation_is_lost_by_a_wide_margin(self):
+    def test_separation_is_still_lost(self):
         """
-        Not a near miss. At eight benchmarks this separated cleanly with
-        an 8.2-point gap; it now fails by about 20. Asserting the size
-        keeps the docs and the code in step — a 20-point gap must not be
-        described anywhere as "close".
+        Improved from -20.6 to -10.3 and still a failure. A ten-point
+        gap must not be described anywhere as close.
         """
         clean, gap = separation(run_retirement_test())
         assert not clean
-        assert -25.0 < gap < -15.0, gap
+        assert -15.0 < gap < -5.0, gap
 
     def test_specificity_no_longer_affects_the_backtest_at_all(self):
         """

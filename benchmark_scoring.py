@@ -37,7 +37,7 @@ trust score built on assertions should not look like one built on data.
 from __future__ import annotations
 
 import statistics
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import date, datetime
 from typing import Optional
 
@@ -85,6 +85,13 @@ HEALTH_WEIGHTS = {
 # task category before showing the number. Scoring relevance per
 # (benchmark, task) pair is open work — see docs/SCORE_SPLIT_PROPOSAL.md.
 RELEVANCE_FACTOR = "specificity"
+
+# Health factors that have a real measurement path and a weaker proxy to
+# fall back on. When one of these falls back, it contributes nothing and
+# the rest are renormalized — see score_benchmark. Freshness is
+# deliberately absent: it is computed exactly from the release date, so
+# there is no measurement for it to be missing.
+FALLBACK_CAPABLE = frozenset({"discrimination", "reproducibility"})
 
 # Kept as the union so that anything iterating factor weights still
 # works. Health factors carry their health weight; specificity carries
@@ -172,6 +179,40 @@ class BenchmarkTrust:
     # populations: {source: (saturation, n_models)}.
     saturation_by_source: dict = field(default_factory=dict)
     primary_source: Optional[str] = None
+
+    @property
+    def evidence(self) -> dict:
+        """
+        What the health score actually rests on.
+
+        Since unmeasurable factors are dropped and the rest renormalized,
+        two scores of 70 can mean very different things: one averaged
+        over three factors, two of them measured; the other resting
+        entirely on a release date. Nothing in the number says which, so
+        this does.
+        """
+        health = [f for f in self.factors if f.name in HEALTH_WEIGHTS]
+        carrying = [f for f in health if f.weight > 0]
+        return {
+            "factors_used": len(carrying),
+            "factors_possible": len(health),
+            "measured": sorted(f.name for f in carrying if f.basis == "measured"),
+            "curated": sorted(f.name for f in carrying if f.basis != "measured"),
+            "dropped": sorted(f.name for f in health if f.weight == 0),
+        }
+
+    @property
+    def evidence_summary(self) -> str:
+        """One line for a table cell."""
+        e = self.evidence
+        parts = [f"{e['factors_used']}/{e['factors_possible']} factors"]
+        if e["measured"]:
+            parts.append(f"{len(e['measured'])} measured")
+        if e["curated"]:
+            parts.append(f"{len(e['curated'])} curated")
+        if e["dropped"]:
+            parts.append("dropped: " + ", ".join(e["dropped"]))
+        return "; ".join(parts)
 
     @property
     def health(self) -> float:
@@ -482,6 +523,53 @@ def score_benchmark(
 
     # Health is the weighted health factors; relevance is kept out of it
     # entirely and reported alongside.
+    # DECISION 2026-09-22 (owner), mirroring contamination treatment (c):
+    # a health factor that cannot be MEASURED contributes nothing, and
+    # the remaining health factors are renormalized to carry full weight.
+    #
+    # Why: the curated evaluator-count fallback was more generous than
+    # the measurement it stood in for (curated mean 0.580 against
+    # measured 0.485), so being uncheckable paid better than being
+    # checked. That is the same error as the old flat contamination
+    # penalty, and it is fixed the same way — absence of measurement is
+    # not a finding, in either direction.
+    #
+    # The cost, which is real: a benchmark with one evaluator and one
+    # with five now score identically on this axis. That count is weak
+    # evidence, but it is evidence, and this discards it. The UI reports
+    # how many factors a score rests on so the discarding is visible.
+    # FRESHNESS IS NOT SUBJECT TO THIS RULE. Its basis is "curated"
+    # because the release date is curated, but it is not a proxy standing
+    # in for a missing measurement — it is computed exactly, from a date
+    # that is known. The rule applies only to factors that HAVE a
+    # measurement path and fell back off it: discrimination (measured
+    # saturation, else the saturation_flagged flag) and reproducibility
+    # (cross-source scatter, else an evaluator count).
+    dropped = {
+        f.name
+        for f in factors
+        if f.name in FALLBACK_CAPABLE and f.basis != "measured"
+    }
+    kept = [f for f in factors if f.name in HEALTH_WEIGHTS and f.name not in dropped]
+    if kept:
+        total = sum(f.weight for f in kept)
+        factors = [
+            replace(f, weight=f.weight / total)
+            if f.name in HEALTH_WEIGHTS and f.name not in dropped
+            else (
+                replace(
+                    f,
+                    weight=0.0,
+                    explanation=f.explanation + " — not measurable, so excluded",
+                )
+                if f.name in dropped
+                else f
+            )
+            for f in factors
+        ]
+    # If NOTHING is measurable the curated signals are all there is, so
+    # they are kept at their original weights rather than producing a
+    # score of zero. That case is reported as such rather than hidden.
     raw = sum(f.value * f.weight for f in factors if f.name in HEALTH_WEIGHTS) * 100
     penalties: list[str] = []
     if benchmark.contamination_flagged and benchmark.known_at("contamination_flagged", as_of):

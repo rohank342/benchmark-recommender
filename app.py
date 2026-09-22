@@ -137,7 +137,7 @@ def rank_benchmarks(task_description: str) -> tuple[str, pd.DataFrame]:
                 "saturation": saturation,
                 "measured over": measured_over,
                 "held back by": trust.dominant_factor.name if trust.dominant_factor else "—",
-                "evidence": factors["discrimination"].basis,
+                "rests on": trust.evidence_summary,
                 "flags": ", ".join(trust.penalties) or "—",
             }
         )
@@ -160,6 +160,18 @@ def rank_benchmarks(task_description: str) -> tuple[str, pd.DataFrame]:
         + (f", measured on {top.population}" if top.population else "")
         + f"). {top.summary}"
     )
+    thin = [t for t in benchmarks if t.evidence["factors_used"] < 2]
+    if thin:
+        header += (
+            "\n\n🧪 **Thin evidence:** "
+            + ", ".join(
+                f"{t.benchmark.name} ({t.evidence_summary})" for t in thin
+            )
+            + ". Unmeasurable factors are dropped rather than guessed, so a "
+            "score can rest on very little. Fewer factors is not a better "
+            "benchmark — it is less evidence."
+        )
+
     if mixed:
         header += (
             "\n\n🔀 **These rows are not a like-for-like ranking.** Saturation "
@@ -209,7 +221,7 @@ def benchmark_detail(name: str) -> str:
     benchmark = trust.benchmark
     lines = [
         f"## {benchmark.name}",
-        f"**Measurement health {trust.health:.1f}/100** · "
+        f"**Measurement health {trust.health:.1f}/100** ({trust.evidence_summary}) · "
         f"**Task relevance {trust.relevance:.0f}/100** — these are separate "
         f"questions and are deliberately not combined "
         f"([why](docs/SCORE_SPLIT_PROPOSAL.md)).",
