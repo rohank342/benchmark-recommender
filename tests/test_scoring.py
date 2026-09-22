@@ -494,3 +494,41 @@ class TestAgreementIsARungInTheProvenanceTiers:
         assert rank_key(replace(base, sources_agree=None)) < rank_key(
             replace(base, sources_agree=True)
         )
+
+
+class TestCompositeIndexesAreMarked:
+    """
+    Owner's decision 2026-09-22 (D4). A composite index is a published
+    aggregate over benchmarks, not a benchmark. Counting one as a
+    benchmark double-counts any component the catalog assesses.
+    """
+
+    def test_the_aa_coding_index_is_marked_with_its_components(self):
+        from scoring import score_model
+
+        scored = score_model(
+            _raw([{"dataset": "artificial_analysis_coding_index", "metric_value": 70.0}]),
+            [],
+        )
+        entry = scored.benchmark_breakdown[0]
+        assert entry["composite_of"] == ("Terminal-Bench 4.0", "SciCode")
+        assert entry["unweighted"] is True
+
+    def test_a_real_benchmark_is_not_marked_composite(self):
+        from scoring import score_model
+
+        scored = score_model(_raw([{"dataset": "HumanEval", "metric_value": 40.0}]), [])
+        assert scored.benchmark_breakdown[0]["composite_of"] is None
+
+    def test_a_component_is_itself_catalogued(self):
+        """
+        The double-count made concrete: Terminal Bench is assessed in the
+        catalog AND sits inside the index, so a model carrying both has
+        it counted twice.
+        """
+        from fetch_benchmarks import find_benchmark
+        from scoring import COMPOSITE_COMPONENTS
+
+        components = COMPOSITE_COMPONENTS["artificial_analysis_coding_index"]
+        assert find_benchmark("Terminal Bench") is not None
+        assert any("Terminal-Bench" in c for c in components)

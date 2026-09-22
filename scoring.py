@@ -59,6 +59,26 @@ from fetch_benchmarks import find_benchmark
 #
 # The constant is gone rather than set to zero, so nothing can read it
 # back. Nothing else in the codebase used it.
+# COMPOSITE INDEXES are not benchmarks. They are published aggregates
+# over several benchmarks, and counting one as a benchmark double-counts
+# any component the catalog already assesses separately.
+#
+# Owner's decision 2026-09-22 (D4): excluded from weighting — which D3
+# already achieves, since no composite is in the catalog — and MARKED,
+# with its known components listed, so a reader can see what it contains
+# and what is being counted twice.
+#
+# COMPONENTS ARE VERSION-DEPENDENT AND THIS IS A SNAPSHOT. Artificial
+# Analysis restructured its index at v4.0 (2026-01-06) and again at v4.3
+# (2026-09-07); the components below are what its published methodology
+# listed on 2026-09-22. The cached scores in data/artificial_analysis.json
+# were fetched 2026-09-18 and may have been produced under a different
+# component set. Verified from
+# https://artificialanalysis.ai/methodology/intelligence-benchmarking
+COMPOSITE_COMPONENTS = {
+    "artificial_analysis_coding_index": ("Terminal-Bench 4.0", "SciCode"),
+}
+
 UNASSESSED_TIER_NOTE = (
     "every benchmark this model reports on is outside the catalog"
 )
@@ -394,6 +414,9 @@ def score_model(
                 "recognized": point.benchmark_key is not None,
                 # Shown beside the score rather than folded into it.
                 "unweighted": point.unweighted,
+                # A published aggregate over other benchmarks, not a
+                # benchmark. Listed so a reader can see what it contains.
+                "composite_of": COMPOSITE_COMPONENTS.get(point.benchmark_label),
             }
             for point in sorted(points, key=lambda p: p.benchmark_trust, reverse=True)
         ],
