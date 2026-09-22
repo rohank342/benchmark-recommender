@@ -536,6 +536,16 @@ happened yet.
   useful sentence.
 - Don't add features I didn't ask for. Do flag when something you found
   suggests one.
+- EVERY NUMBER IN A FINAL REPORT MUST COME FROM A PROBE OR COMMAND RUN
+  IN THAT SESSION. Never from an earlier report, an earlier commit
+  message, or memory. Two figures carried forward this way were wrong by
+  the time they were quoted — "45.0 sits above 18 of 26 health scores"
+  was 8 of 28 once the scale moved, and "one disagreeing pair, spread
+  0.022" was zero pairs (they were two entries from the SAME source).
+  Both shaped the next session's priorities before anyone caught them.
+  When referencing a figure from an earlier session, RE-MEASURE IT and
+  state both values if they differ. Cite the command behind each number
+  in the report.
 - MEASURE IMPACT BEFORE RANKING OR FIXING ANYTHING. Count how often a
   rule actually fires on real data first. Two model-side findings were
   ranked HIGH on their mechanism; measured, one fired on ZERO of 187
