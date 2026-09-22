@@ -45,10 +45,10 @@ the numbers were never comparable. The thesis never needed the
 comparison; see docs/RANK_RANGES.md.
 
 Repo: github.com/rohank342/benchmark-recommender
-Local: ~/benchmark-recommender, branch main, 221 tests, CI green.
+Local: ~/benchmark-recommender, branch main, 279 tests, CI green.
 
 ═══ DIRECTION DECIDED 2026-09-22 — do not relitigate ═══
-This project is an EVIDENCE DOSSIER on 26 benchmarks. The per-benchmark
+This project is an EVIDENCE DOSSIER on 28 benchmarks. The per-benchmark
 evidence is the product; the composite score is a summary presented as
 such, and the ranking is grouped by evidence tier and labelled as a
 summary rather than a verdict. See docs/DIRECTION.md for the argument on
@@ -65,16 +65,33 @@ only route by which the scoring claim could be vindicated. If it passes
 and beats the baseline, revisit the direction then — not before.
 
 WHERE THE PROJECT ACTUALLY STANDS — read this before believing the above.
-The backtest (section 4a) gets 10 of 12, loses separation by 17.3 points,
-and does NOT beat sorting by release date, which also gets 10 of 12.
-Across those twelve, age and measured saturation are uncorrelated
-(r = +0.01) while age alone predicts the ground truth at r = +0.79.
+All figures below re-measured 2026-09-22; the values they replace are
+given, because several had drifted far enough to change the emphasis.
+
+The backtest (section 4a) gets 10 of 12, loses separation by 26.9 points
+(recorded as 17.3 here and 0.6 in section 4a; both were stale), and does
+NOT beat sorting by release date, which also gets 10 of 12.
+
+`probes/findings.py correlations`, across those twelve at the cutoff:
+
+    r(age, kept)          -0.793    age predicts the decision
+    r(health, kept)       +0.502    the score predicts it much less well
+    r(saturation, kept)   -0.198    (was recorded +0.300 — sign flipped)
+    r(age, saturation)    +0.202    (was recorded +0.01)
+
+Saturation is not standing in for age, and it is not predicting the
+outcome either. AGE BEATS THE COMPOSITE SCORE ON THE DIRECT COMPARISON,
+0.793 against 0.502.
 
 A second pre-registered test (Candidate 1, docs/SECOND_TEST_PREREGISTRATION.md)
 was run on 2026-09-21 and FAILED: the scorer ranked SWE-Bench Verified
-16.6 points ABOVE GPQA Diamond three weeks before OpenAI publicly
-abandoned it — the same ordering age gives. Discrimination pointed the
-right way (+2.02); specificity overrode it (-16.00).
+ABOVE GPQA Diamond three weeks before OpenAI publicly abandoned it — the
+same ordering age gives. The margin was recorded as 16.6 points; at the
+pre-registration's own as-of date it now re-measures at +1.1
+(`probes/findings.py candidate1`). The DIRECTION is the failure and is
+unchanged; the magnitude moved with three definition changes. The pair
+is also VOID on tiers — thin against partial — which that run could not
+have known.
 
 THE SCORING MACHINERY HAS NEVER BEEN SHOWN TO BEAT AGE ON ANY
 DISCRIMINATING COMPARISON. That is the central open problem. Do not
@@ -86,7 +103,7 @@ rule in section 8).
 ═══════════════════════════════════════════════════════════════════════
 
 Benchmark side (the point of the project):
-  fetch_benchmarks.py        The catalog: 26 benchmarks, 10 categories, all
+  fetch_benchmarks.py        The catalog: 28 benchmarks, 10 categories, all
                              curated fields, evidence dates per claim.
   benchmark_scoring.py       Four factors, penalties, as-of (time-travel)
                              scoring.
@@ -130,6 +147,13 @@ Model side (downstream, weaker):
                              only; the outcome mean-reverted.
   docs/SCORE_SPLIT_PROPOSAL.md  Proposal to separate measurement health
                              from task relevance. NOT implemented.
+  docs/FINDINGS.md           THE STANDALONE WRITE-UP, for a reader outside
+                             the project: thesis, every test and its
+                             result, the bug classes, what is open. Every
+                             figure footnoted with the command behind it.
+                             Start here when asked what the project found.
+  docs/POPULATION_CLIFF.md   MIN_SATURATION_POPULATION is a cliff, not a
+                             taper. Quantified; design only, nothing built.
 
 ═══════════════════════════════════════════════════════════════════════
 3. THE EVIDENCE STANDARD — NON-NEGOTIABLE
@@ -155,7 +179,7 @@ you can do here.
   announcement and invisible at the 2024-06-01 cutoff.
 
 [Section 3 is kept verbatim from the original brief. Two counts in it have
-moved since: the catalog is 26 entries, not 22, and all 26 meet the
+moved since: the catalog is 28 entries, not 22, and all 28 meet the
 researched bar. Nothing else in it has changed. Two additions that follow
 FROM the standard rather than amending it:
 
@@ -193,6 +217,18 @@ FROM the standard rather than amending it:
     basis field: item_error_rate_basis, contamination_effect_basis. Scoring
     stays identical across bases, because discounting one would mean
     inventing a correction; only the wording changes.
+  - A COMPARISON ACROSS EVIDENCE TIERS IS NOT A CLAIM THIS PROJECT
+    MAKES. Two health scores are comparable only when they rest on the
+    same evidence: a score built from three measured factors and one
+    built from a release date are not two points on one scale, however
+    similar the arithmetic looks. This is not a display convention, it
+    is a limit on what may be ASSERTED — in a doc, a commit message, a
+    report or the UI. The founding headline died of exactly this
+    (section 1), the backtest's six void pairs are exactly this
+    (section 4a), and Candidate 1 turned out to be this too. When a
+    comparison spans tiers the honest output is "these are not
+    comparable", not a hedged number. Same-tier comparisons are still
+    subject to everything else here.
   - A value assigned by Claude Code rather than the owner must say that in
     curation_notes. Four task_specificity values currently carry
     "assigned by Claude Code 2026-09-21, not yet reviewed by the owner".
@@ -240,29 +276,51 @@ the Open LLM Leaderboard and replaced them with six harder ones. All twelve
 are catalogued. Scored as of 2024-06-01, do the retired six rank below the
 replacements?
 
-Result: 10/12, separation lost by 0.6 points, one inversion (MMLU, retired,
-above MuSR, kept). What matters more than the score:
+ALL FIGURES IN THIS SECTION RE-MEASURED 2026-09-22. The ones they
+replace are shown, because four of them had drifted and two had drifted
+far enough to reverse their meaning.
+
+Result: 10/12, separation lost by 26.9 points (was recorded 0.6), one
+inversion — MATH LEVEL 5, kept, below five retired benchmarks (was
+recorded as MMLU above MuSR; that is no longer the inversion). What
+matters more than the score:
 
 - Sorting by release date and calling the newer half "kept" ALSO gets
-  10/12. The four weighted factors add nothing over age on this test.
-- Age and measured saturation are uncorrelated across the twelve
-  (r = +0.010). Age predicts the retire/keep label at r = +0.793,
-  saturation at +0.300.
-- Pairwise (36 retired-vs-kept pairs): age 34/36, full trust 35/36,
-  saturation alone 22/36. Age's two failures are both rescued by
-  saturation and both involve MATH Level 5. So measured saturation's whole
-  incremental contribution over age is TWO PAIRS resting on ONE benchmark.
-- Four different single-weight changes each produce 12/12, pulling in
-  incompatible directions — including HALVING the discrimination weight.
-  That is the signature of fitting to twelve points.
-- Raising MuSR's unreviewed specificity from 0.30 to 0.34 flips the test
-  to 12/12.
+  10/12. The weighted factors add nothing over age on this test.
+- FRESHNESS ALONE gets 10/12 and loses separation by only 6.3 points,
+  against the full scorer's 26.9. Discrimination alone gets 6/12, which
+  is chance; reproducibility alone 6/12 at -60.0. On this test the
+  age-derived factor OUTPERFORMS all of them combined on the margin.
+- Pairwise, ONLY 30 OF THE 36 retired-vs-kept pairs are valid: six span
+  evidence tiers and are void, and all six involve MATH Level 5 (29
+  models at the cutoff, therefore thin). On the 30 valid pairs the
+  scorer gets 30/30 and the calendar gets 30/30 — the test cannot
+  separate them, and that is why it is retired (section 8, item 1).
+- Over all 36 pairs INCLUDING the void ones, purely as a correction to
+  what this section used to claim: age 34/36, health 31/36, saturation
+  20/30. It said "age 34/36, full trust 35/36" — i.e. it recorded the
+  scorer BEATING age by one pair. Re-measured, the scorer LOSES to age
+  by three. That was the single figure most favourable to the project
+  anywhere in this brief, and it does not survive.
+- "Four different single-weight changes each produce 12/12" is FALSE.
+  No weight setting in the sweep reaches 12/12; the maximum is 10/12.
+- "Raising MuSR's specificity from 0.30 to 0.34 flips the test to 12/12"
+  is DEAD: specificity is not in the health score since the split, and
+  a test pins that no rubric change to any of the twelve can move this
+  result at all.
 
 Do not tune anything to fix this. The failure is recorded in the test
 suite deliberately (tests/test_backtest.py pins the inversion and the lost
-separation). The real fix is a second, independent dated decision where
-the age baseline and the scorer make DIFFERENT predictions — see
+separation), and those tests were RIGHT while this section had drifted.
+The real fix is a second, independent dated decision where the age
+baseline and the scorer make DIFFERENT predictions — see
 docs/BACKTEST_DESIGN.md for verified candidate events.
+
+NOTE ON THE COMMAND. `backtest.py --sweep` raised ZeroDivisionError from
+commit e247226 until 2026-09-22 — 28 commits — so the single-factor
+comparison and the release-date baseline, which print after the crash
+point, did not run at all in that window. That is how these figures
+drifted without anyone noticing. Section 7 records the class.
 
 ═══════════════════════════════════════════════════════════════════════
 5. DATA AND KEYS
@@ -411,6 +469,52 @@ This is the kind of thing worth hunting.
   under "MultiPL HumanEval (Python)" ranging 0.15 to 0.77. Checking for
   cross-SOURCE disagreement misses this entirely — there is none in the
   dataset — while a five-fold spread under one label is silently meaned.
+- A DIAGNOSTIC CAN STOP RUNNING WITHOUT ANYTHING GOING RED.
+  `backtest.py --sweep` — the command section 4a names as the project's
+  headline test — raised ZeroDivisionError for 28 commits, from e247226
+  (drop-and-renormalize) to 2026-09-22. Isolating one factor sets the
+  others to weight 0; when the survivor was a factor the benchmark had
+  dropped as unmeasurable, the renormalizer divided by a zero total. The
+  guard tested the LIST of kept factors, not their total weight. No score
+  was ever wrong, because production weights are all non-zero — but the
+  single-factor comparison and the calendar baseline print AFTER the
+  crash point, so the one diagnostic that asks whether the scorer beats
+  a calendar silently stopped running, and four figures in this brief
+  drifted in the dark. The suite stayed green throughout: it never
+  invokes the sweep. WHENEVER A RULE CHANGES WHAT A COMPUTATION
+  INCLUDES, CHECK THE CALLERS THAT SET WEIGHTS TO ZERO — and run the
+  commands this brief names, rather than trusting the numbers beside
+  them.
+
+- THE FOUNDING HEADLINE DIED OF A TIER COMPARISON, and its numbers were
+  never stable. "HumanEval scores 30.6/100 while MirrorCode scores 76.3"
+  is quoted in this repo in at least three different numeric forms; today
+  the same two read 28.1 and 95.1. It was not retired for being
+  unflattering — the gap WIDENED — but for never having been a
+  comparison: partial tier against thin tier, 125 scored models against
+  8. A claim whose numbers drift between retellings was never resting on
+  those numbers. Section 3 now forbids the class outright.
+
+- A HARD THRESHOLD IS A CLIFF, NOT A TAPER. MIN_SATURATION_POPULATION =
+  30 does not degrade a benchmark's score as its population shrinks; it
+  removes a factor and moves the benchmark to another evidence tier.
+  Moving it to 40 changes 3 tiers and 13 ranks; moving it anywhere from
+  20 to 35 changes NOTHING. Three benchmarks sit 5 to 8 models above it
+  (SWE-Bench Verified 35, FrontierCode 35, GSO-Bench 38), so a handful of
+  new submissions moves them across. Quantified in
+  docs/POPULATION_CLIFF.md; nothing built. NOTE the correction recorded
+  there: an earlier report said the unstable benchmarks sit "within a few
+  models" of the threshold — they sit ABOVE it, and which side matters.
+
+- A PROBE CAN MISREPORT THE PROPERTY IT EXISTS TO CHECK.
+  probes/impact.py printed a column headed "% of total weight" that
+  summed benchmark HEALTH rather than weight, and so reported thin-tier
+  benchmarks as carrying 1% of model-side weight when the thin-tier
+  exclusion guarantees 0%. This is the tool section 9 mandates running
+  before any scoring change. Fixed; both unrecognised and thin now read
+  0%. A measurement of a fix, taken with the wrong instrument, is not
+  evidence the fix works.
+
 - A claimed DIRECTION of effect is as inventable as a number. "Raising the
   baseline will raise saturation" was written into a commit message as
   fact and was backwards: both saturation terms are fractions of
@@ -421,8 +525,13 @@ This is the kind of thing worth hunting.
 8. OPEN WORK, ROUGHLY RANKED
 ═══════════════════════════════════════════════════════════════════════
 
-Re-ranked 2026-09-22 (third revision), around coverage and the forward
-test. The catalog is 28 benchmarks.
+Re-ranked 2026-09-22 (FOURTH revision), after D3 and D4 landed and the
+--sweep blackout was found. The catalog is 28 benchmarks. Items 3 and 4
+of the third revision are DONE and have been removed rather than left to
+rot; the duplicate stale list that used to sit below the standing rule
+has been deleted for the same reason — it still asked for the direction
+decision (made), HEALTHY_SPREAD's derivation (done, 0.24) and a forward
+test (sealed).
 
 VALIDATION — one live test, and it is two years out:
 1. THE FORWARD TEST, sealed 2026-09-22, matures 2028-09-22, age baseline
@@ -440,35 +549,57 @@ COVERAGE — the product under Reading B, and where the real gap is:
    wrong metric — 70% of unrecognised citations are one composite index
    and two model cards. Adding benchmarks cannot close it; treating
    composites can.
-3. COMPOSITES NEED A KIND. artificial_analysis_coding_index is 28% of
-   citations, is not a benchmark, and double-counts components the
-   catalog already weighs. Three treatments costed in
-   docs/MODEL_SIDE_AUDIT.md; marking it as a distinct kind is the
-   cheapest and invents nothing. AWAITING A DECISION.
-4. UNKNOWN_BENCHMARK_TRUST awaits a decision (same doc). Option (iii)
-   would leave 47 of 81 scored models with no weighted evidence at all,
-   which is the model side's real state rather than a reason not to.
-5. raw_benchmark_score pools incomparable quantities AND within-source
+3. THE REPEATED-LABEL DECISION IS THE ONE OPEN ITEM ON THE MODEL SIDE
+   THAT CHANGES NUMBERS. 15 (model, label, source) groups hold 2+
+   entries, covering 54 of 187 citations and 13 of the 33 ranked
+   models; spread median 0.043, max 0.620. The cause is known and it
+   decides the fix: these are NOT disagreeing measurements but
+   incomparable configurations under one label — pass@1/10/100 on Hub
+   cards, Epoch's "Edit format" column. Disclosed in the UI, still
+   silently averaged in the score. Options in docs/MODEL_SIDE_AUDIT.md.
+   AWAITING THE OWNER'S PICK; do not pick one.
+4. raw_benchmark_score pools incomparable quantities AND within-source
    duplicates. Needs the per-category design change, scoped already.
-6. Measurement coverage: reproducibility measured for 8 of 28,
-   saturation for 23. LiveCodeBench, MBPP and DS-1000 have no score
-   source at all. HumanEval+ would make HumanEval's thin tests directly
-   measurable.
-7. Verification: SWE-Bench Verified's upper bound unknown; HumanEval's
-   0.394 not difficulty-controlled (DS-1000's perturbation design is the
-   model of what a controlled variant looks like); nobody but Claude
-   Code has scored anything against the specificity rubric.
+   Same root as item 3 and probably the same fix.
+
+   DONE, recorded so they are not re-opened: composites now carry a kind
+   and are excluded from weighting with their components listed (D4);
+   UNKNOWN_BENCHMARK_TRUST is REMOVED from scoring, unknown benchmarks
+   form their own tier below thin (D3). Measured after: 33 of 81 models
+   are ranked, 48 are shown as unweighted evidence, and unrecognised
+   citations carry 0% of model-side weight.
+5. Measurement coverage: reproducibility measured for 8 of 28,
+   saturation for 23, a contamination RATE for 3, an item error rate
+   for 4 — while 13 of 28 are flagged for contamination with nothing
+   quantified, which since the 2026-09-21 fix costs them nothing.
+   LiveCodeBench, MBPP and DS-1000 have no score source at all.
+   HumanEval+ would make HumanEval's thin tests directly measurable.
+6. Verification: SWE-Bench Verified's upper bound unknown, and it may be
+   wrong in BOTH directions (a 49-task preprint reports 28.5% false
+   ACCEPTANCE against the audit's false rejection); its two penalties
+   also come from one non-random 138-problem sample, so they are
+   independent defects but not independent observations, and the scorer
+   cannot express that. HumanEval's 0.394 not difficulty-controlled
+   (DS-1000's perturbation design is the model of what a controlled
+   variant looks like). Nobody but Claude Code has scored anything
+   against the specificity rubric.
 
 SCORING — demoted and bounded:
-8. Seven of nine parameters reorder the catalog. docs/RANK_RANGES.md has
+7. Seven of nine parameters reorder the catalog. docs/RANK_RANGES.md has
    each benchmark's rank span; only claims about TIERS and DIRECTIONS
    survive, never positions or decimal places. The instability clusters
-   at MIN_SATURATION_POPULATION, which is a cliff.
-9. Saturation still depends on the submission pipeline; an archived
-   leaderboard yields a frozen reading.
-10. Relevance is a property of a (benchmark, task) pair, approximated
-    per benchmark. VRAM numbers are derived and their estimated flag is
-    computed but not shown.
+   at MIN_SATURATION_POPULATION, which is a CLIFF — see
+   docs/POPULATION_CLIFF.md, quantified and deliberately unbuilt.
+   HEALTHY_SPREAD is no longer on this list as "mis-calibrated": it was
+   re-derived from the measured noise floor to 0.24 (3 x the max of 8
+   cross-source scatters). Its defensible range 0.084-0.358 still moves
+   mean catalog health 56.2 -> 43.8 and up to 19 of 28 ranks, and the
+   multiplier 3 is named in the code as the invented element.
+8. Saturation still depends on the submission pipeline; an archived
+   leaderboard yields a frozen reading. No fix proposed.
+9. Relevance is a property of a (benchmark, task) pair, approximated
+   per benchmark. VRAM numbers are derived and their estimated flag is
+   computed but not shown.
 
 ═══ STANDING RULE, set by the owner 2026-09-21 ═══
 NO FURTHER CHANGES ARE TO BE MADE WITH THE BACKTEST IN VIEW.
@@ -491,46 +622,14 @@ to decide whether to keep a change.
 
 The next real move is a test the project has not run: a genuinely
 independent dated decision (see docs/BACKTEST_DESIGN.md), or the forward
-test at item 7, which cannot be gamed because the outcome has not
+test at item 1, which cannot be gamed because the outcome has not
 happened yet.
 
-1. DECIDE WHAT THIS PROJECT IS. Every test of the score has now been run
-   to a conclusion and none established that it beats a calendar. The
-   catalog underneath — dated evidence, audits, measured saturation,
-   cross-source agreement, provenance — is where every real finding came
-   from. docs/DIRECTION.md argues both readings ("a scorer" vs "an
-   evidence dossier") and recommends one. This gates most of the rest.
-2. SATURATION'S REMAINING DEPENDENCE ON THE SUBMISSION PIPELINE. The
-   percentile fixed top-k-of-n, but a benchmark's health still depends on
-   whether anyone still submits to the leaderboard that scores it — v1's
-   six move by exactly zero because it was archived. No fix proposed.
-3. HEALTHY_SPREAD = 0.20 IS MIS-CALIBRATED against the new percentile
-   band; every reading in the catalog fell (mean 0.297). Deliberately not
-   retuned, because retuning while looking at test results is the one
-   thing the standing rule forbids. Needs a basis that is not a test.
-4. LESS DATA CAN MEAN A HIGHER SCORE. Drop-and-renormalize plus the
-   30-model minimum means a benchmark with 8 scored models keeps only
-   freshness — MirrorCode tops the catalog at 95.1 on 1/3 factors. The
-   thin-evidence display makes it visible; nothing makes it right.
-5. RELEVANCE IS A PROPERTY OF A (BENCHMARK, TASK) PAIR, scored
-   per-benchmark as an approximation. See docs/SCORE_SPLIT_PROPOSAL.md.
-6. A GENUINELY INDEPENDENT DATED TEST. Candidate 1 is exhausted — it
-   cannot discriminate scorer from calendar with the data available.
-   docs/BACKTEST_DESIGN.md lists candidates; ARC-AGI-1 as an
-   old-but-unsaturated case remains the highest-value one and needs a
-   fetcher.
-7. SWE-BENCH VERIFIED'S UPPER BOUND IS UNKNOWN. 0.164 is a floor from an
-   audit of 27.6% of the set; a 2026 preprint reports the opposite error
-   (28.5% accept an incorrect patch) on a 49-task sample.
-8. HUMANEVAL'S 0.394 IS NOT A CLEAN CONTAMINATION EFFECT, and no
-   difficulty-controlled replacement exists — Riddell et al.'s control
-   group saw 16 of the 31 overlapping problems. HumanEval+ is the
-   obvious candidate for a controlled variant.
-9. A FORWARD TEST. Untested and unfalsifiable until time passes, which
-   is an argument for starting the clock now.
-10. LiveCodeBench still has no fetchable score export; it is the only
-   benchmark with no measured saturation at all.
-11. Model-side VRAM numbers are derived, never measured.
+The crash fix of 2026-09-22 is the boundary case for this rule and is
+recorded as permitted: it changed no score (the catalog is byte-identical
+across it), it was argued from the code rather than from a result, and
+the numbers it unblocked are WORSE for the project. Making a broken test
+runnable is not tuning. Choosing what it should say would be.
 
 ═══════════════════════════════════════════════════════════════════════
 9. HOW I WANT YOU TO WORK

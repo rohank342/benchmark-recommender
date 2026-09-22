@@ -1,6 +1,6 @@
 # Benchmark Recommender
 
-**An evidence dossier on 26 LLM benchmarks.** For each one: what has been
+**An evidence dossier on 28 LLM benchmarks.** For each one: what has been
 measured, what was read out of a paper and by whom, when each claim became
 public, and — stated as plainly as the rest — what nobody has established.
 
@@ -14,10 +14,10 @@ composite score.
 
 **Established, and reproducible from the committed data:**
 
-- **Measured saturation** for 23 of 26, computed from real score
+- **Measured saturation** for 23 of 28, computed from real score
   distributions, each labelled with the model population it was measured
   on and the number of models behind it.
-- **Cross-source agreement** for 8 of 26 — the same models scored by two
+- **Cross-source agreement** for 8 of 28 — the same models scored by two
   evaluators, split into a systematic offset and irreproducible scatter.
 - **Contamination and item-quality audits** for the benchmarks where a
   study exists, each carrying a *basis*: whether an error rate is an
@@ -56,7 +56,7 @@ Seven of the nine tunable parameters reorder the catalog across their
 defensible ranges. This is published here rather than buried because it
 bounds what any ranking on this page can mean:
 
-| parameter | range tested | benchmarks that change rank (of 26) |
+| parameter | range tested | benchmarks that change rank (of 28) |
 |---|---|---:|
 | `HEALTHY_SPREAD` | 0.084 – 0.358 | **19** |
 | `SATURATION_TOP_PERCENTILE` | 10% – 30% | **15** |
@@ -119,22 +119,24 @@ committed data:
 
 | | coverage |
 |---|---|
-| Saturation (the `discrimination` factor) | 23 of 26 benchmarks |
-| Cross-source agreement (`reproducibility`) | 8 of 26 |
+| Saturation (the `discrimination` factor) | 23 of 28 benchmarks |
+| Cross-source agreement (`reproducibility`) | 8 of 28 |
 
 **Curated** — read out of papers and reports by a human, cited in each entry's
 `curation_notes` with a date:
 
 | | coverage |
 |---|---|
-| Contamination rate (fraction of items in pretraining corpora) | 3 of 26 |
-| Item error rate (wrong answer keys, broken tests) | 4 of 26 |
-| Release dates, dataset sizes, holdout type | all 26 |
+| Contamination rate (fraction of items in pretraining corpora) | 3 of 28 |
+| Contamination *effect* (score drop on a fresh set) | 2 of 28 |
+| Contamination flagged but never quantified — **no penalty** | 13 of 28 |
+| Item error rate (wrong answer keys, broken tests) | 4 of 28 |
+| Release dates, dataset sizes, holdout type | all 28 |
 
 **Judgement calls** — defensible, argued in comments, but mine rather than
 anybody's finding:
 
-- `task_specificity` for all 26 benchmarks, now computed from a
+- `task_specificity` for all 28 benchmarks, now computed from a
   [five-dimension rubric](docs/SPECIFICITY_RUBRIC.md) stored per benchmark
   rather than assigned as a bare number. **This makes it auditable
   judgement, not measurement** — five judgements have replaced one, and
@@ -149,7 +151,8 @@ anybody's finding:
   leakage half-life, the penalty curves. `HEALTHY_SPREAD` was derived from
   the measured noise floor on 2026-09-22 (0.24) after seven months of being
   a chosen number; **its defensible range is 0.084–0.358, across which mean
-  catalog health moves 13 points and ~20 of 26 benchmarks change rank.**
+  catalog health moves 12 points (56.2 → 43.8) and up to 19 of 28
+  benchmarks change rank.**
 
 The UI reports `measured` / `curated` / `unknown` per factor, per benchmark,
 groups the ranking by evidence tier, and names the model population behind
@@ -186,7 +189,8 @@ ranking never crosses a tier. MirrorCode scores 95.1 and ranks below all
 23 benchmarks above its tier.
 
 **Saturation depends on which models you measure, and the ranking spans
-four populations.** 26 benchmarks are read on Epoch (20), the v2
+four populations.** 25 of the 28 have a score source at all, read on
+Epoch (20), the v2
 leaderboard (3), v1 (1) and EvalPlus (1). **18 pairs in the catalog change
 order depending on which population is used** — MATH Level 5 alone moves
 17.2 points between its two readings and flips against 9 other
@@ -282,7 +286,7 @@ internal-use-only and not ours to redistribute.
 
 | file | purpose |
 |---|---|
-| [`fetch_benchmarks.py`](fetch_benchmarks.py) | The catalog: 26 benchmarks across 10 task categories, their curated fields, and the evidence dates behind each claim. |
+| [`fetch_benchmarks.py`](fetch_benchmarks.py) | The catalog: 28 benchmarks across 10 task categories, their curated fields, and the evidence dates behind each claim. |
 | [`benchmark_scoring.py`](benchmark_scoring.py) | The four factors, the penalties, and as-of scoring for the backtest. |
 | [`cross_source.py`](cross_source.py) | Do two evaluators agree about the same models? Offset vs scatter. |
 | [`task_matcher.py`](task_matcher.py) | Free-text task description → benchmark category. |
@@ -292,10 +296,21 @@ internal-use-only and not ours to redistribute.
 | [`fetch_models.py`](fetch_models.py), [`hardware_filter.py`](hardware_filter.py), [`device_profiles.py`](device_profiles.py) | The model side: Hub fetching, VRAM estimation, what each device can actually run. |
 | [`app.py`](app.py) | Two tabs: the benchmark dossier and ranking, then the model view. |
 
-**Further reading:** [docs/METHODOLOGY.md](docs/METHODOLOGY.md) for how every
+**Start here:** [docs/FINDINGS.md](docs/FINDINGS.md) — the standalone
+write-up of what this project has established and what it has not, for a
+reader who has never seen the repository. Every figure in it is footnoted
+with the command that reproduces it; `python probes/findings.py` runs them
+all.
+
+**Then:** [docs/METHODOLOGY.md](docs/METHODOLOGY.md) for how every
 number is computed and what evidence standard it had to meet.
 [docs/BACKTEST.md](docs/BACKTEST.md) for the one real test of whether any of
-this works. [docs/BACKTEST_DESIGN.md](docs/BACKTEST_DESIGN.md) for what that
-test can and cannot establish — including the finding that age and measured
-saturation are uncorrelated across the twelve, while age alone predicts the
-retirement decision at r = +0.79.
+this works, and why it was retired. [docs/BACKTEST_DESIGN.md](docs/BACKTEST_DESIGN.md)
+for what that test can and cannot establish. [docs/POPULATION_CLIFF.md](docs/POPULATION_CLIFF.md)
+for the 30-model threshold, which is a cliff rather than a taper.
+
+On the twelve benchmarks of the retirement test, measured 2026-09-22
+(`python probes/findings.py correlations`): release date predicts HF's
+retire/keep decision at **r = −0.793**, the composite health score at
+**+0.502**, and measured saturation at **−0.198**. **Age predicts the
+decision better than the score built to predict it.**
