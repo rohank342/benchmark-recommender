@@ -155,7 +155,12 @@ FROM the standard rather than amending it:
          that contradict each other score like two that agree;
       4. evidence depth inverted the ranking TWICE — once on the
          benchmark side (thin scores outranking thick) and once on the
-         model side (thin-tier benchmarks weighting more).
+         model side (thin-tier benchmarks weighting more);
+      5. UNKNOWN_BENCHMARK_TRUST, chosen as "middling" in the pivot
+         commit and never re-derived through two scale changes. NOTE:
+         when finally measured it sits above only 8 of 28 health scores,
+         not 18 of 26 as an earlier report claimed — the instance is
+         real, the severity was overstated. Measure before ranking.
     The test to run on any new rule: does having less evidence, or
     failing a check, ever come out better than having more or passing?
     If the answer needs thought, it is probably yes.
@@ -364,6 +369,29 @@ This is the kind of thing worth hunting.
   which is higher than 18 of the 26 catalogued health scores, and 59% of
   scored models rest on nothing else. This dominates model scoring far
   more than any weighting rule does.
+- A DEFAULT CAN DRIFT WITHOUT BEING TOUCHED. UNKNOWN_BENCHMARK_TRUST
+  has been 45.0 since the pivot while the scale under it moved twice
+  (unmeasurable factors dropped, HEALTHY_SPREAD derived). Up to 33 of 81
+  models' ranks depend on it. When a scale changes, every constant
+  EXPRESSED IN THAT SCALE is stale, not just the ones that were part of
+  the change.
+- A COMPOSITE INDEX IS NOT A BENCHMARK, and counting one as such
+  double-counts. artificial_analysis_coding_index is 28% of all model-
+  side citations and aggregates benchmarks this catalog already weighs
+  separately, so those components are counted twice — once assessed,
+  once inside an unassessed aggregate.
+- "DISJOINT COVERAGE" WAS THREE ARTIFACTS, NOT A GAP. Of 131
+  unrecognised citations: 52 are one composite index, 20 are one model's
+  card listing 20 variants of a single label, and ~50 distinct labels
+  come from ONE model (bloomz-560m) enumerating its multilingual suite.
+  57 of 60 unrecognised labels are cited exactly once. Citation-weighted
+  coverage is the wrong metric; model-weighted coverage (42% of models
+  have at least one catalogued citation) is the meaningful one.
+- THE SAME SOURCE REPORTS THE SAME BENCHMARK MANY TIMES, and all of them
+  are averaged. bigcode/gpt_bigcode-santacoder carries TWENTY entries
+  under "MultiPL HumanEval (Python)" ranging 0.15 to 0.77. Checking for
+  cross-SOURCE disagreement misses this entirely — there is none in the
+  dataset — while a five-fold spread under one label is silently meaned.
 - A claimed DIRECTION of effect is as inventable as a number. "Raising the
   baseline will raise saturation" was written into a commit message as
   fact and was backwards: both saturation terms are fractions of
@@ -374,59 +402,53 @@ This is the kind of thing worth hunting.
 8. OPEN WORK, ROUGHLY RANKED
 ═══════════════════════════════════════════════════════════════════════
 
-Re-ranked 2026-09-22 (second revision). The backtest is retired; the
-validation path is now the forward test alone; the model side is the
-least-audited surface in the project.
+Re-ranked 2026-09-22 (third revision), around coverage and the forward
+test. The catalog is 28 benchmarks.
 
-VALIDATION — what is actually open:
-1. THE FORWARD TEST is the only live validation. Sealed 2026-09-22,
-   matures 2028-09-22, age baseline fixed in advance. Until it returns,
-   the honest answer to "does the scoring work?" is NO TEST HAS SHOWN
-   THAT IT DOES. Protect the seal: a later run adds a dated file, never
-   overwrites.
-   THE BACKTEST IS RETIRED as a discriminating test, decided ON POWER,
-   NOT ON ITS RESULT — on its 30 valid comparisons the scorer gets 30/30
-   and so does sorting by release date, so it cannot separate them and
-   never will. Kept as a regression check. NEVER quote the 30/30 without
-   that context; doing so states something false.
-   ARC-AGI-1 was scoped and REJECTED: 72 of 76 available models are 2025
-   or later, so the old-but-unsaturated window has only ~2 usable
-   models. docs/ARC_AGI_TEST.md.
+VALIDATION — one live test, and it is two years out:
+1. THE FORWARD TEST, sealed 2026-09-22, matures 2028-09-22, age baseline
+   fixed in advance. It is the ONLY live validation. Its seal covers 26
+   benchmarks; MBPP and DS-1000 were added afterwards and are correctly
+   OUT of it — the registration anticipated exactly that. Protect the
+   seal: add a dated file, never overwrite.
+   The backtest is RETIRED on power (scorer 30/30, calendar 30/30 on the
+   valid pairs). Candidate 1 is exhausted. ARC-AGI-1 was scoped and
+   rejected — 72 of 76 available models postdate the window.
 
-MODEL SIDE — the least-audited surface, and where the coverage gap is:
-2. 70% of model-side evidence is unrecognised benchmarks at a flat 45.0,
-   and 59% of scored models rest on nothing else. The largest single
-   citation is a composite index, not a benchmark. This dominates model
-   scoring more than any weighting rule.
-3. ZERO of 81 scored models have any full-tier benchmark evidence — the
-   model side and the benchmark side are evaluated on almost disjoint
-   benchmark sets. That is why tiering the model ranking is unusable as
-   written, and it is a coverage problem, not a weighting one.
-4. raw_benchmark_score pools incomparable quantities; needs a design
-   change (per-category scores), scoped in docs/MODEL_SIDE_AUDIT.md.
-5. Tiering absent from model weighting, and source disagreement costing
-   nothing: both real, both near-zero impact on current data. Worth
-   doing as guards, not as fixes.
+COVERAGE — the product under Reading B, and where the real gap is:
+2. MODEL-WEIGHTED COVERAGE IS 42%: 34 of 81 scored models have at least
+   one catalogued citation. Citation-weighted coverage (31%) is the
+   wrong metric — 70% of unrecognised citations are one composite index
+   and two model cards. Adding benchmarks cannot close it; treating
+   composites can.
+3. COMPOSITES NEED A KIND. artificial_analysis_coding_index is 28% of
+   citations, is not a benchmark, and double-counts components the
+   catalog already weighs. Three treatments costed in
+   docs/MODEL_SIDE_AUDIT.md; marking it as a distinct kind is the
+   cheapest and invents nothing. AWAITING A DECISION.
+4. UNKNOWN_BENCHMARK_TRUST awaits a decision (same doc). Option (iii)
+   would leave 47 of 81 scored models with no weighted evidence at all,
+   which is the model side's real state rather than a reason not to.
+5. raw_benchmark_score pools incomparable quantities AND within-source
+   duplicates. Needs the per-category design change, scoped already.
+6. Measurement coverage: reproducibility measured for 8 of 28,
+   saturation for 23. LiveCodeBench, MBPP and DS-1000 have no score
+   source at all. HumanEval+ would make HumanEval's thin tests directly
+   measurable.
+7. Verification: SWE-Bench Verified's upper bound unknown; HumanEval's
+   0.394 not difficulty-controlled (DS-1000's perturbation design is the
+   model of what a controlled variant looks like); nobody but Claude
+   Code has scored anything against the specificity rubric.
 
-CATALOG — the product under Reading B:
-6. Coverage: reproducibility measured for 8 of 26, saturation for 23.
-   LiveCodeBench has no fetchable export. HumanEval+ as its own entry.
-7. Verification: SWE-Bench Verified's upper bound is unknown;
-   HumanEval's 0.394 is not difficulty-controlled and no controlled
-   replacement exists; nobody but Claude Code has scored anything
-   against the specificity rubric.
-8. Saturation still depends on the submission pipeline — an archived
-   leaderboard yields a frozen reading. No fix proposed.
-
-SCORING — demoted, and now bounded:
-9. SEVEN of nine parameters reorder the catalog across their defensible
-   ranges (HEALTHY_SPREAD 19 of 26, the percentile 15, the population
-   minimum 13). Published in the README, not buried. This is the ceiling
-   on what any ranking here can mean, and it is an argument against
-   tuning rather than for it.
+SCORING — demoted and bounded:
+8. Seven of nine parameters reorder the catalog. docs/RANK_RANGES.md has
+   each benchmark's rank span; only claims about TIERS and DIRECTIONS
+   survive, never positions or decimal places. The instability clusters
+   at MIN_SATURATION_POPULATION, which is a cliff.
+9. Saturation still depends on the submission pipeline; an archived
+   leaderboard yields a frozen reading.
 10. Relevance is a property of a (benchmark, task) pair, approximated
-    per benchmark.
-11. VRAM numbers are derived, never measured, and kv_cache_estimated is
+    per benchmark. VRAM numbers are derived and their estimated flag is
     computed but not shown.
 
 ═══ STANDING RULE, set by the owner 2026-09-21 ═══
