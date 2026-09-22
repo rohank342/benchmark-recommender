@@ -145,6 +145,20 @@ FROM the standard rather than amending it:
     Scoring is identical for both; only the wording changes. Charging a
     bound more harshly would mean inventing a severity the evidence does
     not contain.
+  - THE UNCHECKABILITY BUG CLASS HAS NOW APPEARED FOUR TIMES. Check any
+    new rule against it BY DEFAULT, before adopting it:
+      1. reproducibility fell back to an evaluator count whose mean
+         (0.580) beat the measurement it replaced (0.485);
+      2. an unquantified contamination flag took the maximum penalty,
+         so measuring bought nothing;
+      3. model-side source disagreement costs nothing, so two sources
+         that contradict each other score like two that agree;
+      4. evidence depth inverted the ranking TWICE — once on the
+         benchmark side (thin scores outranking thick) and once on the
+         model side (thin-tier benchmarks weighting more).
+    The test to run on any new rule: does having less evidence, or
+    failing a check, ever come out better than having more or passing?
+    If the answer needs thought, it is probably yes.
   - A FIELD HOLDING TWO INCOMPARABLE QUANTITIES IS A VIOLATION OF THIS
     SECTION, even when both values are sourced. contamination_effect held
     HumanEval's 0.394 (EvoEval, difficulty NOT controlled) beside GSM8K's
@@ -333,6 +347,23 @@ This is the kind of thing worth hunting.
   move to a top-20% band, so every absolute saturation level in the
   catalog was on a scale nothing was calibrated for. When a definition
   changes, every constant that touches it is stale until re-derived.
+- THE MODEL SIDE DID NOT INHERIT THE BENCHMARK SIDE'S FIXES. scoring.py
+  weights by raw health, so evidence tiering never reached it. Real in
+  the mechanism, and ZERO impact on current data — no model result cites
+  a thin-tier benchmark. Ranking a finding by mechanism before measuring
+  its impact is itself the bug; measure first.
+- SOURCE DISAGREEMENT COSTS NOTHING ON THE MODEL SIDE, and there is
+  exactly ONE instance of measurable disagreement in the whole dataset
+  (0.022 points). Sources cover disjoint benchmarks, so there is usually
+  nothing to disagree about.
+- raw_benchmark_score AVERAGES INCOMPARABLE QUANTITIES — a HumanEval
+  pass@1 with an Artificial Analysis coding index. Needs a design
+  change, not a basis field: a basis records one claim whose kind
+  varies, and this is a mean over several kinds.
+- 70% OF MODEL-SIDE EVIDENCE IS UNRECOGNISED BENCHMARKS at a flat 45.0,
+  which is higher than 18 of the 26 catalogued health scores, and 59% of
+  scored models rest on nothing else. This dominates model scoring far
+  more than any weighting rule does.
 - A claimed DIRECTION of effect is as inventable as a number. "Raising the
   baseline will raise saturation" was written into a commit message as
   fact and was backwards: both saturation terms are fractions of
@@ -343,43 +374,60 @@ This is the kind of thing worth hunting.
 8. OPEN WORK, ROUGHLY RANKED
 ═══════════════════════════════════════════════════════════════════════
 
-Re-ranked 2026-09-22 UNDER READING B. The catalog's gaps rise; tuning the
-composite score falls away, because no tuning of it has ever been shown
-to matter and the direction decision says it is a summary, not the
-product.
+Re-ranked 2026-09-22 (second revision). The backtest is retired; the
+validation path is now the forward test alone; the model side is the
+least-audited surface in the project.
 
-CATALOG — the product:
-1. MODEL-SIDE FINDINGS 1 AND 2 (docs/MODEL_SIDE_AUDIT.md). Tiering does
-   not reach model weighting, so the model ranking leans hardest on the
-   thinnest-evidence benchmarks; and source disagreement costs nothing,
-   so two sources reporting 45 and 85 score the same as two reporting 65
-   and 65. Both are bug classes already fixed twice on the benchmark
-   side. Highest-value fixes in the project.
-2. COVERAGE. Reproducibility is measured for 8 of 26 and saturation for
-   23. LiveCodeBench still has no fetchable export. HumanEval+ as its
-   own entry would make HumanEval's thin tests directly measurable.
-3. VERIFICATION OF WHAT IS ALREADY THERE. SWE-Bench Verified's upper
-   bound is unknown (0.164 is a floor; a preprint reports the opposite
-   error). HumanEval's 0.394 is not difficulty-controlled and no
-   controlled replacement exists. Nobody but Claude Code has scored
-   anything against the specificity rubric.
-4. SATURATION STILL DEPENDS ON THE SUBMISSION PIPELINE. The percentile
-   fixed top-k-of-n; an archived leaderboard still yields a frozen
-   reading, and v1's six move by exactly zero. No fix proposed.
+VALIDATION — what is actually open:
+1. THE FORWARD TEST is the only live validation. Sealed 2026-09-22,
+   matures 2028-09-22, age baseline fixed in advance. Until it returns,
+   the honest answer to "does the scoring work?" is NO TEST HAS SHOWN
+   THAT IT DOES. Protect the seal: a later run adds a dated file, never
+   overwrites.
+   THE BACKTEST IS RETIRED as a discriminating test, decided ON POWER,
+   NOT ON ITS RESULT — on its 30 valid comparisons the scorer gets 30/30
+   and so does sorting by release date, so it cannot separate them and
+   never will. Kept as a regression check. NEVER quote the 30/30 without
+   that context; doing so states something false.
+   ARC-AGI-1 was scoped and REJECTED: 72 of 76 available models are 2025
+   or later, so the old-but-unsaturated window has only ~2 usable
+   models. docs/ARC_AGI_TEST.md.
 
-THE FORWARD TEST — the only open question about the score:
-5. It is sealed and matures 2028-09-22. Until then, the honest answer to
-   "does the scoring work?" is "no test has shown that it does".
-   Protect the seal: a later run adds a dated file, never overwrites.
+MODEL SIDE — the least-audited surface, and where the coverage gap is:
+2. 70% of model-side evidence is unrecognised benchmarks at a flat 45.0,
+   and 59% of scored models rest on nothing else. The largest single
+   citation is a composite index, not a benchmark. This dominates model
+   scoring more than any weighting rule.
+3. ZERO of 81 scored models have any full-tier benchmark evidence — the
+   model side and the benchmark side are evaluated on almost disjoint
+   benchmark sets. That is why tiering the model ranking is unusable as
+   written, and it is a coverage problem, not a weighting one.
+4. raw_benchmark_score pools incomparable quantities; needs a design
+   change (per-category scores), scoped in docs/MODEL_SIDE_AUDIT.md.
+5. Tiering absent from model weighting, and source disagreement costing
+   nothing: both real, both near-zero impact on current data. Worth
+   doing as guards, not as fixes.
 
-SCORING — deliberately demoted:
-6. HEALTHY_SPREAD's defensible range (0.084-0.358) reorders about 20 of
-   26 benchmarks. Derived on the measured noise floor 2026-09-22; the
-   sensitivity is a limit on what any ranking here can mean.
-7. Relevance is a property of a (benchmark, task) PAIR, scored
-   per-benchmark as an approximation.
-8. Model-side VRAM numbers are derived, never measured, and the
-   kv_cache_estimated flag is computed but not shown in the UI.
+CATALOG — the product under Reading B:
+6. Coverage: reproducibility measured for 8 of 26, saturation for 23.
+   LiveCodeBench has no fetchable export. HumanEval+ as its own entry.
+7. Verification: SWE-Bench Verified's upper bound is unknown;
+   HumanEval's 0.394 is not difficulty-controlled and no controlled
+   replacement exists; nobody but Claude Code has scored anything
+   against the specificity rubric.
+8. Saturation still depends on the submission pipeline — an archived
+   leaderboard yields a frozen reading. No fix proposed.
+
+SCORING — demoted, and now bounded:
+9. SEVEN of nine parameters reorder the catalog across their defensible
+   ranges (HEALTHY_SPREAD 19 of 26, the percentile 15, the population
+   minimum 13). Published in the README, not buried. This is the ceiling
+   on what any ranking here can mean, and it is an argument against
+   tuning rather than for it.
+10. Relevance is a property of a (benchmark, task) pair, approximated
+    per benchmark.
+11. VRAM numbers are derived, never measured, and kv_cache_estimated is
+    computed but not shown.
 
 ═══ STANDING RULE, set by the owner 2026-09-21 ═══
 NO FURTHER CHANGES ARE TO BE MADE WITH THE BACKTEST IN VIEW.
