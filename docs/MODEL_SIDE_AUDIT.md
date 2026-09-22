@@ -165,3 +165,175 @@ Findings 1 and 2 are the same bug class the benchmark side has now fixed
 twice. That the model side has it too, undetected until it was looked
 for, is the argument for auditing it rather than assuming "downstream,
 weaker" means "lower stakes".
+
+---
+---
+
+# Options and measured impact — 2026-09-22
+
+**Correction to this document's own severity ranking, first.** Findings 1
+and 2 were ranked **high** on the strength of the mechanism. Measured
+against the 215 models actually in `data/models_raw.json`, both are
+**real in the code and close to inert in the data.** The ranking above is
+wrong and is superseded by the table at the end.
+
+## Finding 1 — tiering does not reach model weighting
+
+### What the data says
+
+| | |
+|---|---|
+| models scored | 81 of 215 |
+| benchmark citations across them | 187 |
+| citations of **FULL**-tier benchmarks | **0** |
+| citations of **THIN**-tier benchmarks | **0** |
+| citations of PARTIAL-tier benchmarks | 56 |
+| citations of **unrecognised** benchmarks | **131 (70%)** |
+| models with *no* recognised benchmark at all | **48 of 81 (59%)** |
+
+**No model result cites a thin-tier benchmark, so the inversion I
+described — MirrorCode outweighing Winogrande — does not occur once in
+the current data.** The mechanism is genuinely wrong; the dataset does
+not exercise it. Calling it "a live bug in shipped behaviour" overstated
+it, and that overstatement set this session's priority order.
+
+The reason is structural rather than lucky: the full-tier benchmarks are
+the old HF v1/v2 set (Winogrande, BBH, ARC, GSM8K, MATH, MMLU, HellaSwag,
+GPQA) and the catalogued models are mostly recent code models, whose
+cards and Artificial Analysis entries cite coding benchmarks instead.
+The two halves of the project barely overlap.
+
+### The options, with measured impact
+
+| option | invents a parameter? | models that move |
+|---|---|---|
+| **(i)** cap THIN weight at the max weight any PARTIAL benchmark gets | **no** — derived from the catalog | **0** |
+| **(ii)** exclude THIN from weighting, show results beside the score | **no** | **0** |
+| **(iii)** tier the model ranking itself | **no** | **unusable** |
+| **(iv)** recognise more benchmarks, or give unrecognised results a basis | no | see below |
+
+**(i) asserts** that a thin-evidence benchmark may still inform a model
+score but must never carry more weight than a better-evidenced one.
+Order-preserving, discards nothing. Zero effect today; it is a guard
+against a case that will arrive when MirrorCode or LiveCodeBench start
+appearing in model cards.
+
+**(ii) asserts** that a score computed from a release date should not
+weight anything, and belongs beside the number as unweighted evidence.
+Stronger than (i) and also zero-impact today.
+
+**(iii) is unusable as written.** It mirrors the benchmark side exactly —
+and **0 of 81 scored models have any full-tier evidence**, so every model
+would land in the same bottom tier. A tiering that puts everything in one
+tier conveys nothing. That is a finding about the catalog's coverage, not
+about the option: *the model side and the benchmark side are evaluated on
+almost disjoint sets of benchmarks.*
+
+**(iv) is where the actual problem is.** 70% of citations are
+unrecognised benchmarks receiving a flat `UNKNOWN_BENCHMARK_TRUST = 45.0`
+— higher than 18 of the 26 catalogued benchmarks' health scores — and 59%
+of scored models rest on nothing else. **Whatever is decided about
+tiering, the dominant input to model scoring today is a constant applied
+to benchmarks nobody has assessed.** The largest citation is
+`artificial_analysis_coding_index` (52), a composite index rather than a
+benchmark, which cannot be assessed by this catalog at all.
+
+### Plainly
+
+**No option here both invents nothing and preserves usefulness, because
+none of them changes anything.** (i) and (ii) are cheap, correct, and
+currently cosmetic — worth doing as guards, not as fixes. (iii) cannot
+be used. The useful work is (iv), which is a coverage problem, not a
+weighting one.
+
+---
+
+## Finding 2 — source disagreement costs nothing
+
+### What the data says
+
+| | |
+|---|---|
+| scored models with 2+ sources | **6 of 81 (7%)** |
+| model/benchmark pairs where two sources report the SAME benchmark | **1** |
+| that pair's spread | **0.022** (MiniMax-M2.7 on Terminal Bench) |
+
+**There is exactly one instance of measurable disagreement in the entire
+dataset, and it is 2.2 points.** The 45-vs-85 example in the audit above
+was constructed to show the mechanism, not drawn from data.
+
+The reason is again structural: sources cover **disjoint** benchmarks.
+Artificial Analysis reports its own indices, Epoch reports its own set,
+Hub cards report whatever the lab chose. Two sources rarely report the
+same benchmark for the same model, so there is usually nothing to
+disagree about.
+
+**The bug is real and low-impact.** Saying so is the point of measuring
+before fixing.
+
+### The options
+
+| option | invents a parameter? | effect today |
+|---|---|---|
+| **(i)** status quo | no | — |
+| **(ii)** surface spread in the UI, no scoring change | no | shows 1 model a 0.022 spread |
+| **(iii)** discount report-trust by measured spread, reusing `cross_source`'s offset/scatter split | **no** — `SCATTER_TOLERANCE` already exists | 1 model, negligibly |
+| **(iv)** tier by agreement | no | 1 model changes tier |
+
+**(iii) reuses rather than invents**, which matters: `cross_source.py`
+already splits a systematic offset from irreproducible scatter and
+already has `SCATTER_TOLERANCE = 0.08`. Any second mechanism for the same
+idea would be a duplicate with its own constant.
+
+**(iv) follows directly from the two-trusts design already in the
+brief.** CLAUDE.md §4 says ranking is tiered before scores compare —
+confirmed provenance above unconfirmed, corroborated above self-reported
+— "because a multiplier can't express *an unverified number is not
+evidence*". **Corroborated-and-agreeing above corroborated-and-
+disagreeing is the same sentence with one more rung**, and the tier
+machinery is already there. It is the option that adds least that is new.
+
+---
+
+## Finding 3 — `raw_benchmark_score` holds incomparable quantities
+
+**This needs a design change, not a basis field, so nothing was built.**
+
+A basis field works for `item_error_rate` and `contamination_effect`
+because those record *one* claim whose kind varies. `raw_benchmark_score`
+is different: it is a *mean over several claims of different kinds*, so
+there is no single basis to record. Labelling it "mixed" would document
+the problem without fixing it.
+
+What the data shows the field currently averages, per model: an
+Artificial Analysis coding index (0–1 rescaled from a 0–82 composite), a
+HumanEval pass@1, a Terminal Bench success rate, and `MultiPL HumanEval
+(Python)`. Those are not the same measurement and their mean is not a
+score on anything.
+
+**The design change would be:** compute and store a score *per benchmark
+category*, never pooling across categories, and have the UI show the
+category matching the user's task rather than a composite. Consumers
+needing one number — the ranking, `composite_score` — would need to say
+which category they are ranking within, which is the same move the
+benchmark side made when it split health from relevance.
+
+**Estimated scope:** `_DataPoint`, `_benchmark_weighted_mean`,
+`ScoredModel`, the ranking, and the model tab. Not a field addition.
+Described here rather than built, per instruction.
+
+---
+
+## Superseding severity table
+
+| # | finding | mechanism | impact on current data | revised severity |
+|---|---|---|---|---|
+| 1 | tiering absent from model weighting | wrong | **zero citations affected** | **low** (guard) |
+| 2 | disagreement costs nothing | wrong | **1 pair, 0.022** | **low** |
+| 3 | `raw_benchmark_score` pools kinds | wrong | every scored model | **medium-high** |
+| **new** | **70% of model evidence is unrecognised benchmarks at a flat 45.0** | — | **59% of models rest on nothing else** | **high** |
+
+The audit's original ranking put mechanism ahead of impact. Measuring
+first would have caught that, and it is the same lesson the benchmark
+side learned when an unquantified flag turned out to cost more than a
+measured one.
