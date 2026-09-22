@@ -70,7 +70,10 @@ class TestTrustScore:
         mirrorcode = score_benchmark(find_benchmark("MirrorCode"))
         assert humaneval.trust_score < mirrorcode.trust_score
 
-    def test_breakdown_accounts_for_the_whole_score(self):
+    def test_breakdown_accounts_for_the_whole_health_score(self):
+        """Since the split, only the health factors sum to the score."""
+        from benchmark_scoring import HEALTH_WEIGHTS
+
         trust = score_benchmark(find_benchmark("GPQA Diamond"))
         assert {f.name for f in trust.factors} == {
             "discrimination",
@@ -78,11 +81,37 @@ class TestTrustScore:
             "reproducibility",
             "specificity",
         }
-        # No penalties on this one, so contributions should sum to the score.
+        # No penalties on this one, so health contributions should sum to
+        # the health score. Specificity is reported but excluded.
         assert not trust.penalties
-        assert sum(f.contribution for f in trust.factors) == pytest.approx(
-            trust.trust_score, abs=0.2
+        health_factors = [f for f in trust.factors if f.name in HEALTH_WEIGHTS]
+        assert sum(f.contribution for f in health_factors) == pytest.approx(
+            trust.health, abs=0.2
         )
+
+    def test_relevance_is_separate_and_never_multiplied_in(self):
+        from dataclasses import replace
+
+        gpqa = find_benchmark("GPQA Diamond")
+        assert score_benchmark(gpqa).relevance == pytest.approx(
+            gpqa.task_specificity * 100
+        )
+        # Changing relevance must not move health at all.
+        shifted = replace(gpqa, specificity_dimensions=(2, 2, 2, 2, 2))
+        assert score_benchmark(shifted).health == pytest.approx(
+            score_benchmark(gpqa).health
+        )
+        assert score_benchmark(shifted).relevance == 100.0
+
+    def test_health_weights_are_a_proportional_rescaling(self):
+        """0.40/0.20/0.20 summed to 0.80; /0.80 gives 0.50/0.25/0.25."""
+        from benchmark_scoring import HEALTH_WEIGHTS
+
+        assert sum(HEALTH_WEIGHTS.values()) == pytest.approx(1.0)
+        assert HEALTH_WEIGHTS["discrimination"] == pytest.approx(0.40 / 0.80)
+        assert HEALTH_WEIGHTS["freshness"] == pytest.approx(0.20 / 0.80)
+        assert HEALTH_WEIGHTS["reproducibility"] == pytest.approx(0.20 / 0.80)
+        assert "specificity" not in HEALTH_WEIGHTS
 
     def test_measured_benchmarks_say_so(self):
         measured = score_benchmark(find_benchmark("MMLU"))

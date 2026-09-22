@@ -52,12 +52,44 @@ from fetch_benchmarks import (
 )
 
 # How much each factor contributes to the final score. Sums to 1.0.
-FACTOR_WEIGHTS = {
-    "discrimination": 0.40,
-    "freshness": 0.20,
-    "reproducibility": 0.20,
-    "specificity": 0.20,
+# THE SCORE IS SPLIT IN TWO (owner's decision, 2026-09-22).
+#
+# Every test this project has run — the HF backtest, Candidate 1 — asks
+# whether a benchmark is still a working MEASUREMENT. task_specificity
+# answers a different question: whether it is RELEVANT to a task. A
+# benchmark can be a perfect measurement of something you do not need,
+# and a broken measurement of something you do. Averaging those into one
+# number answers neither.
+#
+# Adopted on that argument ALONE. It does not improve any test result:
+# the backtest gets worse (10/12 -> 8/12) and Candidate 1 still fails.
+# See docs/SCORE_SPLIT_PROPOSAL.md.
+#
+# MEASUREMENT HEALTH — the three factors about the measurement itself,
+# plus all the penalties. Reweighted PROPORTIONALLY from 0.40/0.20/0.20
+# (which summed to 0.80) so that no new weight is chosen: this project
+# has more free parameters than validation already.
+HEALTH_WEIGHTS = {
+    "discrimination": 0.50,
+    "freshness": 0.25,
+    "reproducibility": 0.25,
 }
+
+# TASK RELEVANCE — specificity alone, from rubric v2. Shown separately,
+# never multiplied into health.
+#
+# CURATE(you): relevance is really a property of a (benchmark, task)
+# PAIR, not of a benchmark. "Is this task-shaped?" only has an answer
+# once you say which task. A per-benchmark relevance score is therefore
+# an approximation, and the UI already half-admits it by filtering to a
+# task category before showing the number. Scoring relevance per
+# (benchmark, task) pair is open work — see docs/SCORE_SPLIT_PROPOSAL.md.
+RELEVANCE_FACTOR = "specificity"
+
+# Kept as the union so that anything iterating factor weights still
+# works. Health factors carry their health weight; specificity carries
+# 1.0 because relevance is its own 0-100 score, not a component.
+FACTOR_WEIGHTS = {**HEALTH_WEIGHTS, "specificity": 1.0}
 
 # A public test set's trust halves every this many days. ~2 years: long
 # enough that a recent benchmark isn't punished, short enough that a
@@ -125,6 +157,12 @@ class Factor:
 @dataclass
 class BenchmarkTrust:
     benchmark: Benchmark
+    # MEASUREMENT HEALTH, 0-100: discrimination, freshness,
+    # reproducibility and the penalties. "Does this benchmark still
+    # work as a measurement?" The name `trust_score` is kept because
+    # every consumer reads it and renaming it would be a silent
+    # behaviour change dressed as a rename; `health` is the alias to
+    # use in new code.
     trust_score: float  # 0-100
     factors: list[Factor] = field(default_factory=list)
     penalties: list[str] = field(default_factory=list)
@@ -134,6 +172,21 @@ class BenchmarkTrust:
     # populations: {source: (saturation, n_models)}.
     saturation_by_source: dict = field(default_factory=dict)
     primary_source: Optional[str] = None
+
+    @property
+    def health(self) -> float:
+        """Measurement health, 0-100. The same number as trust_score."""
+        return self.trust_score
+
+    @property
+    def relevance(self) -> float:
+        """
+        Task relevance, 0-100, from rubric v2. NEVER multiplied into
+        health — it answers a different question, and on Candidate 1 it
+        overrode a correct discrimination signal eight to one when the
+        two were combined.
+        """
+        return round(self.benchmark.task_specificity * 100, 1)
 
     @property
     def population(self) -> Optional[str]:
@@ -427,7 +480,9 @@ def score_benchmark(
         _specificity_factor(benchmark),
     ]
 
-    raw = sum(factor.value * factor.weight for factor in factors) * 100
+    # Health is the weighted health factors; relevance is kept out of it
+    # entirely and reported alongside.
+    raw = sum(f.value * f.weight for f in factors if f.name in HEALTH_WEIGHTS) * 100
     penalties: list[str] = []
     if benchmark.contamination_flagged and benchmark.known_at("contamination_flagged", as_of):
         rate = (

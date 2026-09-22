@@ -212,12 +212,17 @@ def single_factor_analysis() -> None:
     newer" — a much weaker claim than it appears. Each factor is run at
     weight 1.0 with the others at 0.
     """
-    print("\n\nSINGLE-FACTOR — can one factor do it alone?")
+    print("\n\nSINGLE-FACTOR — can one health factor do it alone?")
     print(f"{'factor alone':<20}{'correct':>9}{'separated':>11}{'gap':>8}")
     print("-" * 50)
+    from benchmark_scoring import HEALTH_WEIGHTS
+
     original = dict(FACTOR_WEIGHTS)
     try:
-        for factor in original:
+        # Health factors only since the score split: specificity is no
+        # longer part of the score, so reporting it here would describe
+        # a scorer that does not exist.
+        for factor in HEALTH_WEIGHTS:
             for name in FACTOR_WEIGHTS:
                 FACTOR_WEIGHTS[name] = 1.0 if name == factor else 0.0
             outcomes = run_retirement_test()

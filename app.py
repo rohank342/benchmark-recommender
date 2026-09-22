@@ -132,7 +132,8 @@ def rank_benchmarks(task_description: str) -> tuple[str, pd.DataFrame]:
         rows.append(
             {
                 "benchmark": benchmark.name,
-                "trust": trust.trust_score,
+                "health": trust.health,
+                "relevance": trust.relevance,
                 "saturation": saturation,
                 "measured over": measured_over,
                 "held back by": trust.dominant_factor.name if trust.dominant_factor else "—",
@@ -154,8 +155,8 @@ def rank_benchmarks(task_description: str) -> tuple[str, pd.DataFrame]:
     mixed = len(populations) > 1
 
     header += (
-        f"\n\n**Most trustworthy for this task: {top.benchmark.name}** "
-        f"({top.trust_score:.1f}/100"
+        f"\n\n**Healthiest measurement for this task: {top.benchmark.name}** "
+        f"(health {top.health:.1f}/100, relevance {top.relevance:.0f}/100"
         + (f", measured on {top.population}" if top.population else "")
         + f"). {top.summary}"
     )
@@ -173,11 +174,14 @@ def rank_benchmarks(task_description: str) -> tuple[str, pd.DataFrame]:
             "'measured over' column — before comparing across the table."
         )
     # Name-and-shame the popular-but-weak, since that's the point of the tool.
-    weak = [t for t in benchmarks if t.trust_score < 35]
+    # The threshold applies to HEALTH only. A benchmark can be a fine
+    # measurement of something you do not need; that is a filter, not a
+    # warning.
+    weak = [t for t in benchmarks if t.health < 35]
     if weak:
         header += (
-            "\n\n⚠️ Low-trust benchmarks in this category, often still quoted: "
-            + ", ".join(f"{t.benchmark.name} ({t.trust_score:.0f})" for t in weak)
+            "\n\n⚠️ Benchmarks here whose MEASUREMENT is weak, often still quoted: "
+            + ", ".join(f"{t.benchmark.name} ({t.health:.0f})" for t in weak)
         )
     return header, pd.DataFrame(rows)
 
@@ -204,7 +208,11 @@ def benchmark_detail(name: str) -> str:
 
     benchmark = trust.benchmark
     lines = [
-        f"## {benchmark.name} — {trust.trust_score:.1f}/100",
+        f"## {benchmark.name}",
+        f"**Measurement health {trust.health:.1f}/100** · "
+        f"**Task relevance {trust.relevance:.0f}/100** — these are separate "
+        f"questions and are deliberately not combined "
+        f"([why](docs/SCORE_SPLIT_PROPOSAL.md)).",
         f"*{benchmark.category} · released {benchmark.release_date or 'unknown'} · "
         f"{benchmark.dataset_size or '?'} items · holdout: {benchmark.holdout}*",
         "",

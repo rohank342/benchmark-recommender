@@ -14,12 +14,14 @@ Pipeline:
   1. Collect every benchmark data point available for a model (Hub
      card `model-index` results + Artificial Analysis + Epoch AI).
   2. Normalize each to a 0-1 scale.
-  3. Average them, weighted by benchmark trust (0-100 from
+  3. Average them, weighted by benchmark measurement health (0-100 from
      benchmark_scoring.py), into a raw benchmark score (0-1).
   4. Apply a "source trust discount" — a separate 0-1 multiplier for
      how the number was *reported*: few independent sources, stale
      results, or self-reported on the model's own card.
   5. composite_score = raw_benchmark_score * trust_score
+     (benchmark weighting uses measurement HEALTH only — see
+     benchmark_scoring.HEALTH_WEIGHTS and docs/SCORE_SPLIT_PROPOSAL.md)
 
 Two distinct trusts are in play and worth keeping straight: how much to
 believe the *benchmark* (step 3) and how much to believe the *report* of
@@ -42,6 +44,19 @@ from fetch_benchmarks import find_benchmark
 # benchmark is not evidence of a bad one, but it can't be trusted like a
 # benchmark that has been assessed.
 # TODO(you): shrink this as the catalog grows to cover what sources report.
+#
+# CHECKED 2026-09-22 for the score split and LEFT AT 45.0. The worry was
+# that 45.0 was calibrated against the old combined scale; measuring
+# both distributions shows they barely moved:
+#
+#   old combined:  mean 44.4, median 41.5, range 15.7-76.3
+#   health only:   mean 43.0, median 43.5, range 14.6-72.9
+#
+# So 45.0 still sits just above the middle of the catalog, which is what
+# it was chosen to do. Changing it would have been an unforced parameter
+# change justified by nothing. It stays a placeholder rather than a
+# measurement, which is why it is not derived from the distribution
+# above — adding benchmarks must not quietly move it.
 UNKNOWN_BENCHMARK_TRUST = 45.0
 
 # --- Trust discount tuning knobs -------------------------------------
@@ -119,7 +134,13 @@ def _weighted_point(
             value=value,
             benchmark_label=trust.benchmark.name,
             benchmark_key=benchmark.key,
-            benchmark_trust=trust.trust_score,
+            # HEALTH, not relevance. A model's HumanEval result counts
+            # for less because HumanEval is a weak MEASUREMENT, not
+            # because HumanEval is a poor match for the user's task —
+            # the task match was already applied when the category was
+            # chosen, and applying it twice was the bug the score split
+            # was adopted to fix.
+            benchmark_trust=trust.health,
             source=source,
         )
     return _DataPoint(

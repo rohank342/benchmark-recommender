@@ -56,76 +56,66 @@ class TestNoLeakage:
 
 
 class TestResult:
-    def test_the_retired_four_rank_below_the_replacements(self):
+    def test_the_result_is_eight_of_twelve(self):
+        """
+        Re-pinned 2026-09-22 after the score split. Dropping specificity
+        from the score moved this from 10/12 to 8/12, exactly as the
+        exploratory run in docs/SCORE_SPLIT_PROPOSAL.md predicted before
+        the split was adopted.
+
+        The split was adopted on the argument that measurement health and
+        task relevance are different questions, NOT on any test result —
+        and this is the test result it cost.
+        """
         outcomes = run_retirement_test()
         matrix = confusion(outcomes)
         correct = matrix["true_retire"] + matrix["true_keep"]
-        # 10 of 12, not 12 of 12. This asserts the CURRENT result, which is
-        # a partial failure, so that further degradation is caught — not
-        # that the scorer is right.
-        assert correct >= 10, f"backtest got worse: {correct}/12"
+        assert correct == 8, f"backtest moved: {correct}/12"
 
-    def test_the_two_known_errors_are_still_the_only_ones(self):
+    def test_four_benchmarks_are_now_on_the_wrong_side(self):
         """
-        Re-pinned 2026-09-21 from the single post-decision run.
-
-        GSM8K (retired) ranks 4th of 12 and MuSR (kept) ranks 9th. Those
-        are the scorer's two errors. GSM8K's placement traces to the
-        contamination decision — an unquantified flag no longer carries a
-        penalty, which moved it 40.6 -> 62.5 at the cutoff.
-
-        Pinned deliberately, not fixed. If either disappears, something
-        changed and docs/BACKTEST.md needs revisiting — including checking
-        that it was not "fixed" by quietly tuning a weight.
+        Two retired benchmarks outrank kept ones and two kept ones rank
+        below retired ones. Pinned so a later change that alters this is
+        noticed, not so that it is defended.
         """
         outcomes = run_retirement_test()
-        by_name = {o.name: o for o in outcomes}
-
         weakest_kept = min(o.score for o in outcomes if o.label == "replacement")
         overlapping = sorted(
             o.name for o in outcomes if o.label == "retired" and o.score > weakest_kept
         )
-        assert overlapping == ["ARC (AI2 Reasoning Challenge)", "GSM8K", "MMLU"], overlapping
+        assert overlapping == [
+            "ARC (AI2 Reasoning Challenge)", "GSM8K", "MMLU", "Winogrande"
+        ], overlapping
 
-        # GSM8K is the top-ranked retired benchmark and outscores three
-        # benchmarks HF kept.
         retired_best = max(
             (o for o in outcomes if o.label == "retired"), key=lambda o: o.score
         )
         assert retired_best.name == "GSM8K"
-        beaten = [
-            o.name for o in outcomes
-            if o.label == "replacement" and o.score < by_name["GSM8K"].score
-        ]
-        assert len(beaten) == 3, beaten
 
     def test_separation_is_lost_by_a_wide_margin(self):
         """
         Not a near miss. At eight benchmarks this separated cleanly with
-        an 8.2-point gap; before the 2026-09-21 decisions it failed by
-        0.6; it now fails by 20.1. Asserting the size keeps the docs and
-        the code in step — a 20-point gap must not be described anywhere
-        as "close".
+        an 8.2-point gap; it now fails by about 20. Asserting the size
+        keeps the docs and the code in step — a 20-point gap must not be
+        described anywhere as "close".
         """
         clean, gap = separation(run_retirement_test())
         assert not clean
         assert -25.0 < gap < -15.0, gap
 
-    def test_the_verdict_survives_reviewer_sized_rubric_noise(self):
+    def test_specificity_no_longer_affects_the_backtest_at_all(self):
         """
-        The sensitivity analysis in docs/BACKTEST.md, pinned at a sample.
-
-        The rubric calls differences under ~0.2 noise. Changing any single
-        dimension of any of the twelve by +/-1 leaves the result at 10/12,
-        still unseparated. The failure is not an artifact of the most
-        subjective input.
+        The mechanical consequence of the split, pinned: relevance is not
+        in the score, so changing any rubric dimension of any of the
+        twelve cannot move this result. The sensitivity analysis that
+        used to be needed here is now vacuous by construction.
         """
         from dataclasses import replace
 
         import fetch_benchmarks as fb
 
         real = fb.find_benchmark
-        checked = 0
+        baseline = confusion(run_retirement_test())
         try:
             for name in ("MuSR", "GSM8K", "MMLU-Pro"):
                 dims = list(real(name).specificity_dimensions)
@@ -145,17 +135,12 @@ class TestResult:
                         import backtest
 
                         backtest.find_benchmark = patched
-                        outcomes = run_retirement_test()
-                        matrix = confusion(outcomes)
-                        assert matrix["true_retire"] + matrix["true_keep"] == 10
-                        assert not separation(outcomes)[0]
-                        checked += 1
+                        assert confusion(run_retirement_test()) == baseline
         finally:
             fb.find_benchmark = real
             import backtest
 
             backtest.find_benchmark = real
-        assert checked >= 20, checked
 
     def test_replacements_have_since_declined(self):
         """The trajectory claim: 2024's harder set aged too."""

@@ -2,8 +2,21 @@
 
 **Run it:** `python backtest.py` (add `--sweep` for the diagnostics).
 
-**Result at 12 benchmarks: 10/12, separation lost by 17.3 points.** Two
+**Result at 12 benchmarks: 8/12, separation lost by 20.6 points.** Four
 benchmarks land on the wrong side. No weights were changed in response.
+
+*Updated 2026-09-22 (third run): the score was split into measurement
+health and task relevance, and the backtest scores HEALTH. Specificity is
+no longer in the score, which moved this from 10/12 to 8/12 — exactly
+what the exploratory run in [SCORE_SPLIT_PROPOSAL.md](SCORE_SPLIT_PROPOSAL.md)
+predicted before the split was adopted. The split was adopted on the
+argument that health and relevance are different questions, not on any
+test result, and this is the test result it cost.*
+
+**One consequence worth stating: the specificity sensitivity analysis
+below is now vacuous.** Relevance is not in the score, so no rubric
+change to any of the twelve can move this result at all. A test pins
+that.
 
 *Updated 2026-09-21 (second run): quantifying GSM8K's contamination
 effect from GSM1k's per-model table — a CURATE item that predates this

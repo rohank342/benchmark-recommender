@@ -1,8 +1,28 @@
 # Proposal: split the trust score in two
 
-**Status: proposal. Nothing implemented.** No code changed, no weight
-changed, no catalog value changed. The exploratory re-runs at the bottom
-are labelled as such and **cannot count as passes**.
+**Status: ADOPTED and IMPLEMENTED 2026-09-22.**
+
+Adopted on the argument that measurement health and task relevance are
+different questions — **not on any test result**. The exploratory re-runs
+below predicted the backtest would get worse, and it did: **10/12 → 8/12**,
+gap −17.3 → −20.6. That is the price of the change and it was known and
+accepted before implementing.
+
+### Open work this leaves behind
+
+**Relevance is really a property of a (benchmark, task) PAIR, not of a
+benchmark.** "Is this task-shaped?" only has an answer once you say which
+task — SWE-Bench Verified is highly relevant if you are shipping patches
+and irrelevant if you are picking a model to answer physics questions. A
+single per-benchmark relevance score is therefore an **approximation**,
+and the UI half-admits it by filtering to a task category before showing
+the number.
+
+Scoring relevance per (benchmark, task) pair would mean a rubric applied
+per pairing rather than per benchmark, and a UI that recomputes it from
+the user's task description rather than looking it up. **Flagged, not
+solved.** It is recorded in `benchmark_scoring.RELEVANCE_FACTOR` as a
+CURATE marker.
 
 ## The diagnosis this comes from
 
