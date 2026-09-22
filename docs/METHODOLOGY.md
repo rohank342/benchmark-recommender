@@ -35,7 +35,7 @@ against the usable range (ceiling minus random baseline):
 - **headroom used** — where that cluster sits within the range
 
 ```
-tightness   = 1 - min(spread / 0.20, 1)
+tightness   = 1 - min(spread / 0.24, 1)
 saturation  = min(1, 0.65 × tightness + 0.35 × headroom_used)
 discrimination = 1 - saturation
 ```
@@ -44,6 +44,50 @@ Both terms are there because there are two ways to stop discriminating. A
 benchmark everyone aces ranks models no better than one everyone fails
 equally — proximity to the ceiling alone would miss the second case
 entirely.
+
+#### HEALTHY_SPREAD was derived on 2026-09-22, and never had been before
+
+**It represents** the spread across the measured band at which a
+benchmark separates its leaders beyond what measurement noise alone
+would produce.
+
+**The old 0.20 was chosen, not derived.** It entered in the pivot commit
+with the comment "a spread this wide counts as fully discriminating" and
+no basis. There is therefore no principled conversion from the top-10
+era to the top-20% band; both had to be derived from scratch.
+
+**The derivation** anchors on the only noise floor this repo measures —
+cross-source scatter of the same model scored by two evaluators. Across
+the 8 measurable benchmarks: median 0.0278, mean 0.0370, **max 0.0805**.
+A band narrower than the scatter ranks noise, not models, so "fully
+discriminating" sits several noise widths above that floor even for the
+noisiest measurable benchmark: **3 × 0.0805 = 0.242, taken as 0.24.**
+
+**The invented element, named:** the multiplier 3. No derivation escapes
+one such choice; anchoring on the observed spread distribution instead
+just relocates it to a quantile. The noise anchor is preferred because
+it does not depend on which benchmarks happen to be catalogued.
+
+**Sensitivity — this is a finding, not a footnote.** Defensible values
+run 0.084 to 0.358:
+
+| HEALTHY_SPREAD | mean catalog health | benchmarks whose rank moves |
+|---:|---:|---:|
+| 0.084 (3× median scatter) | 58.8 | — |
+| 0.139 (5× median scatter) | 56.3 | 17 |
+| 0.200 (the old chosen value) | 53.5 | 20 |
+| **0.240 (adopted)** | **51.3** | 19 |
+| 0.282 (75th pct of spreads) | 48.9 | 20 |
+| 0.358 (90th pct of spreads) | 45.5 | 19 |
+
+**Mean health moves 13 points and about 20 of 26 benchmarks change rank
+across the range.** The full-evidence tier's leader changes at 0.282
+(Winogrande → BIG-Bench Hard). A constant whose plausible range reorders
+the catalog is a real limit on how much any ranking here can mean.
+
+*Coincidence worth recording: the median observed top-20% spread is
+0.197, so the old 0.20 sits at the middle of a distribution it was never
+derived from.*
 
 **The percentile replaced a fixed top-10 on 2026-09-22.** Top-k of n asks
 a different question at every n — top 10 of 33 models is the top 30%, top
@@ -624,7 +668,8 @@ Honest list of where the methodology is weakest:
 2. **Reproducibility** is measured for 6 of 26; the fallback proxy can
    contradict the measurement outright (GPQA). The backtest uses the proxy
    for all twelve, because as-of scoring has no cross-source data.
-3. **The saturation formula's constants** — 0.20 healthy spread, the 0.65/0.35
+3. **The saturation formula's constants** — the healthy spread (0.24 since
+   2026-09-22, derived from the measured noise floor; see below), the 0.65/0.35
    split between tightness and headroom — are unvalidated.
 4. **Penalty curves** — 0.30 full contamination rate, 0.20 full item error
    rate, and the floors — are set by looking at the benchmarks they separate,

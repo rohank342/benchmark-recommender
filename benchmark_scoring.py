@@ -119,9 +119,48 @@ SATURATION_TOP_PERCENTILE = 20.0
 MIN_SATURATION_POPULATION = 30
 
 
-# A spread this wide across the top-k (as a fraction of the usable score
-# range) counts as fully discriminating.
-HEALTHY_SPREAD = 0.20
+# WHAT THIS REPRESENTS, stated before it was derived: the spread across
+# the measured band (as a fraction of the usable score range) at which a
+# benchmark is separating its leading models BEYOND WHAT MEASUREMENT
+# NOISE ALONE WOULD PRODUCE — i.e. fully discriminating on the spread
+# term, tightness = 0.
+#
+# THE OLD 0.20 WAS NEVER DERIVED. It entered in the pivot commit
+# (e965175) with the comment "a spread this wide counts as fully
+# discriminating" and no basis; METHODOLOGY has always listed it as
+# unvalidated. There is therefore no principled conversion from the
+# top-10 era to the top-20% band, and both values are derived here from
+# scratch under the meaning above.
+#
+# DERIVATION (2026-09-22), anchored on the noise floor this repo can
+# actually measure — the cross-source scatter of the same model scored
+# by two evaluators:
+#
+#     n=8 measured scatters: median 0.0278, mean 0.0370, max 0.0805
+#     (MMLU 0.009 ... GPQA Diamond 0.081)
+#
+# A band narrower than the scatter is not ranking models, it is ranking
+# noise. "Fully discriminating" therefore has to sit several noise
+# widths above that floor even for the noisiest benchmark measurable
+# here: 3 x 0.0805 = 0.242, taken as 0.24.
+#
+# THE INVENTED ELEMENT, named rather than hidden: the multiplier 3. No
+# derivation of this constant escapes one such choice — anchoring on the
+# observed spread distribution instead just moves the choice to a
+# quantile. The noise anchor is preferred because it does not depend on
+# which benchmarks happen to be in the catalog.
+#
+# SENSITIVITY, and it is a finding in its own right. Defensible values
+# run 0.084 (3x median scatter) to 0.358 (90th percentile of observed
+# spreads). Across that range mean catalog health moves 58.8 -> 45.5 and
+# about 20 of 26 benchmarks change rank; the leader of the full-evidence
+# tier changes at 0.282. A constant whose plausible range reorders the
+# catalog is not a detail. See docs/METHODOLOGY.md.
+#
+# Coincidence worth recording: the median observed top-20% spread is
+# 0.197, so the old chosen 0.20 happens to sit at the middle of the
+# distribution it was never derived from.
+HEALTHY_SPREAD = 0.24
 
 # Multipliers applied when a benchmark is publicly flagged. These are
 # penalties on the *final* score, since a documented leak undermines

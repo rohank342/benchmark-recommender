@@ -45,9 +45,9 @@ class TestSaturationMeasurement:
         saturation, _ = measure_saturation(
             _scores([0.85, 0.70, 0.62, 0.55, 0.43, 0.38, 0.30, 0.22, 0.15, 0.08] * 4)
         )
-        # Under a top-20% band this reads lower than under top-10,
-        # because the band reaches further down a spread distribution.
-        assert saturation < 0.45
+        # Under a top-20% band and the noise-derived HEALTHY_SPREAD of
+        # 0.24 this reads lower than the original top-10 fixture did.
+        assert saturation < 0.50
 
     def test_clustered_at_the_bottom_also_fails_to_discriminate(self):
         """A benchmark everyone fails equally ranks models no better."""
