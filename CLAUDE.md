@@ -364,6 +364,19 @@ conclusions.
 - CI runs OFFLINE against committed data. A dependency upgrade can break
   every fetcher in the repo and the suite will stay green. If you touch
   deps, smoke-test the fetchers live.
+- A DIAGNOSTIC NO TEST RUNS IS A DIAGNOSTIC THAT MAY BE SILENTLY DEAD.
+  EVERY COMMAND A DOCUMENT CITES AS EVIDENCE IS SMOKE-TESTED IN CI.
+  tests/test_diagnostics.py runs each one in a subprocess and fails on a
+  non-zero exit or a missing output section. It also fails if a document
+  starts citing a command that is not covered, and if a probe is added
+  without one — so the guarantee cannot quietly lapse. This exists
+  because `backtest.py --sweep` crashed for 28 commits while the suite
+  stayed green (section 7). Commands that genuinely cannot run offline
+  are listed in UNCOVERABLE with the reason; adding to that list is
+  widening a hole and needs to say why.
+  SMOKE TESTS ASSERT LIVENESS, NOT VALUES. Numbers are checked
+  separately, in tests/test_doc_figures.py. A crashed diagnostic and a
+  moved number are different failures and must fail differently.
 - Hub fetches are long (hundreds of requests). A fetch once wedged for 24
   hours because hub 0.x had no socket timeout.
 - Don't rename the working directory mid-session; and if you do rename it,

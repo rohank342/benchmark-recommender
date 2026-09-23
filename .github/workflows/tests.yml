@@ -18,4 +18,11 @@ jobs:
       - run: uv pip install -r requirements.txt pytest
       # No network and no API keys here. Everything under test reads the
       # committed data in data/; the fetch scripts are not exercised.
+      #
+      # Since 2026-09-23 the suite also RUNS every command the docs cite
+      # as evidence (tests/test_diagnostics.py) and checks the figures
+      # those commands produce against the text of the docs
+      # (tests/test_doc_figures.py). `backtest.py --sweep` had been
+      # crashing for 28 commits without anything going red, because
+      # nothing invoked it.
       - run: .venv/bin/python -m pytest -q
