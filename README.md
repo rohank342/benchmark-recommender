@@ -37,16 +37,41 @@ than release date does.** Three tests have been run to a conclusion:
 | **Candidate 1** (OpenAI abandons SWE-Bench Verified) | **Not a valid comparison.** The two benchmarks are in different evidence tiers — 18 models against 196. Exhausted as a test. |
 | **Hindcast** (does trust at T predict later saturation?) | 2 of 4 discordant pairs — a coin flip. Declared descriptive before it was run. |
 
+On the backtest's twelve benchmarks, measured 2026-09-23
+(`python probes/findings.py correlations`):
+
+- **Release date predicts HF's retire/keep decision at r = −0.793.** The
+  composite health score predicts it at **+0.502** and measured
+  saturation at **−0.198**. Age predicts the decision better than the
+  score built to predict it.
+- **Measured saturation alone scores 6/12 on the backtest — exactly
+  chance.** Freshness alone, the age-derived factor, scores 10/12 and
+  loses separation by 6.3 points against the full scorer's 26.9
+  (`python backtest.py --sweep`).
+
 > ⚠️ **Do not quote the backtest's 30/30.** The baseline it is meant to
 > beat scores identically, and the pairs that would have separated them
 > were excluded as invalid. Citing that number as vindication would be
 > the most misleading thing this project could say about itself. See
 > [docs/BACKTEST.md](docs/BACKTEST.md).
 
+> **And do not read the negative results as proof the scoring is
+> useless either.** HF's retirement decision is a human judgement that
+> is *itself* heavily age-correlated — a leaderboard retires old
+> benchmarks — so a test scored against it cannot separate "measured
+> saturation is uninformative" from "measured saturation is informative
+> about something this decision did not turn on". **The backtest can
+> show that the scorer has not been shown to beat a calendar. It cannot
+> show that measured saturation is useless.** Both statements are in
+> this README because leaving either out would overstate something.
+
 **The project's only live validation is the
 [forward test](docs/FORWARD_TEST.md)**, sealed 2026-09-22 and maturing
-**2028-09-22**, with its age baseline fixed in advance — plus
-[ARC-AGI-1](docs/ARC_AGI_TEST.md) if it is built. Until one of those
+**2028-09-22**, with its age baseline fixed in advance. It is the only
+test here whose outcome has not already happened, and therefore the only
+one that cannot be gamed. [ARC-AGI-1](docs/ARC_AGI_TEST.md) was scoped
+as a second candidate and **rejected**: only 4 of its 75 available
+models predate the window the test would need. Until the forward test
 returns, the honest answer to "does the scoring work?" is **no test has
 shown that it does.**
 

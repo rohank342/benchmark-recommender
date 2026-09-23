@@ -356,7 +356,7 @@ FIGURES: list[Figure] = [
         r"r\(age, kept\)\s+([+-][\d.]+)",
         (
             (r"docs/FINDINGS.md", r"\*\*release date\*\* \(age\) \| \*\*([+−-][\d.]+)\*\*"),
-            (r"README.md", r"retire/keep decision at \*\*r = ([+−-][\d.]+)\*\*"),
+            (r"README.md", r"retire/keep decision at r = ([+−-][\d.]+)\*\*"),
             (r"CLAUDE.md", r"r\(age, kept\)\s+([+-][\d.]+)"),
         ),
     ),
@@ -366,7 +366,7 @@ FIGURES: list[Figure] = [
         r"r\(health, kept\)\s+([+-][\d.]+)",
         (
             (r"docs/FINDINGS.md", r"the composite health score \| ([+−-][\d.]+)"),
-            (r"README.md", r"the composite health score at\n\*\*([+−-][\d.]+)\*\*"),
+            (r"README.md", r"composite health score predicts it at \*\*([+−-][\d.]+)\*\*"),
             (r"CLAUDE.md", r"r\(health, kept\)\s+([+-][\d.]+)"),
         ),
     ),
@@ -408,6 +408,7 @@ FIGURES: list[Figure] = [
         (
             (r"docs/FINDINGS.md", r"\*\*freshness alone\*\* \(age decay\) \| \*\*10/12\*\* \| \*\*([+−-][\d.]+)\*\*"),
             (r"CLAUDE.md", r"loses separation by only ([\d.]+) points"),
+            (r"README.md", r"loses separation by ([\d.]+) points against the full"),
         ),
         absolute=True,
         note="CLAUDE.md states the magnitude, FINDINGS.md the signed value",
