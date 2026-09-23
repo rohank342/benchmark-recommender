@@ -391,7 +391,25 @@ conclusions.
   separately, in tests/test_doc_figures.py. A crashed diagnostic and a
   moved number are different failures and must fail differently.
 - Hub fetches are long (hundreds of requests). A fetch once wedged for 24
-  hours because hub 0.x had no socket timeout.
+  hours because hub 0.x had no socket timeout. CHECKED 2026-09-23: the
+  repo now runs huggingface_hub 1.32.0, where `configure_http_backend`
+  no longer exists and the 30s shim in fetch_models.py is therefore
+  inert — 1.x applies its own DEFAULT_REQUEST_TIMEOUT of 10s instead. So
+  the wedge risk is covered, but by the library rather than by our code.
+  If the repo ever drops back to hub 0.x, the shim becomes live again.
+- THE HUB RATE-LIMITS AT 1000 API REQUESTS PER 5 MINUTES, and the GGUF /
+  MLX variant pass trips it: it issues one search per benchmarked model.
+  The client backs off and retries ("Retry after 150 seconds (0/1000
+  requests remaining in current 300s window)") rather than failing, so
+  the fetch still completes — it just takes far longer than the request
+  count suggests. Budget for the backoff, do not assume the run has
+  wedged, and do not add parallelism to "speed it up": that makes it
+  worse. THE TOKEN DOES NOT HELP, observed rather than assumed: this run
+  was authenticated (HF_TOKEN sourced from .env, confirmed present in
+  the process environment) and hit the 1000/5min quota anyway. An
+  earlier draft of this note asserted that a token raises the quota,
+  which is the section 7 inventable-claim class — the message names a
+  PRO/Team/Enterprise upgrade, not authentication.
 - Don't rename the working directory mid-session; and if you do rename it,
   the venv needs rebuilding (uv bakes absolute paths into activate).
 - openai.com returns 403 to automated fetches. Its pages can be cited but
