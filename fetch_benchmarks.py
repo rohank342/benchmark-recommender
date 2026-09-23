@@ -431,9 +431,20 @@ BENCHMARK_CATALOG: tuple[Benchmark, ...] = (
             "What would settle it: an unexposed control (a model whose training "
             "corpus provably excludes both), or a difficulty-matched fresh set "
             "for HumanEval in the way GSM1k is for GSM8K. Neither exists. "
-            "CURATE(you): saturation is still ASSERTED here, not measured — no "
-            "Epoch score file. An EvalPlus export would let the 39.4% figure be "
-            "reproduced in-repo rather than cited."
+            "SATURATION IS NOW MEASURED — corrected 2026-09-23, owner-authorized. "
+            "This note previously read \'saturation is still ASSERTED here, not "
+            "measured — no Epoch score file\'. That is out of date: HumanEval has "
+            "no Epoch file, but it has an EvalPlus one. Saturation is computed "
+            "from data/benchmark_scores/humaneval__evalplus.csv — 125 models, "
+            "greedy-decoding pass@1 pulled from evalplus.github.io/results.json "
+            "by fetch_benchmark_scores.fetch_evalplus, recorded in the score "
+            "manifest — and the discrimination factor carries basis=\'measured\' "
+            "(0.438 saturation; python probes/findings.py humaneval). "
+            "STILL OUTSTANDING, and it is what the old note was really asking "
+            "for: the 39.4% EvoEval figure is cited, not reproduced in-repo. "
+            "The EvalPlus export supplies the score DISTRIBUTION, not EvoEval\'s "
+            "per-model drops, so reproducing 0.394 would need an EvoEval export "
+            "of its own."
         ),
         epoch_source_file=None,
     ),
