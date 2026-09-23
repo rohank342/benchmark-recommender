@@ -291,7 +291,7 @@ FIGURES: list[Figure] = [
         r"GSO-Bench\s+n=\s*(\d+)",
         (
             (r"docs/FINDINGS.md", r"\| GSO-Bench \| (\d+) \|"),
-            (r"CLAUDE.md", r"GSO-Bench (\d+)\), so a handful"),
+            (r"CLAUDE.md", r"GSO-Bench (\d+)\."),
         ),
     ),
     # ---- [7] Model side --------------------------------------------------
@@ -458,20 +458,17 @@ FIGURES: list[Figure] = [
         ("probes/impact.py", "parameter", "MIN_SATURATION_POPULATION",
          "20", "25", "30", "35", "40"),
         r"\n\s+40\s+\d+\s+(\d+)\s+[\d.]+",
-        (
-            (r"docs/FINDINGS.md", r"changes \*\*(\d+) tiers and 13 ranks\*\*"),
-            (r"CLAUDE.md", r"Moving it to 40 changes (\d+) tiers"),
-        ),
+        # CLAUDE.md section 7 was rewritten around the plateau on
+        # 2026-09-23 and no longer states the 40-threshold figures;
+        # FINDINGS.md and POPULATION_CLIFF.md carry them.
+        ((r"docs/FINDINGS.md", r"changes \*\*(\d+) tiers and 13 ranks\*\*"),),
     ),
     Figure(
         "MIN_SATURATION_POPULATION at 40, rank moves",
         ("probes/impact.py", "parameter", "MIN_SATURATION_POPULATION",
          "20", "25", "30", "35", "40"),
         r"\n\s+40\s+(\d+)\s+\d+\s+[\d.]+",
-        (
-            (r"docs/FINDINGS.md", r"changes \*\*3 tiers and (\d+) ranks\*\*"),
-            (r"CLAUDE.md", r"changes 3 tiers and (\d+) ranks"),
-        ),
+        ((r"docs/FINDINGS.md", r"changes \*\*3 tiers and (\d+) ranks\*\*"),),
     ),
     # ---- [12] health decay ----------------------------------------------
     Figure(

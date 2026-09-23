@@ -512,16 +512,23 @@ This is the kind of thing worth hunting.
   8. A claim whose numbers drift between retellings was never resting on
   those numbers. Section 3 now forbids the class outright.
 
-- A HARD THRESHOLD IS A CLIFF, NOT A TAPER. MIN_SATURATION_POPULATION =
-  30 does not degrade a benchmark's score as its population shrinks; it
-  removes a factor and moves the benchmark to another evidence tier.
-  Moving it to 40 changes 3 tiers and 13 ranks; moving it anywhere from
-  20 to 35 changes NOTHING. Three benchmarks sit 5 to 8 models above it
-  (SWE-Bench Verified 35, FrontierCode 35, GSO-Bench 38), so a handful of
-  new submissions moves them across. Quantified in
-  docs/POPULATION_CLIFF.md; nothing built. NOTE the correction recorded
-  there: an earlier report said the unstable benchmarks sit "within a few
-  models" of the threshold — they sit ABOVE it, and which side matters.
+- A HARD THRESHOLD IS A CLIFF IN MECHANISM AND A PLATEAU IN PRACTICE —
+  AND THE DIFFERENCE IS WHETHER ANYTHING IS STANDING NEAR IT.
+  MIN_SATURATION_POPULATION = 30 does not degrade a score as a
+  population shrinks; it removes a factor and moves the benchmark to
+  another evidence tier. But measured at FINE steps it is completely
+  inert from 17 to 35 inclusive — zero rank moves, zero tier changes —
+  so 30 sits inside a 19-wide plateau, and no redesign is warranted.
+  Two corrections are recorded in docs/POPULATION_CLIFF.md, both of
+  them about looking more closely before designing: an earlier report
+  said the unstable benchmarks sit "within a few models" of the
+  threshold (they sit 5 to 8 ABOVE it), and the document was originally
+  written as if a cliff needed fixing, on a coarse sweep that only
+  sampled 20/25/30/35/40. WATCH LIST, the three that would end the
+  plateau: SWE-Bench Verified 35, FrontierCode 35, GSO-Bench 38.
+  CAVEAT THAT UNDERCUTS IT: those are ROW counts. OSWorld looks clear
+  at 57 and has 10 distinct models (section 8 item 3), so counting
+  models instead of rows would recompute the whole plateau.
 
 - A PROBE CAN MISREPORT THE PROPERTY IT EXISTS TO CHECK.
   probes/impact.py printed a column headed "% of total weight" that

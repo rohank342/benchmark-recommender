@@ -87,6 +87,43 @@ Only the last two are close to inert. This is the ceiling on how much
 any ranking here can mean, and it is reproduced in the README so a
 reader of the ranking sees it.
 
+**`MIN_SATURATION_POPULATION` is the exception in that table, revised
+2026-09-23.** Its 13 rank moves are real but they all occur at one end
+of the range. Measured at finer steps, the parameter is **completely
+inert from 17 to 35 inclusive** — zero rank moves, zero tier changes,
+mean health 49.2 throughout — and the current value of 30 sits inside
+that 19-wide plateau:
+
+| threshold | rank moves | tier changes | mean health |
+|---:|---:|---:|---:|
+| 10–16 | 9 | 1 | 49.0 |
+| **17–35 — the plateau** | **0** | **0** | **49.2** |
+| 36–38 | 10 | 2 | 50.9 |
+| 39+ | 13 | 3 | 51.0 |
+
+So the mechanism is a cliff — crossing the threshold removes a factor
+and moves a benchmark to another evidence tier, rather than degrading a
+score gradually — but **nothing in the catalog is near enough for it to
+bite**, and no redesign is warranted while that holds. The three to
+watch, each 5 to 8 models above the line, are **SWE-Bench Verified
+(35)**, **FrontierCode (35)** and **GSO-Bench (38)**.
+
+**Where the 30 came from: derived, not chosen.** From the stability
+table in `SATURATION_MEASUREMENT.md` — across 20 cohort-versus-full-
+population pairs, mean |Δ| for the top-20% band falls 0.076 → 0.057
+between a minimum of 10 and a minimum of 30, then flattens (0.052 at
+50, 0.056 at 100). It picks the knee of a curve rather than anchoring on
+a measured quantity, which is a weaker derivation than
+`HEALTHY_SPREAD`'s, but it is a basis in the data rather than a
+preference.
+
+**One caveat undercuts the plateau**, and it is live: the counts above
+are ROWS, not models. `probes/config_rows.py` found that 9 of 20 Epoch
+exports hold more rows than distinct models. OSWorld looks clear of the
+threshold at 57 rows and has **10 distinct models**. If populations are
+ever counted by model, the plateau has to be recomputed. See
+`POPULATION_CLIFF.md`.
+
 **Sensitivity of HEALTHY_SPREAD itself — a finding, not a footnote.**
 Defensible values run 0.084 to 0.358:
 

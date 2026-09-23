@@ -610,10 +610,25 @@ Five benchmarks sit within 15 models of it: [6]
 | FrontierCode | 35 | measured |
 | GSO-Bench | 38 | measured |
 
-Moving the threshold to 40 changes **3 tiers and 13 ranks**; moving it
-anywhere from 20 to 35 changes nothing at all. [11] The instability is not
-smooth — it is a step, and three benchmarks are standing within five
-models of it.
+Moving the threshold to 40 changes **3 tiers and 13 ranks**. [11] But
+measured at finer steps the parameter is **completely inert from 17 to 35
+inclusive** — zero rank moves, zero tier changes — so the current value
+of 30 sits inside a 19-wide plateau. The mechanism is a step rather than
+a taper, but nothing in the catalog is near enough for it to bite, and
+the redesigns sketched in `POPULATION_CLIFF.md` are not warranted while
+that holds. The three to watch are the ones above.
+
+**Derived, not chosen** — from the stability table in
+`SATURATION_MEASUREMENT.md`: mean |Δ| for the top-20% band falls
+0.076 → 0.057 between a minimum of 10 and a minimum of 30, then flattens.
+That picks the knee of a curve rather than anchoring on a measured
+quantity, which is weaker than `HEALTHY_SPREAD`'s derivation, but it is a
+basis in the data.
+
+**And a caveat that undercuts the plateau**, per §4.3: those counts are
+rows, not models. OSWorld looks clear of the threshold at 57 rows and has
+**10 distinct models**. [15] If populations are ever counted by model, the
+plateau has to be recomputed.
 
 A correction belonging here: an earlier report stated that the most
 rank-unstable benchmarks "sit within a few models of the threshold". They

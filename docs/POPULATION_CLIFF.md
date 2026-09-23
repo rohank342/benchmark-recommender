@@ -1,6 +1,90 @@
-# The population cliff — design only
+# The population threshold — a plateau, not a cliff
 
-**Nothing built.** All figures measured 2026-09-22.
+**Nothing built, and nothing needs building.** Figures measured
+2026-09-22 and re-measured 2026-09-23.
+
+## Conclusion first, revised 2026-09-23
+
+This document was originally titled "the population cliff" and argued
+that a hard cutoff was a design problem. **Measured more finely, it is
+not.** `MIN_SATURATION_POPULATION` can be set anywhere from **17 to 35
+inclusive** without changing a single rank, tier or health score in the
+catalog:
+
+| threshold | rank moves | tier changes | mean health |
+|---:|---:|---:|---:|
+| 10–16 | 9 | 1 | 49.0 |
+| **17–35 — the plateau** | **0** | **0** | **49.2** |
+| 36–38 | 10 | 2 | 50.9 |
+| 39+ | 13 | 3 | 51.0 |
+
+*(`python probes/impact.py parameter MIN_SATURATION_POPULATION 10 15 16
+17 20 25 30 34 35 36 38 39 40 45`)*
+
+The current value of 30 sits **inside a 19-wide plateau**, 13 above its
+lower edge and 5 below its upper one. The mechanism is still a cliff —
+crossing the threshold removes a factor and moves a benchmark to another
+evidence tier, it does not degrade a score gradually — but **no
+benchmark is near enough for the mechanism to bite**, so the redesigns
+sketched below are not warranted. Revisit if, and only if, the watch
+list moves.
+
+**No redesign is needed while benchmarks stay clear of the plateau's
+edges.** The graded-confidence and subsampling-interval options at the
+end of this document remain written up, and remain unbuilt.
+
+## The watch list — three benchmarks, 5 to 8 models above the line
+
+These are the ones to watch, because they are what would end the
+plateau. Each would become unmeasurable and drop to `thin` if its score
+source lost a handful of models:
+
+| benchmark | models | margin above 30 |
+|---|---:|---:|
+| **SWE-Bench Verified** | 35 | 5 |
+| **FrontierCode** | 35 | 5 |
+| **GSO-Bench** | 38 | 8 |
+
+Populations grow far more often than they shrink, so the realistic
+trigger is not a benchmark losing models — it is **the threshold being
+raised, or the way models are counted being changed.** The second of
+those is live: see the caveat below.
+
+## A caveat that undercuts this whole document
+
+The counts above are **rows, not models**. `probes/config_rows.py`
+(2026-09-23) found that 9 of 20 Epoch exports hold more rows than
+distinct models, because a configuration column — `Agent`, `Edit
+format`, `Shots` — separates several runs of the same model.
+
+**OSWorld is the case that matters here.** It appears below with 57–58
+models and therefore comfortably clear of the threshold. It has **10
+distinct models**. If the catalog ever counts models rather than rows,
+OSWorld drops below the minimum immediately, and the "nothing sits
+between 16 and 35" claim that makes this a plateau has to be recomputed
+on the corrected counts.
+
+So the plateau is real **under the current definition of a population**,
+and that definition is itself an open question. This document does not
+resolve it; CLAUDE.md section 8 item 3 carries it.
+
+## Where the 30 came from — derived, not chosen
+
+**Derived**, from the stability table in
+`docs/SATURATION_MEASUREMENT.md`: across 20 cohort-versus-full-population
+pairs, mean |Δ| for the top-20% band falls 0.076 → 0.057 from a minimum
+of 10 to a minimum of 30, then flattens (0.052 at 50, 0.056 at 100). The
+largest improvement step is 10 → 30 and there is little to buy after it.
+
+That is a weaker kind of derivation than `HEALTHY_SPREAD`'s — it picks
+the knee of a curve rather than anchoring on a measured quantity — but
+it is a basis in the data, not a preference. It is recorded here because
+"derived or chosen" is exactly the question that went unasked about
+`UNKNOWN_BENCHMARK_TRUST` and `HEALTHY_SPREAD` for months.
+
+---
+
+## Original framing, kept for the record
 
 `MIN_SATURATION_POPULATION = 30` is a hard cutoff: at 30 models a
 benchmark's saturation is measured and it can reach the FULL or PARTIAL
