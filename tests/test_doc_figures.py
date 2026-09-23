@@ -299,28 +299,28 @@ FIGURES: list[Figure] = [
         "scored models",
         (F, "modelside"),
         r"scored models (\d+), benchmark citations",
-        ((r"docs/FINDINGS.md", r"coverage — 34 of (\d+) models"),),
+        ((r"docs/FINDINGS.md", r"coverage — 68 of (\d+) models"),),
     ),
     Figure(
         "benchmark citations",
         (F, "modelside"),
         r"benchmark citations (\d+)",
-        ((r"docs/FINDINGS.md", r"is 52 of (\d+) model-side citations"),),
+        ((r"docs/FINDINGS.md", r"\*\*66 of (\d+)\*\* citations sit inside"),),
     ),
     Figure(
         "models ranked after D3",
         (F, "modelside"),
         r"ranked \(>=1 weighted citation\)\s+(\d+)",
         (
-            (r"docs/FINDINGS.md", r"\*\*4 of the (\d+)\*\* ranked models still hold"),
-            (r"CLAUDE.md", r"(\d+) of 81 models are ranked"),
+            (r"docs/FINDINGS.md", r"\*\*6 of the (\d+)\*\* ranked models still hold"),
+            (r"CLAUDE.md", r"(\d+) of 191 models are ranked"),
         ),
     ),
     Figure(
         "models shown unweighted after D3",
         (F, "modelside"),
         r"shown as unweighted evidence only\s+(\d+)",
-        ((r"CLAUDE.md", r"are ranked, (\d+) are shown as unweighted evidence"),),
+        ((r"CLAUDE.md", r"are ranked, (\d+) are\n   shown as unweighted evidence"),),
     ),
     Figure(
         "repeated-label groups",
@@ -336,8 +336,8 @@ FIGURES: list[Figure] = [
         (F, "modelside"),
         r"entries inside those groups\s+(\d+) of",
         (
-            (r"docs/FINDINGS.md", r"\*\*(\d+) of 187\*\* citations sit inside"),
-            (r"CLAUDE.md", r"covering (\d+) of 187 citations"),
+            (r"docs/FINDINGS.md", r"\*\*(\d+) of 323\*\* citations sit inside"),
+            (r"CLAUDE.md", r"covering (\d+) of 323 citations"),
         ),
     ),
     Figure(
@@ -345,8 +345,8 @@ FIGURES: list[Figure] = [
         (F, "modelside"),
         r"max ([\d.]+)\n",
         (
-            (r"docs/FINDINGS.md", r"median 0\.043, \*\*max (\d+\.\d+)\*\*"),
-            (r"CLAUDE.md", r"spread median 0\.043, max (\d+\.\d+)"),
+            (r"docs/FINDINGS.md", r"median 0\.040, \*\*max (\d+\.\d+)\*\*"),
+            (r"CLAUDE.md", r"spread median 0\.040, max (\d+\.\d+)"),
         ),
     ),
     # ---- [8] Correlations ------------------------------------------------

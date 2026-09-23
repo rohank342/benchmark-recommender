@@ -509,8 +509,8 @@ This is the kind of thing worth hunting.
   coverage is the wrong metric; model-weighted coverage (42% of models
   have at least one catalogued citation) is the meaningful one.
 - THE SAME SOURCE REPORTS THE SAME BENCHMARK MANY TIMES, and all of them
-  were averaged. 15 (model, label, source) groups hold 2+ entries,
-  covering 54 of 187 citations; spread median 0.043, max 0.620.
+  were averaged. 19 (model, label, source) groups hold 2+ entries,
+  covering 66 of 323 citations; spread median 0.040, max 0.620.
   bigcode/gpt_bigcode-santacoder carries TWENTY entries under "MultiPL
   HumanEval (Python)" ranging 0.15 to 0.77. Checking for cross-SOURCE
   disagreement misses this entirely — there is none in the dataset —
@@ -759,8 +759,9 @@ COVERAGE — the product under Reading B, and where the real gap is:
    form their own tier below thin (D3); repeated labels now follow the
    benchmark's own canonical protocol where one is documented and are
    weighted not at all where none is (D5). Measured after all three:
-   24 of 81 models are ranked, 57 are shown as unweighted evidence, and
-   unrecognised citations carry 0% of model-side weight.
+   after the 2026-09-23 re-fetch, 56 of 191 models are ranked, 135 are
+   shown as unweighted evidence, and unrecognised citations carry 0% of
+   model-side weight. (On the smaller pre-re-fetch data: 24 of 81, 57.)
    ALSO DONE, and load-bearing for everything above: every command a
    doc cites is run by CI (tests/test_diagnostics.py) and every
    load-bearing figure is checked against the probe that produces it

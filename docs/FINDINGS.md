@@ -490,12 +490,12 @@ The same source reports the same label for the same model many times, and
 every one of those is silently averaged into a single displayed number.
 Measured: [7]
 
-- **15** (model, label, source) groups hold 2 or more entries, across
-  **15 of 81** scored models
-- **54 of 187** citations sit inside such a group
-- spread: min 0.000, median 0.043, **max 0.620**
-- **5** groups exceed the 0.08 scatter tolerance the benchmark side uses
-- **4 of the 24** ranked models still hold such a group after D5 (13 of 33 before it)
+- **19** (model, label, source) groups hold 2 or more entries, across
+  **19 of 191** scored models
+- **66 of 323** citations sit inside such a group
+- spread: min 0.000, median 0.040, **max 0.620**
+- **6** groups exceed the 0.08 scatter tolerance the benchmark side uses
+- **6 of the 56** ranked models still hold such a group after D5
 
 The cause was found by inspecting the entries, and it decides the fix.
 **The repeats are not disagreement — they are incomparable configurations
@@ -528,10 +528,11 @@ is documented — Aider polyglot's edit format, Terminal Bench's agent —
 unweighted with a CURATE note saying what source would settle it.
 Picking one unsourced would be inventing a protocol.
 
-The cost, stated rather than buried: **the ranked population falls from
-33 models to 24**, and nine models move to unweighted-only. [7] That is
-the model side's real state, not a regression — those nine were ranked
-on a mean of incomparable numbers.
+The cost, stated rather than buried: on the data D5 was measured
+against, the ranked population fell from 33 models to 24 and nine moved
+to unweighted-only — they had been ranked on a mean of incomparable
+numbers. After the 2026-09-23 re-fetch the catalog is larger and the
+figures are **56 ranked, 135 unweighted-only of 191 scored**. [7]
 
 A third case turned up in the data and needed its own treatment: two
 entries with the *same* configuration and the *same* value are one
@@ -564,7 +565,7 @@ but it makes one datum look like corroboration.
   has to allow for it explicitly (`tests/test_doc_figures.py`, the
   `decays` flag).
 - **A composite index is not a benchmark.**
-  `artificial_analysis_coding_index` is 52 of 187 model-side citations
+  `artificial_analysis_coding_index` is a large share of model-side citations
   and aggregates benchmarks this catalog already weighs separately, so
   those components were counted twice — once assessed, once inside an
   unassessed aggregate. It is now marked as a composite, excluded from
@@ -578,8 +579,8 @@ but it makes one datum look like corroboration.
   card listing variants of a single label, and roughly 50 distinct labels
   come from one model enumerating its multilingual suite.
   **Citation-weighted coverage is the wrong metric.** Model-weighted
-  coverage — 34 of 81 models (42%) have at least one catalogued citation
-  — is the meaningful one. [7]
+  coverage — 68 of 191 models (36%) have at least one catalogued
+  citation — is the meaningful one. [7]
 
 ---
 
@@ -658,10 +659,13 @@ each would invent. Nothing has been built.
 
 1. **The forward test.** Sealed 2026-09-22, matures **2028-09-22**. See
    below.
-2. **Model-side coverage is 42%** by the meaningful metric: 34 of 81
+2. **Model-side coverage is 36%** by the meaningful metric: 68 of 191
    scored models have at least one catalogued citation. [7] Adding
-   benchmarks cannot close it — 68% of citations are unrecognised, and
-   most of those are one composite index and two model cards.
+   benchmarks cannot close it — 66% of citations are unrecognised, and
+   most of those are one composite index and a few model cards. The
+   2026-09-23 re-fetch grew the population from 81 to 191 scored models
+   and coverage FELL, from 42% to 36%: the new models are mostly
+   quantized variants and cite the same unrecognised labels.
 3. **The repeated-label fix** (§4.5) is disclosed but undecided.
 4. **`raw_benchmark_score` pools incomparable quantities** and
    within-source duplicates. Needs a per-category design change.
