@@ -243,20 +243,57 @@ result flipped from FAIL to PASS at one point purely because SWE-Bench
 Verified's discrimination became *unmeasurable* and dropped out of its
 score. The pre-registration had already named that as evidence *against*.
 
-### 3.4 The hindcast — descriptive only
+### 3.4 The hindcast — descriptive only, and two of its rows were wrong
 
-Pre-registered and run. It produced **2 of 4 discordant pairs**, a coin
-flip on four data points. It was declared descriptive before it was run,
-and the outcome mean-reverted. Four pairs cannot support a conclusion in
-either direction, which is why the forward test fixes a minimum of ten in
-advance.
+Pre-registered, run three times, and never a script: each run was done by
+hand and its table pasted into the document. It is now reproducible. [13]
+
+Result: **2 of 4 discordant pairs** — a coin flip on four data points. It
+was declared descriptive before it was run, and four pairs cannot support
+a conclusion in either direction, which is why the forward test fixes a
+minimum of ten in advance.
+
+**Making it runnable found a defect in the recorded table.** Two of its
+five rows read saturation *at T* from Epoch (81 and 33 models) while
+reading saturation *at the outcome* from the HF v2 leaderboard (4,575
+models). The other three are v2 at both ends. That is the exact failure
+the pre-registration was written to prevent — its own population section
+reads *"v2 is the only source where every eligible benchmark shares one
+model population at both dates"* — and it is §4.3's bug class appearing
+inside the document that names it.
+
+Under the registered v2-at-both-ends rule, **BIG-Bench Hard's change flips
+sign** (−0.031 → +0.028) and **GPQA Diamond's decline halves** (−0.315 →
+−0.168). [13] Those two rows carried the document's "the outcome
+mean-reverted" reading, so that description is withdrawn: on the
+registered population three of the five became *more* saturated over the
+nine months.
+
+**The pre-registered result is unchanged: still 2 of 4.** The primary
+metric depends on the ordering of trust at T and on saturation at the
+outcome, neither of which was contaminated — only the descriptive
+columns. Stated plainly because the convenient move would be to present a
+corrected defect as a corrected result, and it is not one.
 
 ### 3.5 ARC-AGI-1 — scoped and rejected
 
 The most valuable missing case is an *old but unsaturated* benchmark,
 where age and measurement health would predict opposite things. ARC-AGI-1
-was scoped for this and rejected: 72 of the 76 available models postdate
-the window, so the test could not be run on era-appropriate data.
+was scoped for this and rejected: almost all of the available models
+postdate the window.
+
+Re-derived 2026-09-23 [14]: the HF dataset `arcprize/arc_agi_v1_public_eval`
+holds **75 model directories, of which 4 predate the 2024-06-01 as-of
+date.** The saturation minimum is 30. ARC-AGI-1 at a 2024 as-of date
+would therefore be `thin` tier — discrimination unmeasurable, score
+resting on freshness alone — and a thin-tier benchmark cannot be compared
+with the partial-tier comparators at all. That is precisely how
+Candidate 1 died, and the test would reproduce it after paying for a
+fetcher and a curation pass.
+
+*This footnote needs the network* and so is the one figure here CI cannot
+check; the probe lists every directory it could not date, and the count
+would have to rise from 4 to 30 to change the recommendation.
 
 ---
 
@@ -358,6 +395,38 @@ benchmark.
   depends on whether anyone still submits to the leaderboard that scores
   a benchmark. The v1 leaderboard's six move by exactly zero because it
   is archived. **No fix proposed** — this one is open.
+- **Configuration rows counted as models — the largest instance, and
+  still live.** Found 2026-09-23 while fixing the model-side version of
+  the same defect (§4.5). Epoch's per-benchmark exports carry a column
+  separating several runs of the *same* model: `Agent` (the scaffold
+  driving it) for Terminal Bench and OSWorld, `Edit format` for Aider
+  polyglot, `Shots` for the older multiple-choice sets. Every row is read
+  as one score, so a benchmark's "population" is model-configuration
+  pairs. **9 of 20 committed Epoch exports hold more rows than distinct
+  models** — Terminal Bench 204 rows from 60 models, OSWorld 58 from 10,
+  GSM8K 235 from 94. [15]
+
+  Two consequences. The top-20% band partly measures scaffold and
+  shot-count variance rather than differences between models: Terminal
+  Bench's top 20% is 41 rows drawn from **14** distinct models, one
+  contributing 10 of them — while the reading's own explanation string
+  says "the top 20% of 204 frontier models", which is not true of the
+  data. And the 30-model minimum is applied to the wrong count: OSWorld
+  clears it on 58 rows while having 10 models.
+
+  Deduplicating to one row per model moves GSM8K 0.268 → 0.632 and drops
+  OSWorld below the minimum entirely. [15] **Direction, counted rather
+  than asserted:** of the 12 that stay measurable, 9 read *more*
+  saturated under both dedup rules, 2 read *less* (SWE-Bench Verified,
+  and Aider polyglot 0.556 → 0.350), and 1 depends on the rule. A first
+  draft of that probe concluded "uniformly up" before counting — the
+  §4.6 bug class about inventable directions, caught in this project's
+  own output.
+
+  **Not fixed.** It moves every score in the catalog, and the forward
+  test's baseline was sealed under the current definition. No benchmark
+  here names a reference agent or shot count, so picking one would be
+  inventing a protocol — the thing §4.5's fix refused to do.
 
 A near-miss in the same family, worth recording because it was caught by
 probing rather than reading: MuSR's random baseline was recorded as 0.33
@@ -649,6 +718,12 @@ All run 2026-09-22 against committed data; nothing touches the network.
 10. `python probes/impact.py parameter HEALTHY_SPREAD 0.084 0.197 0.24 0.358`
 11. `python probes/impact.py parameter MIN_SATURATION_POPULATION 20 25 30 35 40`
 12. `python probes/findings.py decay`
+13. `python probes/hindcast.py`
+14. `python probes/arc_agi_population.py` — **needs the network**, and is
+    the only footnote here not run by CI. Everything else is smoke-tested
+    by `tests/test_diagnostics.py` on every push, and the figures are
+    checked against this document by `tests/test_doc_figures.py`.
+15. `python probes/config_rows.py`
 
 Test suite: `python -m pytest -q` — 279 passing as of this writing. The
 suite runs **offline against committed data**, which means a dependency

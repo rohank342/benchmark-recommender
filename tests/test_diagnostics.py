@@ -90,6 +90,9 @@ UNCOVERABLE = {
     "enrich_scores.py": "needs ARTIFICIAL_ANALYSIS_API_KEY and the network",
     "app.py": "starts a long-lived Gradio server; imported by test_app_imports instead",
     "probes/gsm1k_effect.py": "downloads arXiv 2405.00332 and parses it; network",
+    "probes/arc_agi_population.py": (
+        "lists a 75-directory HF dataset; network, and nothing to vendor"
+    ),
 }
 
 

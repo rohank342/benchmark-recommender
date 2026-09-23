@@ -482,6 +482,25 @@ FIGURES: list[Figure] = [
         tolerance=0.001,
         note="itself a decaying quantity, but only in the 4th decimal",
     ),
+    # ---- [15] configuration rows counted as models ----------------------
+    Figure(
+        "Epoch exports holding more rows than models",
+        ("probes/config_rows.py",),
+        r"(\d+) of \d+ exports hold more rows than models",
+        (
+            (r"docs/FINDINGS.md", r"\*\*(\d+) of 20 committed Epoch exports"),
+            (r"CLAUDE.md", r"(\d+) of 20 committed CSVs"),
+        ),
+    ),
+    Figure(
+        "Terminal Bench rows versus models",
+        ("probes/config_rows.py",),
+        r"Terminal Bench\s+(\d+)\s+60",
+        (
+            (r"docs/FINDINGS.md", r"Terminal Bench (\d+) rows from 60"),
+            (r"CLAUDE.md", r"Terminal Bench (\d+) rows / 60"),
+        ),
+    ),
     # ---- hindcast --------------------------------------------------------
     Figure(
         "hindcast discordant pairs, scorer correct",
@@ -563,8 +582,11 @@ def test_every_findings_footnote_is_registered() -> None:
     footnotes = re.findall(r"^\d+\. `python ([^`]+)`", text, re.MULTILINE)
     registered = {" ".join(f.command) for f in FIGURES}
     missing = {c for c in footnotes if c not in registered}
-    # pytest itself is a footnote and produces no figure of its own.
-    missing -= {"-m pytest -q"}
+    # pytest itself is a footnote and produces no figure of its own, and
+    # the ARC-AGI probe needs the network — FINDINGS.md says so at the
+    # footnote, which is the honest treatment rather than a silent gap.
+    missing -= {"-m pytest -q", "probes/arc_agi_population.py"}
+    missing = {c for c in missing if not c.startswith("probes/arc_agi_population.py")}
     assert not missing, (
         f"FINDINGS.md footnotes cite commands with no registered figure: "
         f"{sorted(missing)}"
