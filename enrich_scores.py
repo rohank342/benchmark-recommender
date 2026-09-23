@@ -104,6 +104,13 @@ EPOCH_CODE_BENCHMARKS = frozenset(
 _EPOCH_MODEL_COLUMNS = ("model_version", "model", "model_name")
 _EPOCH_DATE_COLUMNS = ("date_of_evaluation", "release_date", "date")
 
+# Columns Epoch uses to separate several runs of the SAME model on the
+# same benchmark. Checked against every CSV in the committed export
+# (2026-09-23): 9 of 20 files hold more rows than distinct models, and in
+# every one of those the excess is explained by one of these columns.
+# Order matters only in that the first present wins; no file carries two.
+_EPOCH_CONFIG_COLUMNS = ("Agent", "Edit format", "Shots", "Scaffold", "Harness")
+
 
 @dataclass
 class ExternalScore:
@@ -116,6 +123,14 @@ class ExternalScore:
     reported_date: Optional[str]  # ISO date this figure was reported
     matched_name: Optional[str] = None  # how the source named the model
     notes: str = ""
+    # WHICH CONFIGURATION PRODUCED THIS NUMBER, where the source
+    # distinguishes one. Epoch's per-benchmark exports carry a column
+    # that separates otherwise identical rows — "Agent" for Terminal
+    # Bench and OSWorld, "Edit format" for Aider polyglot, "Shots" for
+    # the older multiple-choice sets. Dropping it is what let the model
+    # side average 8.0 (`diff`) with 16.4 (`whole`) into 12.2 and call
+    # the result one score. None means the source drew no distinction.
+    config: Optional[str] = None
 
 
 @dataclass
@@ -310,6 +325,7 @@ def _load_epoch_benchmark_file(
         fieldnames = reader.fieldnames or []
         model_col = _pick_column(fieldnames, _EPOCH_MODEL_COLUMNS)
         date_col = _pick_column(fieldnames, _EPOCH_DATE_COLUMNS)
+        config_col = next((c for c in _EPOCH_CONFIG_COLUMNS if c in fieldnames), None)
         if not model_col or score_column not in fieldnames:
             index.warnings.append(
                 f"Epoch file {source_file} lacks a model or '{score_column}' column."
@@ -335,6 +351,11 @@ def _load_epoch_benchmark_file(
                     reported_date=(row.get(date_col) or "").strip() or None,
                     matched_name=model_name,
                     notes="Epoch AI, 'Capabilities & Benchmarking'. epoch.ai (2026). CC-BY.",
+                    config=(
+                        f"{config_col}={(row.get(config_col) or '').strip()}"
+                        if config_col and (row.get(config_col) or "").strip()
+                        else None
+                    ),
                 ),
             )
             added += 1

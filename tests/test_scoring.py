@@ -570,8 +570,15 @@ class TestRepeatedEntriesAreNotSilentlyAveraged:
         scored = score_model(_raw([{"dataset": "HumanEval", "metric_value": 40.0}]), [])
         assert scored.benchmark_breakdown[0]["repeated"] is None
 
-    def test_the_score_is_unchanged_by_the_reporting(self):
-        """This session's change is disclosure only."""
+    def test_the_canonical_protocol_is_the_one_that_counts(self):
+        """
+        SUPERSEDED BY D5 (2026-09-23). This used to assert the mean, 0.50,
+        under "disclosure only". Under option (iii) HumanEval's canonical
+        protocol is pass@1 — EvalPlus, its maintained leaderboard,
+        publishes greedy-decoding pass@1 and this repo's own benchmark
+        side reads that column — so pass@1 is weighted and pass@100 is
+        shown as unweighted evidence.
+        """
         from scoring import score_model
 
         scored = score_model(
@@ -583,4 +590,113 @@ class TestRepeatedEntriesAreNotSilentlyAveraged:
             ),
             [],
         )
-        assert scored.raw_benchmark_score == pytest.approx(0.50)
+        assert scored.raw_benchmark_score == pytest.approx(0.20)
+        by_config = {p["config"]: p for p in scored.benchmark_breakdown}
+        assert by_config["pass@1"]["unweighted"] is False
+        assert by_config["pass@100"]["unweighted"] is True
+        assert "canonical protocol" in by_config["pass@100"]["unweighted_reason"]
+
+    def test_case_matching_on_the_protocol_is_forgiving(self):
+        """Card metadata spells it both `pass@1` and `Pass@1`."""
+        from scoring import score_model
+
+        scored = score_model(
+            _raw(
+                [
+                    {"dataset": "HumanEval", "metric_name": "Pass@1", "metric_value": 20.0},
+                    {"dataset": "HumanEval", "metric_name": "Pass@100", "metric_value": 80.0},
+                ]
+            ),
+            [],
+        )
+        assert scored.raw_benchmark_score == pytest.approx(0.20)
+
+    def test_without_a_canonical_protocol_nothing_is_weighted(self):
+        """
+        The other half of D5. Terminal Bench's distinguishing column is
+        the AGENT driving the model, and the benchmark names no reference
+        agent, so there is nothing to pick. Every entry is shown and none
+        carries weight — rather than a mean nobody can defend.
+        """
+        from enrich_scores import ExternalScore
+        from scoring import score_model
+
+        def _ext(value, agent):
+            return ExternalScore(
+                source="epoch_ai",
+                benchmark_name="Terminal Bench",
+                score=value,
+                score_scale="0-1",
+                reported_date="2026-01-01",
+                config=f"Agent={agent}",
+            )
+
+        scored = score_model(_raw([]), [_ext(0.58, "Claude Code"), _ext(0.80, "ForgeCode")])
+        assert all(p["unweighted"] for p in scored.benchmark_breakdown)
+        assert scored.has_weighted_evidence is False
+        reason = scored.benchmark_breakdown[0]["unweighted_reason"]
+        assert "CURATE(you)" in reason and "Agent" in reason
+
+    def test_an_exact_duplicate_is_deduplicated_not_averaged(self):
+        """
+        Same configuration, same value, is one measurement reported
+        twice. Averaging identical numbers is arithmetically harmless but
+        it makes one datum look like corroboration, so the copy is marked
+        instead.
+        """
+        from scoring import score_model
+
+        scored = score_model(
+            _raw(
+                [
+                    {"dataset": "HumanEval", "metric_name": "pass@1", "metric_value": 40.0},
+                    {"dataset": "HumanEval", "metric_name": "pass@1", "metric_value": 40.0},
+                ]
+            ),
+            [],
+        )
+        assert scored.raw_benchmark_score == pytest.approx(0.40)
+        flags = sorted(p["unweighted"] for p in scored.benchmark_breakdown)
+        assert flags == [False, True]
+        assert any(
+            "exact duplicate" in (p["unweighted_reason"] or "")
+            for p in scored.benchmark_breakdown
+        )
+
+    def test_no_weighted_score_averages_incomparable_configurations(self):
+        """
+        TASK 2(d): silent averaging must not survive anywhere on the model
+        side. Over the whole committed dataset, no model's weighted
+        evidence may contain two entries that share a (label, source) but
+        differ in configuration.
+
+        This is the invariant, not a spot check — it runs against
+        data/models_raw.json rather than a fixture, so a new source or a
+        new label cannot reintroduce the defect unnoticed.
+        """
+        import collections
+        import json
+        import pathlib
+
+        from enrich_scores import build_external_index
+        from scoring import score_models
+
+        path = pathlib.Path(__file__).resolve().parent.parent / "data" / "models_raw.json"
+        if not path.exists():
+            pytest.skip("data/models_raw.json is gitignored; run fetch_models.py")
+        raw = json.loads(path.read_text())["models"]
+        offenders = []
+        for model in score_models(raw, index=build_external_index()):
+            if model.composite_score is None:
+                continue
+            weighted = collections.defaultdict(list)
+            for point in model.benchmark_breakdown:
+                if not point["unweighted"]:
+                    weighted[(point["benchmark"], point["source"])].append(point["config"])
+            for (label, source), configs in weighted.items():
+                if len(configs) > 1:
+                    offenders.append((model.model_id, label, source, configs))
+        assert not offenders, (
+            "weighted scores still average several entries under one label:\n"
+            + "\n".join(f"  {o[0]} / {o[1]} [{o[2]}] configs={o[3]}" for o in offenders[:10])
+        )

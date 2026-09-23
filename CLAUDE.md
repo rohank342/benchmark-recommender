@@ -478,10 +478,14 @@ This is the kind of thing worth hunting.
   coverage is the wrong metric; model-weighted coverage (42% of models
   have at least one catalogued citation) is the meaningful one.
 - THE SAME SOURCE REPORTS THE SAME BENCHMARK MANY TIMES, and all of them
-  are averaged. bigcode/gpt_bigcode-santacoder carries TWENTY entries
-  under "MultiPL HumanEval (Python)" ranging 0.15 to 0.77. Checking for
-  cross-SOURCE disagreement misses this entirely — there is none in the
-  dataset — while a five-fold spread under one label is silently meaned.
+  were averaged. 15 (model, label, source) groups hold 2+ entries,
+  covering 54 of 187 citations; spread median 0.043, max 0.620.
+  bigcode/gpt_bigcode-santacoder carries TWENTY entries under "MultiPL
+  HumanEval (Python)" ranging 0.15 to 0.77. Checking for cross-SOURCE
+  disagreement misses this entirely — there is none in the dataset —
+  while a five-fold spread under one label was silently meaned. FIXED
+  by D5 on the model side; SEE SECTION 8 ITEM 3, the benchmark side has
+  the identical defect and it is still live there.
 - A DIAGNOSTIC CAN STOP RUNNING WITHOUT ANYTHING GOING RED.
   `backtest.py --sweep` — the command section 4a names as the project's
   headline test — raised ZeroDivisionError for 28 commits, from e247226
@@ -562,25 +566,43 @@ COVERAGE — the product under Reading B, and where the real gap is:
    wrong metric — 70% of unrecognised citations are one composite index
    and two model cards. Adding benchmarks cannot close it; treating
    composites can.
-3. THE REPEATED-LABEL DECISION IS THE ONE OPEN ITEM ON THE MODEL SIDE
-   THAT CHANGES NUMBERS. 15 (model, label, source) groups hold 2+
-   entries, covering 54 of 187 citations and 13 of the 33 ranked
-   models; spread median 0.043, max 0.620. The cause is known and it
-   decides the fix: these are NOT disagreeing measurements but
-   incomparable configurations under one label — pass@1/10/100 on Hub
-   cards, Epoch's "Edit format" column. Disclosed in the UI, still
-   silently averaged in the score. Options in docs/MODEL_SIDE_AUDIT.md.
-   AWAITING THE OWNER'S PICK; do not pick one.
+3. THE BENCHMARK SIDE HAS THE SAME DEFECT D5 JUST FIXED ON THE MODEL
+   SIDE, and there it drives 50% of health. Epoch's per-benchmark
+   exports count CONFIGURATION ROWS AS MODELS: 9 of 20 committed CSVs
+   hold more rows than distinct models. Terminal Bench 204 rows / 60
+   models, OSWorld 58 / 10, TriviaQA 115 / 39, GSM8K 235 / 94, and five
+   more at ~1.8x via a "Shots" column. Saturation is measured over
+   those rows, so the top-20% band partly measures scaffold and
+   shot-count variance rather than differences between models — and the
+   UI says "the top 20% of 204 frontier models", which is false.
+   MEASURED IMPACT (probes/config_rows.py): deduplicating to one row
+   per model moves GSM8K 0.268 -> 0.63, Winogrande 0.291 -> 0.48, ARC
+   0.274 -> 0.52, MMLU 0.529 -> 0.63, and drops OSWorld BELOW the
+   30-model minimum, i.e. to unmeasurable. DIRECTION, counted not
+   assumed: of the 12 that stay measurable, 9 read MORE saturated under
+   both dedup rules, 2 read LESS (SWE-Bench Verified, Aider polyglot
+   0.556 -> 0.350) and 1 depends on the rule (Terminal Bench, 0.356 vs
+   0.236). So the catalog mostly UNDERSTATES saturation for the old,
+   heavily-benchmarked entries the thesis is about — but not
+   universally, and a first draft of the probe asserted "uniformly up"
+   before counting, which is the section 7 bug class about inventable
+   directions.
+   NOT FIXED, and deliberately so: it moves every score in the catalog
+   and the forward test's sealed baseline was computed under the
+   current definition. AWAITING THE OWNER'S DECISION. Nothing here may
+   be changed while looking at a test result.
 4. raw_benchmark_score pools incomparable quantities AND within-source
    duplicates. Needs the per-category design change, scoped already.
-   Same root as item 3 and probably the same fix.
+   Same root as item 3.
 
    DONE, recorded so they are not re-opened: composites now carry a kind
    and are excluded from weighting with their components listed (D4);
    UNKNOWN_BENCHMARK_TRUST is REMOVED from scoring, unknown benchmarks
-   form their own tier below thin (D3). Measured after: 33 of 81 models
-   are ranked, 48 are shown as unweighted evidence, and unrecognised
-   citations carry 0% of model-side weight.
+   form their own tier below thin (D3); repeated labels now follow the
+   benchmark's own canonical protocol where one is documented and are
+   weighted not at all where none is (D5). Measured after all three:
+   24 of 81 models are ranked, 57 are shown as unweighted evidence, and
+   unrecognised citations carry 0% of model-side weight.
 5. Measurement coverage: reproducibility measured for 8 of 28,
    saturation for 23, a contamination RATE for 3, an item error rate
    for 4 — while 13 of 28 are flagged for contamination with nothing

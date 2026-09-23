@@ -199,6 +199,20 @@ def _extract_eval_results(card_data: dict[str, Any] | None) -> list[dict[str, An
                         "dataset": dataset.get("name"),
                         "metric_name": metric.get("type"),
                         "metric_value": metric.get("value"),
+                        # ADDED 2026-09-23. Without these, several runs of
+                        # one model on one dataset are indistinguishable
+                        # and get averaged. bigcode/gpt_bigcode-santacoder
+                        # carries SIX pass@1 entries under "MultiPL
+                        # HumanEval (Python)" (0.15 to 0.35) that nothing
+                        # in the stored data can tell apart, because the
+                        # model-index schema puts the difference in
+                        # dataset.config / dataset.split and this dropped
+                        # both. D5 therefore has to treat that whole group
+                        # as unweighted. Capturing them does NOT fix the
+                        # committed data/models_raw.json, which predates
+                        # this — a re-fetch is needed before it helps.
+                        "dataset_config": dataset.get("config"),
+                        "dataset_split": dataset.get("split"),
                     }
                 )
     return results

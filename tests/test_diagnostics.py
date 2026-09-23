@@ -62,6 +62,7 @@ COMMANDS: list[tuple[list[str], tuple[str, ...]]] = [
     (["probes/findings.py", "modelside"], ("MODEL SIDE", "repeated labels")),
     (["probes/findings.py", "correlations"], ("PREDICTS THE RETIREMENT", "r(age, kept)")),
     (["probes/findings.py", "decay"], ("HEALTH DECAY", "per day")),
+    (["probes/config_rows.py"], ("CONFIGURATION ROWS", "DIRECTION, counted")),
     (["probes/hindcast.py"], ("HINDCAST", "discordant pairs", "RECORDED")),
     (["probes/impact.py"], ("FULL", "PARTIAL", "THIN", "citations")),
     (["probes/impact.py", "tiers"], ("FULL", "PARTIAL", "THIN")),

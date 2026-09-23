@@ -312,8 +312,8 @@ FIGURES: list[Figure] = [
         (F, "modelside"),
         r"ranked \(>=1 weighted citation\)\s+(\d+)",
         (
-            (r"docs/FINDINGS.md", r"\*\*13 of the (\d+)\*\* ranked models are affected"),
-            (r"CLAUDE.md", r"(\d+) of 81 models\s*\n?\s*are ranked"),
+            (r"docs/FINDINGS.md", r"\*\*4 of the (\d+)\*\* ranked models still hold"),
+            (r"CLAUDE.md", r"(\d+) of 81 models are ranked"),
         ),
     ),
     Figure(
@@ -337,7 +337,7 @@ FIGURES: list[Figure] = [
         r"entries inside those groups\s+(\d+) of",
         (
             (r"docs/FINDINGS.md", r"\*\*(\d+) of 187\*\* citations sit inside"),
-            (r"CLAUDE.md", r"entries, covering (\d+) of 187 citations"),
+            (r"CLAUDE.md", r"covering (\d+) of 187 citations"),
         ),
     ),
     Figure(

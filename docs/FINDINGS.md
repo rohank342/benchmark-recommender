@@ -411,7 +411,7 @@ Measured: [7]
 - **54 of 187** citations sit inside such a group
 - spread: min 0.000, median 0.043, **max 0.620**
 - **5** groups exceed the 0.08 scatter tolerance the benchmark side uses
-- **13 of the 33** ranked models are affected
+- **4 of the 24** ranked models still hold such a group after D5 (13 of 33 before it)
 
 The cause was found by inspecting the entries, and it decides the fix.
 **The repeats are not disagreement — they are incomparable configurations
@@ -433,11 +433,27 @@ cross-*source* disagreement, of which this dataset contains none: a
 five-fold spread under one label from one source was being meaned in
 silence.
 
-**Status: disclosed, not yet fixed.** Every repeated group now reports
-its size, spread and values in the UI beside the averaged number, so an
-average can no longer look like a single measurement. The averaging
-itself is unchanged pending a decision on which entry to keep, because
-every candidate rule asserts something the data may not support.
+**Status: FIXED 2026-09-23 (decision D5, option iii).** Where the
+benchmark documents a canonical protocol, the entry matching it is
+weighted and the rest are shown as unweighted evidence with their
+configuration named. HumanEval has one: EvalPlus, its maintained
+leaderboard, publishes greedy-decoding pass@1, which is the column this
+project's own benchmark side already reads. Where no canonical protocol
+is documented — Aider polyglot's edit format, Terminal Bench's agent —
+**nothing is picked and nothing is averaged**: every entry is shown
+unweighted with a CURATE note saying what source would settle it.
+Picking one unsourced would be inventing a protocol.
+
+The cost, stated rather than buried: **the ranked population falls from
+33 models to 24**, and nine models move to unweighted-only. [7] That is
+the model side's real state, not a regression — those nine were ranked
+on a mean of incomparable numbers.
+
+A third case turned up in the data and needed its own treatment: two
+entries with the *same* configuration and the *same* value are one
+measurement reported twice, so the copy is marked as a duplicate rather
+than averaged. Averaging identical numbers is arithmetically harmless
+but it makes one datum look like corroboration.
 
 ### 4.6 Smaller instances, recorded for pattern-matching
 

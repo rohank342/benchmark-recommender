@@ -163,6 +163,13 @@ class _DataPoint:
     # parameter and matches the dossier framing: evidence that cannot
     # carry weight is shown rather than discarded.
     unweighted: bool = False
+    # Which configuration produced this number, where the source says.
+    # "pass@1" / "pass@100" from a Hub card's metric_name, or
+    # "Edit format=diff" / "Agent=Codex CLI" from an Epoch column.
+    config: Optional[str] = None
+    # Why this point carries no weight, for the UI. Set only when
+    # `unweighted` was decided by the repeated-label rule below.
+    unweighted_reason: Optional[str] = None
 
     @property
     def weight(self) -> float:
@@ -171,11 +178,77 @@ class _DataPoint:
         return self.benchmark_trust / 100.0
 
 
+# DECISION D5 (owner, 2026-09-23), option (iii): where a benchmark
+# documents a canonical protocol, the entry matching it is weighted and
+# the others are shown as unweighted evidence with their configuration
+# named. Where no canonical protocol is documented, NOTHING is picked
+# and NOTHING is averaged — every entry is shown unweighted with a
+# CURATE note saying what is missing.
+#
+# The rule for each benchmark has to come from THAT BENCHMARK'S OWN
+# definition — its paper or its official leaderboard — not from a
+# preference of this repo's. An unsourced pick would be inventing a
+# protocol, which section 3 of CLAUDE.md forbids as firmly as inventing
+# a number.
+#
+# Keys are (source, label as the source writes it).
+CANONICAL_PROTOCOL: dict[tuple[str, str], str] = {
+    # HumanEval's maintained leaderboard is EvalPlus, which publishes
+    # GREEDY-DECODING PASS@1 and nothing else — this repo's own
+    # benchmark-side fetcher reads exactly that column
+    # (fetch_benchmark_scores.fetch_evalplus, and the committed
+    # data/benchmark_scores/humaneval__evalplus.csv). Chen et al. (2021)
+    # report pass@1/10/100, so the paper alone does not single one out;
+    # the leaderboard does, and the leaderboard is what the catalog
+    # already measures HumanEval's saturation from. Card metadata spells
+    # it both "pass@1" and "Pass@1", so matching is case-insensitive.
+    ("huggingface_hub_card", "HumanEval"): "pass@1",
+}
+
+# Labels with repeated entries for which NO canonical protocol could be
+# sourced, with what is missing. Every entry in these groups is shown
+# unweighted; none is averaged and none is picked.
+#
+# CURATE(you) on each, because each needs a source this repo does not
+# have rather than a decision it can make:
+NO_CANONICAL_PROTOCOL: dict[tuple[str, str], str] = {
+    ("epoch_ai", "Aider polyglot"): (
+        "CURATE(you): Aider's leaderboard reports each model with the edit "
+        "format it was run under (Epoch's export carries the 'Edit format' "
+        "column: diff 53, whole 16, diff-fenced 5, architect 3 of 77 rows). "
+        "That is a per-model record, not a canonical protocol — and where a "
+        "model has TWO formats reported the leaderboard gives no rule "
+        "picking one. Qwen2.5-Coder-32B-Instruct scores 8.0 with `diff` and "
+        "16.4 with `whole`. What would settle it: a statement from the "
+        "leaderboard that one format is the headline number."
+    ),
+    ("epoch_ai", "Terminal Bench"): (
+        "CURATE(you): the distinguishing column is 'Agent' — the scaffold "
+        "driving the model, not a setting of the model. 44 of 60 model "
+        "versions in the committed export carry several, and one model "
+        "spans 0.580 to 0.798 across eleven agents. Terminal Bench does not "
+        "designate a reference agent, so there is nothing to pick. What "
+        "would settle it: a reference scaffold named by the benchmark."
+    ),
+    ("huggingface_hub_card", "MultiPL HumanEval (Python)"): (
+        "CURATE(you): metric_name separates pass@1/pass@10/pass@100, but "
+        "SIX pass@1 entries remain for bigcode/gpt_bigcode-santacoder "
+        "(0.15, 0.16, 0.18, 0.28, 0.28, 0.35) with nothing to tell them "
+        "apart. The Hub's model-index schema carries dataset.config and "
+        "dataset.split, which would; fetch_models._extract_eval_results "
+        "DROPS both. Fixed there as of 2026-09-23, but the committed "
+        "data/models_raw.json predates the fix and a re-fetch is needed "
+        "before it helps."
+    ),
+}
+
+
 def _weighted_point(
     value: float,
     label: Optional[str],
     source: str,
     benchmark_trust: dict[str, BenchmarkTrust],
+    config: Optional[str] = None,
 ) -> _DataPoint:
     """Attach benchmark trust to a normalized score."""
     benchmark = find_benchmark(label)
@@ -194,6 +267,7 @@ def _weighted_point(
             benchmark_trust=trust.health,
             unweighted=trust.evidence_tier == "thin",
             source=source,
+            config=config,
         )
     return _DataPoint(
         value=value,
@@ -205,6 +279,7 @@ def _weighted_point(
         benchmark_trust=0.0,
         unweighted=True,
         source=source,
+        config=config,
     )
 
 
@@ -348,7 +423,12 @@ def score_model(
         norm = _normalize_value(value, scale or ("0-100" if value > 1 else "0-1"))
         if norm is not None:
             label = point.get("dataset") or point.get("metric_name")
-            points.append(_weighted_point(norm, label, HUB_CARD_SOURCE, benchmark_trust))
+            points.append(
+                _weighted_point(
+                    norm, label, HUB_CARD_SOURCE, benchmark_trust,
+                    config=point.get("metric_name"),
+                )
+            )
             sources_seen.add(HUB_CARD_SOURCE)
             age = _days_since(raw_model.get("last_modified"))
             if age is not None:
@@ -360,7 +440,12 @@ def score_model(
             continue
         norm = _normalize_value(ext.score, ext.score_scale)
         if norm is not None:
-            points.append(_weighted_point(norm, ext.benchmark_name, ext.source, benchmark_trust))
+            points.append(
+                _weighted_point(
+                    norm, ext.benchmark_name, ext.source, benchmark_trust,
+                    config=ext.config,
+                )
+            )
             sources_seen.add(ext.source)
             age = _days_since(ext.reported_date)
             if age is not None:
@@ -386,27 +471,82 @@ def score_model(
             benchmark_breakdown=[],
         )
 
-    # SILENT AVERAGING ENDS HERE (2026-09-22). The same source often
-    # reports one benchmark label several times, and those entries were
-    # averaged with nothing saying so. Investigated this session: the
-    # repeats are NOT disagreement, they are incomparable configurations
-    # collapsed under one label.
+    # SILENT AVERAGING IS OVER (D5, owner decision 2026-09-23). The same
+    # source often reports one benchmark label several times, and those
+    # entries used to be averaged with nothing saying so. The repeats are
+    # NOT disagreement — they are incomparable configurations collapsed
+    # under one label:
     #
-    #   Hub cards  different metric_name under one dataset —
-    #              bigcode/gpt_bigcode-santacoder carries pass@1 0.18,
-    #              pass@10 0.29 and pass@100 0.49 all labelled "MultiPL
-    #              HumanEval (Python)". pass@100 exceeds pass@1 by
-    #              construction, so averaging them is meaningless.
-    #   Epoch      a distinguishing column this repo drops. Aider
-    #              polyglot's export has "Edit format", and
-    #              Qwen2.5-Coder-32B-Instruct scores 8.0 with `diff`
-    #              against 16.4 with `whole` — two protocols, averaged
-    #              to 12.2.
+    #   Hub cards  different metric_name under one dataset. pass@100
+    #              exceeds pass@1 BY CONSTRUCTION, so their mean is over
+    #              different quantities, not repeated measurements.
+    #   Epoch      a distinguishing column: "Agent" (the scaffold),
+    #              "Edit format", "Shots". Qwen2.5-Coder-32B-Instruct
+    #              scores 8.0 with `diff` and 16.4 with `whole`.
     #
-    # The averaging itself is unchanged pending a decision. What changes
-    # is that every repeated group now reports its size, spread and
-    # values, so an averaged number can no longer look like a single
-    # measurement.
+    # OPTION (iii), as decided: weight the entry matching the benchmark's
+    # OWN canonical protocol, sourced from its paper or its official
+    # leaderboard. Where no canonical protocol is documented, weight
+    # NOTHING — every entry is shown as unweighted evidence with its
+    # configuration named and a CURATE note. Picking one unsourced would
+    # be inventing a protocol.
+    groups: dict[tuple[str, str], list[_DataPoint]] = {}
+    for point in points:
+        groups.setdefault((point.benchmark_label, point.source), []).append(point)
+
+    for (label, source), members in groups.items():
+        if len(members) < 2:
+            continue
+
+        # EXACT DUPLICATES FIRST. Same configuration, same value, is one
+        # measurement reported twice — a row duplicated in the source,
+        # not two incomparable runs. Deduplicate rather than average:
+        # averaging identical numbers is harmless arithmetically, but it
+        # inflates benchmark_points_used and makes one datum look like
+        # corroboration.
+        seen: set[tuple[Optional[str], float]] = set()
+        duplicates = []
+        for point in members:
+            signature = (point.config, round(point.value, 6))
+            if signature in seen:
+                duplicates.append(point)
+            seen.add(signature)
+        for point in duplicates:
+            point.unweighted = True
+            point.unweighted_reason = "exact duplicate of another entry from this source"
+        remaining = [p for p in members if p not in duplicates]
+        if len(remaining) < 2:
+            continue
+
+        canonical = CANONICAL_PROTOCOL.get((source, label))
+        if canonical is not None:
+            matching = [
+                p for p in remaining
+                if (p.config or "").strip().lower() == canonical.lower()
+            ]
+            if len(matching) == 1:
+                for point in remaining:
+                    if point is not matching[0]:
+                        point.unweighted = True
+                        point.unweighted_reason = (
+                            f"{point.config or 'configuration not recorded'} — "
+                            f"the canonical protocol for {label} is {canonical}"
+                        )
+                continue
+            # The canonical protocol is documented but does not resolve
+            # this group — zero matches, or several. Falls through to the
+            # no-canonical treatment rather than guessing between them.
+
+        reason = NO_CANONICAL_PROTOCOL.get(
+            (source, label),
+            f"CURATE(you): {source} reports {label} {len(remaining)} times for "
+            "this model and no canonical protocol is recorded for it. "
+            "Nothing is averaged and nothing is picked.",
+        )
+        for point in remaining:
+            point.unweighted = True
+            point.unweighted_reason = reason
+
     repeats: dict[tuple[str, str], list[float]] = {}
     for point in points:
         repeats.setdefault((point.benchmark_label, point.source), []).append(point.value)
@@ -449,6 +589,10 @@ def score_model(
                 "recognized": point.benchmark_key is not None,
                 # Shown beside the score rather than folded into it.
                 "unweighted": point.unweighted,
+                # Which configuration produced this number, and — when the
+                # D5 rule is what unweighted it — why it carries no weight.
+                "config": point.config,
+                "unweighted_reason": point.unweighted_reason,
                 # A published aggregate over other benchmarks, not a
                 # benchmark. Listed so a reader can see what it contains.
                 "composite_of": COMPOSITE_COMPONENTS.get(point.benchmark_label),
