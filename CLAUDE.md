@@ -627,31 +627,36 @@ COVERAGE — the product under Reading B, and where the real gap is:
    wrong metric — 70% of unrecognised citations are one composite index
    and two model cards. Adding benchmarks cannot close it; treating
    composites can.
-3. THE BENCHMARK SIDE HAS THE SAME DEFECT D5 JUST FIXED ON THE MODEL
-   SIDE, and there it drives 50% of health. Epoch's per-benchmark
-   exports count CONFIGURATION ROWS AS MODELS: 9 of 20 committed CSVs
-   hold more rows than distinct models. Terminal Bench 204 rows / 60
-   models, OSWorld 58 / 10, TriviaQA 115 / 39, GSM8K 235 / 94, and five
-   more at ~1.8x via a "Shots" column. Saturation is measured over
-   those rows, so the top-20% band partly measures scaffold and
-   shot-count variance rather than differences between models — and the
-   UI says "the top 20% of 204 frontier models", which is false.
-   MEASURED IMPACT (probes/config_rows.py): deduplicating to one row
-   per model moves GSM8K 0.268 -> 0.63, Winogrande 0.291 -> 0.48, ARC
-   0.274 -> 0.52, MMLU 0.529 -> 0.63, and drops OSWorld BELOW the
-   30-model minimum, i.e. to unmeasurable. DIRECTION, counted not
-   assumed: of the 12 that stay measurable, 9 read MORE saturated under
-   both dedup rules, 2 read LESS (SWE-Bench Verified, Aider polyglot
-   0.556 -> 0.350) and 1 depends on the rule (Terminal Bench, 0.356 vs
-   0.236). So the catalog mostly UNDERSTATES saturation for the old,
-   heavily-benchmarked entries the thesis is about — but not
-   universally, and a first draft of the probe asserted "uniformly up"
-   before counting, which is the section 7 bug class about inventable
-   directions.
-   NOT FIXED, and deliberately so: it moves every score in the catalog
-   and the forward test's sealed baseline was computed under the
-   current definition. AWAITING THE OWNER'S DECISION. Nothing here may
-   be changed while looking at a test result.
+3. ROWS ARE NOT MODELS — the benchmark-side version of the defect D5
+   fixed on the model side, and here it drives 50% of health.
+   INVESTIGATED IN FULL 2026-09-23: docs/CONFIG_ROWS.md,
+   probes/config_rows.py. 13 of 20 Epoch exports hold more rows than
+   distinct models (Terminal Bench 204/61, TriviaQA 115/39, GSM8K
+   235/158), separated by an Agent / Edit format / Shots column. Both
+   HF leaderboards do it too at 1.02-1.05x, and there the cause is
+   CONFIRMED as Precision — it differs in 355 of 355 v1 duplicate
+   groups and 79 of 79 v2 groups.
+   AND UNDERNEATH IT: 188 rows carry NO model name. OSWorld is 37 of 57
+   (65%), and those are agent-only submissions where the agent IS the
+   system. No collapsing rule fixes that one; OSWorld's saturation is
+   measuring agents.
+   SOURCE CONVENTIONS, cited in the doc: HF documents the cause and
+   DELIBERATELY designates no canonical row. Epoch documents mean-across
+   -repeated-runs and best-across-scorers (the latter visible in its own
+   score_column, "Best score (across scorers)") but documents NOTHING
+   for agents, edit formats or shot counts — which is the case causing
+   the inflation. So option (i), follow the source, is only half
+   available, and that is the finding.
+   IMPACT: 7-8 of 28 ranks move, ZERO tier changes under any rule, mean
+   health 49.2 -> 47.8-48.6. Direction counted, not assumed: 8 rise
+   under every rule, 0 fall under every rule, 8 depend on the rule.
+   AWAITING THE OWNER'S DECISION on the collapsing rule. The forward
+   test's Amendment 1 (committed BEFORE any of these numbers existed)
+   designates the corrected seal PRIMARY and fixes how both seals are
+   reported in 2028. Do not create that seal until the rule is chosen.
+   TWO OPTIONS NEED NO DECISION and invent nothing: name the population
+   accurately in every explanation string, and stop counting rows with
+   no model as models.
 4. raw_benchmark_score pools incomparable quantities AND within-source
    duplicates. Needs the per-category design change, scoped already.
    Same root as item 3.

@@ -484,19 +484,21 @@ FIGURES: list[Figure] = [
     Figure(
         "Epoch exports holding more rows than models",
         ("probes/config_rows.py",),
-        r"(\d+) of \d+ exports hold more rows than models",
+        r"epoch_ai\s+(\d+) of 20",
         (
             (r"docs/FINDINGS.md", r"\*\*(\d+) of 20 committed Epoch exports"),
-            (r"CLAUDE.md", r"(\d+) of 20 committed CSVs"),
+            (r"CLAUDE.md", r"(\d+) of 20 Epoch exports hold more rows"),
+            (r"docs/CONFIG_ROWS.md", r"\| Epoch AI \| 20 \| \*\*(\d+)\*\* \|"),
         ),
     ),
     Figure(
         "Terminal Bench rows versus models",
         ("probes/config_rows.py",),
-        r"Terminal Bench\s+(\d+)\s+60",
+        r"Terminal Bench\s+epoch_ai\s+(\d+)\s+61",
         (
-            (r"docs/FINDINGS.md", r"Terminal Bench (\d+) rows from 60"),
-            (r"CLAUDE.md", r"Terminal Bench (\d+) rows / 60"),
+            (r"docs/FINDINGS.md", r"Terminal Bench (\d+) rows from 61"),
+            (r"CLAUDE.md", r"Terminal Bench (\d+)/61"),
+            (r"docs/CONFIG_ROWS.md", r"Terminal Bench (\d+) rows / 61 models"),
         ),
     ),
     # ---- hindcast --------------------------------------------------------

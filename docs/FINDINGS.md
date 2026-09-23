@@ -402,31 +402,46 @@ benchmark.
   driving it) for Terminal Bench and OSWorld, `Edit format` for Aider
   polyglot, `Shots` for the older multiple-choice sets. Every row is read
   as one score, so a benchmark's "population" is model-configuration
-  pairs. **9 of 20 committed Epoch exports hold more rows than distinct
-  models** — Terminal Bench 204 rows from 60 models, OSWorld 58 from 10,
-  GSM8K 235 from 94. [15]
+  pairs. **13 of 20 committed Epoch exports hold more rows than distinct
+  models** — Terminal Bench 204 rows from 61, TriviaQA 115 from 39,
+  GSM8K 235 from 158. Both HF leaderboards do it too, far more mildly
+  (1.02–1.05x), and there the cause is *precision*: `Precision` differs
+  in **355 of 355** v1 duplicate groups and **79 of 79** v2 groups. [15]
 
-  Two consequences. The top-20% band partly measures scaffold and
-  shot-count variance rather than differences between models: Terminal
-  Bench's top 20% is 41 rows drawn from **14** distinct models, one
-  contributing 10 of them — while the reading's own explanation string
-  says "the top 20% of 204 frontier models", which is not true of the
-  data. And the 30-model minimum is applied to the wrong count: OSWorld
-  clears it on 58 rows while having 10 models.
+  The top-20% band therefore partly measures scaffold and shot-count
+  variance rather than differences between models: Terminal Bench's top
+  20% is 41 rows drawn from **14** distinct models, one contributing 10
+  of them — while the reading's own explanation string says "the top 20%
+  of 204 frontier models", which is not true of the data.
 
-  Deduplicating to one row per model moves GSM8K 0.268 → 0.632 and drops
-  OSWorld below the minimum entirely. [15] **Direction, counted rather
-  than asserted:** of the 12 that stay measurable, 9 read *more*
-  saturated under both dedup rules, 2 read *less* (SWE-Bench Verified,
-  and Aider polyglot 0.556 → 0.350), and 1 depends on the rule. A first
-  draft of that probe concluded "uniformly up" before counting — the
-  §4.6 bug class about inventable directions, caught in this project's
-  own output.
+  **A worse version sits underneath it: 188 rows carry no model name at
+  all.** For OSWorld that is **37 of 57 rows (65%)**, and they are
+  agent-only submissions — `agi-0 (50 steps)`, `UI-TARS-2-2509 (100
+  steps)` — where the agent *is* the system. No collapsing rule fixes
+  that; a saturation reading over OSWorld is measuring agents.
+
+  Collapsing to one value per model moves 8 of 28 ranks, changes **no
+  evidence tier**, and drops mean catalog health 49.2 → 47.8–48.6
+  depending on the rule. **Direction, counted rather than asserted: 8
+  benchmarks rise under every rule, 0 fall under every rule, 8 depend on
+  the rule** — Terminal Bench alone spans 0.267 to 0.356 on whether you
+  keep a model's best or worst agent.
+
+  *Two corrections to this project's own earlier numbers, both from
+  defects in the probe rather than the catalog:* it reported GSM8K
+  moving to 0.632 (re-measured **0.289–0.292**) and OSWorld falling
+  below the 30-model minimum (re-measured **46 groups, still
+  measurable**). The probe had matched CSV files by row count and merged
+  all blank-named rows into one model. The direction claim has now been
+  wrong twice here in opposite ways — once asserted before counting,
+  once counted on a broken grouping.
 
   **Not fixed.** It moves every score in the catalog, and the forward
-  test's baseline was sealed under the current definition. No benchmark
-  here names a reference agent or shot count, so picking one would be
-  inventing a protocol — the thing §4.5's fix refused to do.
+  test's baseline was sealed under the current definition — see
+  `CONFIG_ROWS.md` for the options and `FORWARD_TEST.md` Amendment 1 for
+  how both seals will be scored. No benchmark here names a reference
+  agent or shot count, so picking one would be inventing a protocol —
+  the thing §4.5's fix refused to do.
 
 A near-miss in the same family, worth recording because it was caught by
 probing rather than reading: MuSR's random baseline was recorded as 0.33
