@@ -21,6 +21,7 @@ Run one, or run them all:
     python probes/findings.py cliff         # [6] the population threshold
     python probes/findings.py modelside     # [7] citations, tiers, repeats
     python probes/findings.py correlations  # [8] what predicts the retirement
+    python probes/findings.py decay         # [12] health falls every day
 
 Touches no network; everything comes from data/.
 """
@@ -395,6 +396,30 @@ def correlations() -> None:
     )
 
 
+def decay() -> None:
+    """[12] Health is not a constant: it falls every day, unattended."""
+    from benchmark_scoring import score_all_benchmarks
+
+    print("\n[12] HEALTH DECAY — a score that moves with no change to the repo\n")
+    # Freshness is an age decay, so health falls as the clock advances.
+    # Two adjacent as-of dates isolate that: the evidence visible at each
+    # is identical (nothing in this catalog became public between them),
+    # so the whole difference is the day.
+    a, b = "2026-09-22", "2026-09-23"
+    means = {}
+    for as_of in (a, b):
+        ranked = score_all_benchmarks(as_of=as_of)
+        means[as_of] = sum(t.health for t in ranked) / len(ranked)
+        print(f"  mean catalog health at {as_of}   {means[as_of]:.4f}")
+    print(f"\n  falls {means[a] - means[b]:.4f} points per day")
+    print(
+        "\n  So a health figure written into a document is exact only on\n"
+        "  the date beside it. tests/test_doc_figures.py allows for this\n"
+        "  with an explicit `decays` flag rather than pretending the\n"
+        "  numbers are static."
+    )
+
+
 REPORTS = {
     "humaneval": humaneval,
     "coverage": coverage,
@@ -404,6 +429,7 @@ REPORTS = {
     "cliff": cliff,
     "modelside": modelside,
     "correlations": correlations,
+    "decay": decay,
 }
 
 

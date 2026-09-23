@@ -454,6 +454,15 @@ every candidate rule asserts something the data may not support.
   `HEALTHY_SPREAD` was 0.20, set against top-10 spreads, and survived the
   move to a top-20% band, so every absolute saturation level in the
   catalog was on a scale nothing had been calibrated for.
+- **A health score is not a constant — it decays every day.** Freshness
+  is an age decay, so a benchmark's health falls whether or not anything
+  in the repository changes. Measured: **mean catalog health falls 0.0286
+  points per day.** [12] This was noticed only because a session crossed
+  midnight and a figure quoted that morning no longer reproduced that
+  evening. **Every health figure in this document is exact only on the
+  date at the top of it**, and the drift check that guards these figures
+  has to allow for it explicitly (`tests/test_doc_figures.py`, the
+  `decays` flag).
 - **A composite index is not a benchmark.**
   `artificial_analysis_coding_index` is 52 of 187 model-side citations
   and aggregates benchmarks this catalog already weighs separately, so
@@ -623,6 +632,7 @@ All run 2026-09-22 against committed data; nothing touches the network.
 9. `python backtest.py --sweep`
 10. `python probes/impact.py parameter HEALTHY_SPREAD 0.084 0.197 0.24 0.358`
 11. `python probes/impact.py parameter MIN_SATURATION_POPULATION 20 25 30 35 40`
+12. `python probes/findings.py decay`
 
 Test suite: `python -m pytest -q` — 279 passing as of this writing. The
 suite runs **offline against committed data**, which means a dependency
