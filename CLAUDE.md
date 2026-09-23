@@ -251,6 +251,19 @@ Trust = weighted factors, then penalties multiply:
 Penalties: contamination (worse of rate vs observed effect), item error
 rate (wrong answer keys), reported saturation (only when unmeasurable).
 
+HEALTH IS NOT A CONSTANT — IT DECAYS EVERY DAY. Freshness is an age
+decay, so every health score falls as the clock advances, with no change
+to the repo. MEASURED 2026-09-23: mean catalog health falls 0.0286
+points per day (`python probes/findings.py decay`; two adjacent as-of
+dates isolate it, since no evidence became public between them). So ANY
+HEALTH FIGURE IN A DOCUMENT IS EXACT ONLY ON THE DATE BESIDE IT, and
+tests/test_doc_figures.py has to allow for it explicitly — three entries
+carry a `decays` flag with a wider tolerance, and a test forbids a
+decaying figure from sitting on the default one, which would go red
+within days and train everyone to ignore the file. This was noticed only
+because a session crossed midnight and a figure quoted that morning no
+longer reproduced that evening.
+
 FIXED 2026-09-21: a contamination flag with no measured rate and no
 measured effect now carries NO numeric penalty and is shown as a WARNING.
 It used to take a flat 0.65 — identical to what severity = 1 produces — so
@@ -530,6 +543,54 @@ This is the kind of thing worth hunting.
   at 57 and has 10 distinct models (section 8 item 3), so counting
   models instead of rows would recompute the whole plateau.
 
+- ROWS ARE NOT MODELS, AND THE DEFECT TRAVELS UPWARD. D5 fixed one
+  source reporting one label several times on the MODEL side. The
+  identical defect was sitting one layer up, on the benchmark side,
+  where it drives 50% of health — and it was found only because fixing
+  the lower layer made the pattern recognisable. 13 of 20 Epoch exports
+  hold more rows than distinct models, separated by an Agent / Edit
+  format / Shots column; both HF leaderboards do it at 1.02-1.05x via
+  Precision. Terminal Bench's top 20% is 41 rows from 14 MODELS, one
+  contributing 10, while the reading says "the top 20% of 204 frontier
+  models". WHEN A DEFECT IS FIXED AT ONE LAYER, CHECK THE LAYER ABOVE
+  AND BELOW IT BEFORE CLOSING THE ITEM. Also: cross_source averages a
+  model's rows too, so reproducibility carries it as well.
+
+- A ROW WITH NO MODEL IS NOT A MODEL. 188 rows across 10 benchmarks
+  carry an empty Model version. OSWorld is 37 of 57 (65%), and they are
+  AGENT-ONLY submissions where the agent is the system. No collapsing
+  rule repairs that: OSWorld's saturation is measuring agents whatever
+  is done on top. Merging blank names into one group — which an earlier
+  version of probes/config_rows.py did — silently deleted dozens of rows
+  from the top band and produced GSM8K 0.632 where the truth is 0.289.
+  CHECK FOR EMPTY KEYS BEFORE GROUPING ON A KEY.
+
+- THE HINDCAST MIXED POPULATIONS INSIDE THE DOCUMENT THAT BANS IT. Two
+  of its five recorded rows read saturation at T from Epoch and at the
+  outcome from v2, when its own POPULATION section fixed v2 at both ends
+  for exactly this reason. Found only by making it runnable
+  (probes/hindcast.py). BIG-Bench Hard's change flipped sign and GPQA
+  Diamond's halved; the pre-registered result did NOT move, because the
+  contaminated columns were descriptive. A pre-registration is not
+  self-enforcing — if a test is not a script, its design is a wish.
+
+- THE FETCHER DROPPED THE FIELD THAT WOULD HAVE RESOLVED D5.
+  _extract_eval_results kept task/dataset/metric_name/metric_value and
+  discarded dataset.config and dataset.split, which is where the Hub's
+  model-index puts the distinction between six pass@1 entries under one
+  label. So "the metadata exists" was half true and the half that was
+  missing was missing because this repo threw it away on ingest. WHEN A
+  RULE NEEDS A FIELD, CHECK THE INGEST, NOT JUST THE SOURCE.
+
+- A DIRECTION CLAIM WENT WRONG TWICE IN ONE PROBE, IN OPPOSITE WAYS.
+  probes/config_rows.py first asserted "the direction is uniformly UP"
+  without counting (the inventable-direction class, below). Corrected to
+  a count — which was then itself wrong, because the grouping underneath
+  it was broken: it matched CSV files by ROW COUNT over an unordered
+  glob and merged blank names. The honest figure is 8 up / 0 down / 8
+  rule-dependent. COUNTING INSTEAD OF ASSERTING IS NECESSARY AND NOT
+  SUFFICIENT; the count is only as good as the grouping under it.
+
 - A STALE FIGURE CAN OVERTURN A RESULT, NOT JUST BLUR ONE. Section 4a
   recorded "pairwise: age 34/36, full trust 35/36" — the single figure
   anywhere in this brief where the scorer BEAT the calendar. Re-measured
@@ -607,28 +668,41 @@ session can tell "the evidence changed" from "I got bored of waiting":
 NONE OF THESE IS A REASON TO RETUNE A WEIGHT. They are reasons to
 re-measure. The standing rule below still applies to all of them.
 
+TOP OF THE LIST UNTIL A RULE IS CHOSEN AND THE SECOND SEAL EXISTS:
+1. ROWS ARE NOT MODELS — see item 4 below, which is where the detail is.
+   It is listed first because it blocks the forward test's PRIMARY seal,
+   which cannot be created until the collapsing rule is decided. Nothing
+   else on this list gates a sealed baseline.
+
 VALIDATION — one live test, and it is two years out:
-1. THE FORWARD TEST, sealed 2026-09-22, matures 2028-09-22, age baseline
+2. THE FORWARD TEST, sealed 2026-09-22, matures 2028-09-22, age baseline
    fixed in advance. It is the ONLY live validation. Its seal covers 26
    benchmarks; MBPP and DS-1000 were added afterwards and are correctly
-   OUT of it — the registration anticipated exactly that. Protect the
-   seal: add a dated file, never overwrite.
+   OUT of it. AMENDMENT 1, 2026-09-23: the sealed readings measure
+   saturation over CONFIGURATION ROWS, so a second seal computed over
+   distinct models is designated PRIMARY — designated before the
+   corrected numbers existed, and committed before they were computed.
+   Both seals are evaluated side by side in 2028 whatever they show, and
+   a disagreement is itself the finding. THE ORIGINAL SEAL IS IMMUTABLE:
+   two literal digests are pinned in tests/test_backtest.py, so it
+   cannot be edited even by a session that also updates its hash.
+   Protect the seal: add a dated file, never overwrite.
    The backtest is RETIRED on power (scorer 30/30, calendar 30/30 on the
    valid pairs). Candidate 1 is exhausted. ARC-AGI-1 was scoped and
-   rejected — re-derived 2026-09-23, only 4 of its 75 available models
-   predate the window (probes/arc_agi_population.py).
+   rejected — only 4 of its 75 available models predate the window
+   (probes/arc_agi_population.py).
    The hindcast is now runnable (probes/hindcast.py) and still 2 of 4;
    two rows of its recorded table mixed populations and are corrected in
    place, WITHOUT changing the result.
 
 COVERAGE — the product under Reading B, and where the real gap is:
-2. MODEL-WEIGHTED COVERAGE IS 42%: 34 of 81 scored models have at least
-   one catalogued citation. Citation-weighted coverage (31%) is the
-   wrong metric — 70% of unrecognised citations are one composite index
-   and two model cards. Adding benchmarks cannot close it; treating
-   composites can.
-3. ROWS ARE NOT MODELS — the benchmark-side version of the defect D5
-   fixed on the model side, and here it drives 50% of health.
+3. MODEL-WEIGHTED COVERAGE IS 42%: 34 of 81 scored models have at least
+   one catalogued citation. Citation-weighted coverage is the wrong
+   metric — most unrecognised citations are one composite index and two
+   model cards. Adding benchmarks cannot close it.
+4. ROWS ARE NOT MODELS (item 1 points here) — the benchmark-side
+   version of the defect D5 fixed on the model side, and here it drives
+   50% of health.
    INVESTIGATED IN FULL 2026-09-23: docs/CONFIG_ROWS.md,
    probes/config_rows.py. 13 of 20 Epoch exports hold more rows than
    distinct models (Terminal Bench 204/61, TriviaQA 115/39, GSM8K
@@ -657,9 +731,9 @@ COVERAGE — the product under Reading B, and where the real gap is:
    TWO OPTIONS NEED NO DECISION and invent nothing: name the population
    accurately in every explanation string, and stop counting rows with
    no model as models.
-4. raw_benchmark_score pools incomparable quantities AND within-source
+5. raw_benchmark_score pools incomparable quantities AND within-source
    duplicates. Needs the per-category design change, scoped already.
-   Same root as item 3.
+   Same root as item 4.
 
    DONE, recorded so they are not re-opened: composites now carry a kind
    and are excluded from weighting with their components listed (D4);
@@ -676,13 +750,13 @@ COVERAGE — the product under Reading B, and where the real gap is:
    Both guard themselves — a doc citing an uncovered command fails, a
    probe added without a smoke test fails, a footnote with no
    registered figure fails. Do not weaken those three.
-5. Measurement coverage: reproducibility measured for 8 of 28,
+6. Measurement coverage: reproducibility measured for 8 of 28,
    saturation for 23, a contamination RATE for 3, an item error rate
    for 4 — while 13 of 28 are flagged for contamination with nothing
    quantified, which since the 2026-09-21 fix costs them nothing.
    LiveCodeBench, MBPP and DS-1000 have no score source at all.
    HumanEval+ would make HumanEval's thin tests directly measurable.
-6. Verification: SWE-Bench Verified's upper bound unknown, and it may be
+7. Verification: SWE-Bench Verified's upper bound unknown, and it may be
    wrong in BOTH directions (a 49-task preprint reports 28.5% false
    ACCEPTANCE against the audit's false rejection); its two penalties
    also come from one non-random 138-problem sample, so they are
@@ -693,7 +767,7 @@ COVERAGE — the product under Reading B, and where the real gap is:
    against the specificity rubric.
 
 SCORING — demoted and bounded:
-7. Seven of nine parameters reorder the catalog. docs/RANK_RANGES.md has
+8. Seven of nine parameters reorder the catalog. docs/RANK_RANGES.md has
    each benchmark's rank span; only claims about TIERS and DIRECTIONS
    survive, never positions or decimal places. The instability clusters
    at MIN_SATURATION_POPULATION, which is a CLIFF — see
@@ -703,9 +777,9 @@ SCORING — demoted and bounded:
    cross-source scatters). Its defensible range 0.084-0.358 still moves
    mean catalog health 56.2 -> 43.8 and up to 19 of 28 ranks, and the
    multiplier 3 is named in the code as the invented element.
-8. Saturation still depends on the submission pipeline; an archived
+9. Saturation still depends on the submission pipeline; an archived
    leaderboard yields a frozen reading. No fix proposed.
-9. Relevance is a property of a (benchmark, task) pair, approximated
+10. Relevance is a property of a (benchmark, task) pair, approximated
    per benchmark. VRAM numbers are derived and their estimated flag is
    computed but not shown.
 
