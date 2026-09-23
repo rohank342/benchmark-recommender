@@ -397,3 +397,51 @@ flip returns.
 Still **DESCRIPTIVE**. Four pairs across five benchmarks drawn from the
 backtest's own set is not evidence in either direction, and was declared
 so before any of the three runs.
+
+---
+
+## CORRECTION 2026-09-23 — two rows of the table above mix populations
+
+Found by writing `probes/hindcast.py`, which made this test runnable for
+the first time. Run it to reproduce everything below.
+
+**The `sat @ T` column above reads BIG-Bench Hard and GPQA Diamond from
+Epoch (81 and 33 models) while reading their `sat @ outcome` from v2
+(4,575 models).** The other three rows are v2 at both ends. Two of the
+five rows therefore subtract a v2 number from an Epoch number.
+
+This is the exact failure this pre-registration was written to prevent.
+Quoting its own POPULATION section, above and unmodified: *"v2 is the
+only source where every eligible benchmark shares one model population
+at both dates. That costs three benchmarks and buys the only version of
+this test that measures what it claims to."* It is also the bug class
+recorded in `CLAUDE.md` §7 as **"comparing two benchmarks can mean
+comparing two populations"** — found here for the third time, in the
+document that names it.
+
+Under the registered v2-at-both-ends rule:
+
+| benchmark | recorded `sat @ T` | v2 `sat @ T` | recorded change | **v2 change** |
+|---|---:|---:|---:|---:|
+| MMLU-Pro | 0.130 | 0.130 | +0.028 | +0.028 |
+| IFEval | 0.217 | 0.217 | +0.083 | +0.083 |
+| **BIG-Bench Hard** | 0.216 | **0.157** | −0.031 | **+0.028** |
+| MuSR | 0.361 | 0.361 | −0.306 | −0.306 |
+| **GPQA Diamond** | 0.505 | **0.358** | −0.315 | **−0.168** |
+
+**BIG-Bench Hard's change flips sign** and **GPQA Diamond's decline
+halves.** Those two rows carry the "the outcome mean-reverted" reading
+this document has been cited for, so that description is withdrawn: on
+the registered population three of the five benchmarks became *more*
+saturated over the nine months, one held roughly flat, and one (MuSR)
+fell sharply.
+
+**THE PRE-REGISTERED RESULT IS UNCHANGED: still 2 of 4.** The primary
+metric depends on the ordering of `trust @ T` and on `sat @ outcome`,
+and neither was contaminated — only the `sat @ T` column and the
+`change` column derived from it. This is stated plainly because the
+convenient framing would be to present a corrected defect as a corrected
+result, and it is not one. The defect damaged the description, not the
+finding.
+
+Nothing above this heading has been modified.
