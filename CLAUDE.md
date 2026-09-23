@@ -530,6 +530,20 @@ This is the kind of thing worth hunting.
   at 57 and has 10 distinct models (section 8 item 3), so counting
   models instead of rows would recompute the whole plateau.
 
+- A STALE FIGURE CAN OVERTURN A RESULT, NOT JUST BLUR ONE. Section 4a
+  recorded "pairwise: age 34/36, full trust 35/36" — the single figure
+  anywhere in this brief where the scorer BEAT the calendar. Re-measured
+  2026-09-23: 31/36. The scorer loses to age by three pairs. Nothing had
+  been tuned; the number had simply aged out of the state that produced
+  it, and it had been quoted forward across sessions as a live finding.
+  Two more in the same pass: Candidate 1's margin +16.6 -> +1.1, and
+  r(saturation, label) +0.300 -> -0.198, a SIGN FLIP. The lesson is not
+  "re-measure" — that rule already existed — it is that a stale figure
+  is not a rounding error waiting to be corrected. It can be carrying a
+  conclusion. THIS IS WHY tests/test_doc_figures.py EXISTS: 47 figures,
+  86 assertions, four documents, and it fails CI when a doc figure stops
+  matching the probe that produces it.
+
 - A PROBE CAN MISREPORT THE PROPERTY IT EXISTS TO CHECK.
   probes/impact.py printed a column headed "% of total weight" that
   summed benchmark HEALTH rather than weight, and so reported thin-tier
@@ -549,13 +563,49 @@ This is the kind of thing worth hunting.
 8. OPEN WORK, ROUGHLY RANKED
 ═══════════════════════════════════════════════════════════════════════
 
-Re-ranked 2026-09-22 (FOURTH revision), after D3 and D4 landed and the
---sweep blackout was found. The catalog is 28 benchmarks. Items 3 and 4
-of the third revision are DONE and have been removed rather than left to
-rot; the duplicate stale list that used to sit below the standing rule
-has been deleted for the same reason — it still asked for the direction
-decision (made), HEALTHY_SPREAD's derivation (done, 0.24) and a forward
-test (sealed).
+Re-ranked 2026-09-23 (FIFTH revision). The catalog is 28 benchmarks.
+Completed items are deleted rather than left to rot, and what they
+settled is recorded under item 3 so nothing is re-opened by accident.
+
+═══ READ THIS BEFORE PICKING UP WORK ═══
+THE PROJECT IS IN A WAITING STATE, and that is the correct state to be
+in. Every test of the score has been run to a conclusion; none beat a
+calendar; the one live test does not mature until 2028-09-22. The
+scoring machinery should NOT be worked on in the meantime — not because
+it is finished, but because there is nothing left to check a change
+against, and changing it anyway is how a test becomes a training set.
+
+What remains is EVIDENCE work: measuring things that are unmeasured,
+sourcing things that are unsourced, and keeping the record honest. That
+is items 2 and 4-7. Items marked AWAITING A DECISION are the owner's,
+not a session's.
+
+WHAT WOULD JUSTIFY REOPENING SCORING WORK. Written down so a future
+session can tell "the evidence changed" from "I got bored of waiting":
+  (a) THE FORWARD TEST MATURES (2028-09-22), or its one-year look
+      (2027-09-22) is taken and REPORTED — which is explicitly not the
+      test, and must not be treated as one however it comes out.
+  (b) A GENUINELY INDEPENDENT DATED DECISION becomes available: a
+      public retirement, deprecation or abandonment by a major
+      evaluator, with a date, where the scorer and release-date order
+      make DIFFERENT predictions and both benchmarks are in the SAME
+      evidence tier with comparable populations. All three conditions
+      killed Candidate 1 and ARC-AGI-1 separately. docs/BACKTEST_DESIGN.md
+      lists the shape; pre-register before looking.
+  (c) A NEW SCORE SOURCE lands that makes an unmeasurable factor
+      measurable for enough benchmarks to change a tier — an EvalPlus-
+      style export for LiveCodeBench, MBPP or DS-1000, or any second
+      evaluator covering benchmarks this repo already scores, which
+      would lift reproducibility above 8 of 28 (item 5).
+  (d) A DIFFICULTY-CONTROLLED CONTAMINATION VARIANT is published for a
+      benchmark the catalog holds, in the way GSM1k is for GSM8K. That
+      would retire the `uncontrolled` basis on HumanEval's 0.394 and is
+      the single most valuable external event for item 6.
+  (e) THE POPULATION DEFINITION IS DECIDED (item 3). That one moves
+      every score, so it reopens scoring by construction — which is
+      exactly why it is a decision and not a task.
+NONE OF THESE IS A REASON TO RETUNE A WEIGHT. They are reasons to
+re-measure. The standing rule below still applies to all of them.
 
 VALIDATION — one live test, and it is two years out:
 1. THE FORWARD TEST, sealed 2026-09-22, matures 2028-09-22, age baseline
@@ -565,7 +615,11 @@ VALIDATION — one live test, and it is two years out:
    seal: add a dated file, never overwrite.
    The backtest is RETIRED on power (scorer 30/30, calendar 30/30 on the
    valid pairs). Candidate 1 is exhausted. ARC-AGI-1 was scoped and
-   rejected — 72 of 76 available models postdate the window.
+   rejected — re-derived 2026-09-23, only 4 of its 75 available models
+   predate the window (probes/arc_agi_population.py).
+   The hindcast is now runnable (probes/hindcast.py) and still 2 of 4;
+   two rows of its recorded table mixed populations and are corrected in
+   place, WITHOUT changing the result.
 
 COVERAGE — the product under Reading B, and where the real gap is:
 2. MODEL-WEIGHTED COVERAGE IS 42%: 34 of 81 scored models have at least
@@ -610,6 +664,13 @@ COVERAGE — the product under Reading B, and where the real gap is:
    weighted not at all where none is (D5). Measured after all three:
    24 of 81 models are ranked, 57 are shown as unweighted evidence, and
    unrecognised citations carry 0% of model-side weight.
+   ALSO DONE, and load-bearing for everything above: every command a
+   doc cites is run by CI (tests/test_diagnostics.py) and every
+   load-bearing figure is checked against the probe that produces it
+   (tests/test_doc_figures.py, 47 figures / 86 assertions / 4 docs).
+   Both guard themselves — a doc citing an uncovered command fails, a
+   probe added without a smoke test fails, a footnote with no
+   registered figure fails. Do not weaken those three.
 5. Measurement coverage: reproducibility measured for 8 of 28,
    saturation for 23, a contamination RATE for 3, an item error rate
    for 4 — while 13 of 28 are flagged for contamination with nothing
