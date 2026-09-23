@@ -139,3 +139,110 @@ Sealed by Claude Code on 2026-09-22 at the owner's instruction, as the
 hedge attached to adopting the evidence-dossier reading in
 `DIRECTION.md`. The file is dated and content-hashed; a later run must
 add a new dated file rather than overwrite this one.
+
+---
+
+# AMENDMENT 1 — 2026-09-23
+
+**Nothing above this line has been modified.** This is an amendment, not
+an edit, for the same reason the seal exists at all.
+
+## What was found
+
+The sealed baseline measures saturation over **configuration rows, not
+distinct models.**
+
+Epoch's per-benchmark exports carry a column separating several runs of
+the *same* model — `Agent` (the scaffold driving it), `Edit format`,
+`Shots` — and every row is read as one score. So a benchmark's sealed
+"population" is model-configuration pairs, and the top-20% band partly
+measures scaffold and shot-count variance rather than differences
+between models.
+
+**The case that shows it plainly: Terminal Bench.** Its sealed reading is
+taken over **204 rows drawn from 60 distinct models.** The top 20% of
+that population is 41 rows from **14** models, one model contributing 10
+of them. The reading's own explanation string says "the top 20% of 204
+frontier models", which is not a true statement about the data. `9 of 20`
+committed Epoch exports hold more rows than distinct models
+(`python probes/config_rows.py`).
+
+This is the population-artifact bug class that has now appeared five
+times in this project, arriving one layer above the model-side version
+fixed the same week as decision D5.
+
+## Why this may be corrected at all
+
+**Because no outcome exists yet.** The horizon is 2028-09-22 and nothing
+has been measured against this baseline. Correcting a definition before
+any outcome is visible is not the same act as correcting it afterwards,
+and only the first is legitimate.
+
+The protection against that distinction being abused is **fixing the
+designation before the correction is implemented**, which is what this
+amendment does. At the time of writing, no deduplicated saturation
+reading has been computed for any benchmark, and the designation below
+is therefore not a choice made in the light of what the corrected
+numbers turn out to say.
+
+## The amendment
+
+1. **The original seal is retained, unchanged, and will be evaluated in
+   2028.** `data/forward_test/sealed_2026-09-22.json`, payload SHA-256
+   `4278081a7bebece9483cf1ec53d399d7aa3aeb137a652dcf5874c31eb02c562f`.
+   It is immutable. `tests/test_backtest.py` pins both that digest and
+   the SHA-256 of the whole file as literals, so the file cannot be
+   edited even by a session that also updates its hash.
+
+2. **A second seal will be created once saturation is computed over
+   distinct models**, and **it is designated PRIMARY** — now, in advance
+   of its own numbers existing.
+
+   The reason is stated before the fact so it cannot be constructed
+   afterwards: the original measures configuration variance as if it
+   were model spread. A predictor built on "the top 20% of 204 frontier
+   models" when the data holds 60 models and 204 model-agent pairs is
+   answering a question nobody asked. That is a defect in the
+   measurement, independent of which seal turns out to look better in
+   2028.
+
+   **Designating the corrected seal primary does not mean the original
+   is discarded**, and does not predict which will do better.
+
+3. **Both seals are evaluated and reported in 2028, side by side,
+   whatever they show.** Each against its own age baseline, on its own
+   discordant pairs, under its own sealed parameters.
+
+4. **If they disagree, the disagreement is itself the finding**, and is
+   reported as one rather than resolved in favour of either. A scorer
+   whose verdict depends on whether its population counts models or
+   model-configuration pairs has told us something about the scorer.
+   Specifically:
+
+   | outcome | what it means |
+   |---|---|
+   | both pass, both beat their baselines | the strongest result available here, and the population question was not load-bearing |
+   | both fail | the clearest negative result available here |
+   | **primary passes, original fails** | consistent with the row-counting being the defect it looks like — but a single pair of seals cannot establish that, and it must not be reported as though it could |
+   | **original passes, primary fails** | reported exactly as prominently. The honest reading would be that the original's apparent success rested on an artifact, which is worse for the project than both failing |
+   | either is INCONCLUSIVE (< 10 discordant pairs) | that seal never became runnable; it is not evidence in either direction |
+
+5. **This amendment is committed before any deduplicated reading is
+   computed**, and before the investigation in `docs/CONFIG_ROWS.md`
+   runs. The commit order is the evidence that the designation was not
+   fitted to the numbers.
+
+6. **The second seal is NOT created by this amendment.** The rule for
+   collapsing rows to one value per model is the owner's decision, taken
+   on the evidence in `docs/CONFIG_ROWS.md`. Until that rule is chosen,
+   there is nothing to seal — and a seal created under a rule that was
+   later changed would be worthless.
+
+## What has not changed
+
+The horizon, the pass criterion (≥70% of discordant pairs, minimum 10
+pairs), the age baseline and its form, the outcome measure, the
+population-comparability rules, and every parameter in the original
+seal. The amendment changes **how a population is counted**, and nothing
+else. Both seals are scored under their own sealed parameters, per the
+original design.

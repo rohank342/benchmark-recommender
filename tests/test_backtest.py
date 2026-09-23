@@ -332,6 +332,44 @@ class TestSealedForwardTest:
         blob = json.dumps(sealed, indent=2, sort_keys=True)
         assert hashlib.sha256(blob.encode()).hexdigest() == claimed
 
+    def test_the_original_seal_is_byte_for_byte_unchanged(self):
+        """
+        The recomputed-hash test above proves the payload and its hash
+        agree. It would still pass if someone edited BOTH — which is
+        exactly what a well-meaning session would do on finding the
+        sealed saturation readings defective.
+
+        They are defective: the 2026-09-22 seal measures saturation over
+        configuration rows rather than distinct models (Terminal Bench,
+        204 rows from 60 models). The amendment of 2026-09-23 keeps this
+        seal UNCHANGED anyway and adds a second one beside it, because a
+        baseline that can be corrected after the fact is not a baseline.
+        See docs/FORWARD_TEST.md.
+
+        So both digests are pinned as literals here: the payload hash the
+        file claims, and the SHA-256 of the whole file on disk. Neither
+        may change. A second seal is a new dated file.
+        """
+        import hashlib
+        import pathlib
+
+        path = (
+            pathlib.Path(__file__).resolve().parent.parent
+            / "data" / "forward_test" / "sealed_2026-09-22.json"
+        )
+        assert (
+            hashlib.sha256(path.read_bytes()).hexdigest()
+            == "4e3eb55d7264fc124831fc59a83c4caa43bcfd3d0d5a430e5ba60b690b8a038e"
+        ), (
+            "data/forward_test/sealed_2026-09-22.json has been modified. It is "
+            "immutable: add a new dated seal file instead."
+        )
+        sealed, _ = self._sealed()
+        assert (
+            sealed["sha256_of_payload_without_this_field"]
+            == "4278081a7bebece9483cf1ec53d399d7aa3aeb137a652dcf5874c31eb02c562f"
+        )
+
     def test_every_parameter_needed_to_score_it_was_sealed(self):
         sealed, _ = self._sealed()
         params = sealed["parameters"]
