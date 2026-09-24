@@ -16,9 +16,23 @@ from fetch_benchmarks import (
 )
 
 
-def _scores(values, ceiling=1.0, baseline=0.0):
+def _scores(values, ceiling=1.0, baseline=0.0, names=None):
+    """
+    A fixture distribution, one distinct model per value.
+
+    NAMES ARE REQUIRED SINCE D6 (2026-09-24). Saturation is measured over
+    MODELS, and a row with no model name is dropped as an unattributed
+    agent submission — so a fixture without names collapses to nothing.
+    These fixtures are about the SHAPE of a distribution, not about
+    attribution, so each value gets its own synthetic model.
+    """
+    values = list(values)
     return BenchmarkScores(
-        benchmark_key="test", scores=list(values), ceiling=ceiling, random_baseline=baseline
+        benchmark_key="test",
+        scores=values,
+        model_names=list(names) if names else [f"model-{i}" for i in range(len(values))],
+        ceiling=ceiling,
+        random_baseline=baseline,
     )
 
 

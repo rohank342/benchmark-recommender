@@ -28,7 +28,7 @@ leak into training corpora.
 - **It does not measure task relevance.** The `specificity` factor is
   an auditable judgement against a written rubric, scored for all 28
   benchmarks by Claude Code and reviewed by nobody else. [2]
-- **Its coverage is partial and uneven.** Saturation is measured for 23
+- **Its coverage is partial and uneven.** Saturation is measured for 22
   of 28 benchmarks, cross-source reproducibility for 8, a contamination
   *rate* for 3, an item error rate for 4. [2]
 - **Its forward-looking claim is untested.** The only live validation
@@ -91,7 +91,7 @@ or a `CURATE(you)` marker naming what is missing. Coverage, re-measured: [2]
 | measurement | benchmarks |
 |---|---:|
 | has any score source | 25 of 28 |
-| **saturation measured** from a real score distribution | **23 of 28** |
+| **saturation measured** from a real score distribution | **22 of 28** |
 | **cross-source agreement** (same models, two evaluators) | **8 of 28** |
 | contamination *rate* known | 3 of 28 |
 | contamination *effect* known | 2 of 28 |
@@ -130,7 +130,7 @@ Leaderboard and replaced them with six harder ones. All twelve are in the
 catalog. Scored as of 2024-06-01, using only evidence that was public by
 then, do the retired six rank below the replacements?
 
-Headline result: **10 of 12 correct, separation lost by 26.9 points**,
+Headline result: **10 of 12 correct, separation lost by 25.1 points**,
 with MATH Level 5 (kept) ranking below five retired benchmarks. [3][9]
 
 That number is not the finding. The finding is what happens when the
@@ -168,16 +168,22 @@ of sorting by release date and calling the newer half "kept": [9]
 
 | ranked by | correct | separation gap |
 |---|---:|---:|
-| the full scorer (all factors) | 10/12 | **−26.9** |
+| the full scorer (all factors) | 10/12 | **−25.1** |
 | **freshness alone** (age decay) | **10/12** | **−6.3** |
 | **release date alone** (no scoring at all) | **10/12** | — |
-| discrimination alone (measured saturation) | 6/12 | −24.4 |
+| discrimination alone (measured saturation) | 8/12 | −18.2 |
 | reproducibility alone | 6/12 | −60.0 |
 
 Freshness alone matches the full scorer on correctness and loses
-separation by **a quarter as much**. Measured saturation alone gets 6 of
-12, which is exactly chance. On this test, adding the three
+separation by **a quarter as much**. On this test, adding the three
 non-age factors to the calendar proxy makes the margin worse.
+
+*Updated 2026-09-24 by D6.* Measuring saturation over models rather than
+configuration rows moved discrimination-alone from **6/12 (chance) to
+8/12**, and narrowed the full scorer's gap from −26.9 to −25.1. That is
+a real improvement and it is reported as one — but **freshness alone
+still beats it**, on both correctness and margin, so the conclusion this
+section exists to state is unchanged.
 
 **This comparison had not run for 28 commits.** `backtest.py --sweep`
 raised `ZeroDivisionError` from commit `e247226` (which introduced
@@ -201,20 +207,23 @@ the twelve, at the cutoff: [8]
 | signal | r with "kept" |
 |---|---:|
 | **release date** (age) | **−0.793** |
-| the composite health score | +0.502 |
-| measured saturation | −0.198 (n=11) |
+| the composite health score | +0.633 |
+| measured saturation | −0.559 (n=11) |
 
-Age predicts the decision far better than the score built to predict it.
-Measured saturation — the factor carrying the most weight — barely
-predicts it at all, and `r(age, saturation) = +0.202` shows saturation is
-not merely standing in for age either. On this set it adds little in
-any direction.
+**Age still predicts the decision best**, and that is the headline.
 
-*Corrections to this project's own record, both re-measured here:* the
-brief states `r(age, saturation) = +0.01` and `r(saturation, label) =
-+0.300`. They are **+0.202** and **−0.198**. The conclusion drawn from
-them — that saturation adds almost nothing over age on these twelve — is
-unchanged and, on the second figure, stronger than recorded.
+*These figures moved substantially under D6 (2026-09-24), in the
+project's favour, which is a reason to state them carefully rather than
+loudly.* Measured over configuration rows they were `r(health) = +0.502`,
+`r(saturation) = −0.198`, `r(age, saturation) = +0.202`. Measured over
+models they are **+0.633, −0.559 and +0.702**.
+
+**The rise in `r(age, saturation)` is not good news for the scorer.** A
+saturation measure that tracks age more closely is closer to being an
+age *proxy*, not further from it. The open question is whether measured
+saturation carries signal that age does not, and a stronger correlation
+*with* age makes that harder to establish, not easier. Age's own
+correlation with the outcome (−0.793) did not move at all.
 
 ### 3.3 Candidate 1 — pre-registered, run, failed
 
@@ -248,7 +257,7 @@ score. The pre-registration had already named that as evidence *against*.
 Pre-registered, run three times, and never a script: each run was done by
 hand and its table pasted into the document. It is now reproducible. [13]
 
-Result: **2 of 4 discordant pairs** — a coin flip on four data points. It
+Result: **2 of 3 discordant pairs** — a coin flip on four data points. It
 was declared descriptive before it was run, and four pairs cannot support
 a conclusion in either direction, which is why the forward test fixes a
 minimum of ten in advance.
@@ -557,7 +566,7 @@ but it makes one datum look like corroboration.
   catalog was on a scale nothing had been calibrated for.
 - **A health score is not a constant — it decays every day.** Freshness
   is an age decay, so a benchmark's health falls whether or not anything
-  in the repository changes. Measured: **mean catalog health falls 0.0286
+  in the repository changes. Measured: **mean catalog health falls 0.0321
   points per day.** [12] This was noticed only because a session crossed
   midnight and a figure quoted that morning no longer reproduced that
   evening. **Every health figure in this document is exact only on the
@@ -594,7 +603,7 @@ actually measure — the cross-source scatter of the same model scored by
 two evaluators: [5]
 
 ```
-n=8   median 0.0278   mean 0.0370   max 0.0805
+n=8   median 0.0348   mean 0.0390   max 0.0805
 3 × max = 0.2416  →  HEALTHY_SPREAD = 0.24
 ```
 
@@ -604,7 +613,7 @@ observed spread distribution instead just moves the choice to a quantile.
 
 And the sensitivity is itself a finding. Across the defensible range
 0.084 (3× median scatter) to 0.358 (90th percentile of observed spreads),
-mean catalog health moves from **56.2 to 43.8** and up to **19 of 28**
+mean catalog health moves from **54.1 to 40.2** and up to **21 of 28**
 benchmarks change rank. [10] A constant whose plausible range reorders the
 catalog is not a detail.
 
@@ -626,7 +635,7 @@ Five benchmarks sit within 15 models of it: [6]
 | FrontierCode | 35 | measured |
 | GSO-Bench | 38 | measured |
 
-Moving the threshold to 40 changes **3 tiers and 13 ranks**. [11] But
+Moving the threshold to 40 changes **4 tiers and 16 ranks**. [11] But
 measured at finer steps the parameter is **completely inert from 17 to 35
 inclusive** — zero rank moves, zero tier changes — so the current value
 of 30 sits inside a 19-wide plateau. The mechanism is a step rather than

@@ -380,6 +380,15 @@ def measure_saturation(scores: BenchmarkScores) -> tuple[Optional[float], str]:
     Returns (0-1 saturation, explanation).
     """
     usable_range = max(scores.ceiling - scores.random_baseline, 1e-6)
+
+    # DECISION D6 (2026-09-24): measure over MODELS, not rows. A source
+    # often publishes one row per configuration — Epoch's Agent / Edit
+    # format / Shots, HF's Precision — and reading every row as a model
+    # made the top band measure scaffold variance. `one_row_per_model`
+    # is the single definition of "a model's score" in this repo;
+    # cross_source uses the same call, and a test fails if any path
+    # aggregates rows without it. It also drops rows with no model name.
+    scores = scores.one_row_per_model()
     ranked = sorted(scores.scores, reverse=True)
 
     # DEFINITION CHANGED 2026-09-22: the top PERCENTILE of a stated
@@ -417,8 +426,8 @@ def measure_saturation(scores: BenchmarkScores) -> tuple[Optional[float], str]:
 
     explanation = (
         f"the top {SATURATION_TOP_PERCENTILE:.0f}% of {len(ranked)} "
-        f"{scores.population} ({len(top)} models) span {spread * 100:.1f} points "
-        f"of the usable range and average {headroom_used * 100:.0f}% of it"
+        f"{scores.population_note} ({len(top)} models) span {spread * 100:.1f} "
+        f"points of the usable range and average {headroom_used * 100:.0f}% of it"
     )
     return saturation, explanation
 

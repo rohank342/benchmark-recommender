@@ -272,3 +272,129 @@ class TestTheseWouldHaveCaughtLastSessionsBugs:
         # each be matched to a file that is not theirs.
         names = {name for name, _ in ambiguous}
         assert "GSM8K" in names and "SWE-Bench Verified" in names, ambiguous
+
+
+class TestD6IsTheOnlyDefinitionOfAModelsScore:
+    """
+    DECISION D6: one collapsing function, used on every path.
+
+    Saturation and cross-source reproducibility both aggregate a
+    benchmark's rows into per-model values. Before D6 they did it
+    differently — saturation not at all, reproducibility by taking the
+    mean — so the same benchmark had two incompatible answers to "what
+    is this model's score?". These tests fail if either path drifts off
+    the shared function again.
+    """
+
+    def test_saturation_measures_over_models_not_rows(self):
+        """
+        The model count in the explanation string must match the
+        collapsed population, not the raw row count.
+        """
+        from benchmark_scoring import measure_saturation
+
+        for benchmark, scores in _catalog_with_scores():
+            value, note = measure_saturation(scores)
+            if value is None:
+                continue
+            collapsed = len(scores.one_row_per_model().scores)
+            assert f"of {collapsed} " in note, (
+                f"{benchmark.name}: saturation note says {note!r} but the "
+                f"collapsed population is {collapsed} models"
+            )
+
+    def test_saturation_is_unchanged_by_pre_collapsing(self):
+        """
+        Collapsing twice must equal collapsing once. If `measure_saturation`
+        did its own aggregation instead of deferring, these would differ.
+        """
+        from benchmark_scoring import measure_saturation
+
+        for benchmark, scores in _catalog_with_scores():
+            once = measure_saturation(scores)[0]
+            twice = measure_saturation(scores.one_row_per_model())[0]
+            assert once == twice, f"{benchmark.name}: {once} != {twice}"
+
+    def test_reproducibility_uses_the_same_definition(self):
+        """
+        `cross_source._index_by_model` must agree with the shared
+        function on every model it indexes — no means, no last-row-wins.
+        """
+        from cross_source import _index_by_model, load_score_sets, match_key
+
+        from fetch_benchmarks import load_benchmark_catalog
+
+        checked = 0
+        for benchmark in load_benchmark_catalog():
+            for scores in load_score_sets(benchmark):
+                if not scores.scores:
+                    continue
+                index = _index_by_model(scores)
+                collapsed = scores.one_row_per_model()
+                expected: dict[str, float] = {}
+                for name, value in zip(collapsed.model_names, collapsed.scores):
+                    key = match_key(name)
+                    if key and value > expected.get(key, float("-inf")):
+                        expected[key] = value
+                assert index == expected, f"{benchmark.name}/{scores.source} diverged"
+                checked += 1
+        assert checked, "no score sets were checked — the test is vacuous"
+
+    def test_unattributed_rows_never_reach_a_reading(self):
+        """
+        A row with no model name must not appear in saturation or in
+        reproducibility. This is option (vi), enforced rather than
+        described.
+        """
+        from cross_source import _index_by_model
+
+        for benchmark, scores in _catalog_with_scores():
+            collapsed = scores.one_row_per_model()
+            assert all(n and n.strip() for n in collapsed.model_names), (
+                f"{benchmark.name}: an unattributed row survived collapsing"
+            )
+            assert collapsed.unattributed == 0
+            assert "" not in _index_by_model(scores)
+
+    def test_the_population_is_named_accurately(self):
+        """
+        Option (v): where most rows name no model, the reading says
+        'agent systems' rather than borrowing the source's label.
+        """
+        from fetch_benchmarks import find_benchmark, load_benchmark_scores
+
+        osworld = load_benchmark_scores(find_benchmark("OSWorld"))
+        assert "agent systems" in osworld.population_note, osworld.population_note
+        mmlu = load_benchmark_scores(find_benchmark("MMLU"))
+        assert "rows name no model" in mmlu.population_note
+
+    def test_a_set_with_no_attribution_becomes_unmeasurable(self):
+        """
+        Deliberate, and the conservative direction. Keeping every row
+        when a source names no models would let a source that publishes
+        LESS information escape the rule one publishing more must obey —
+        the uncheckability-pays failure this project has recorded five
+        times.
+        """
+        from benchmark_scoring import measure_saturation
+        from fetch_benchmarks import BenchmarkScores
+
+        nameless = BenchmarkScores(
+            benchmark_key="test",
+            scores=[0.5] * 60,
+            model_names=[""] * 60,
+        )
+        assert nameless.one_row_per_model().scores == []
+        assert measure_saturation(nameless)[0] is None
+
+    def test_no_committed_source_is_actually_nameless(self):
+        """The rule above costs nothing today; this is what says so."""
+        from cross_source import load_score_sets
+        from fetch_benchmarks import load_benchmark_catalog
+
+        for benchmark in load_benchmark_catalog():
+            for scores in load_score_sets(benchmark):
+                if not scores.scores:
+                    continue
+                named = sum(1 for n in scores.model_names if (n or "").strip())
+                assert named, f"{benchmark.name}/{scores.source} names no models"

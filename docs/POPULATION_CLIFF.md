@@ -3,7 +3,36 @@
 **Nothing built, and nothing needs building.** Figures measured
 2026-09-22 and re-measured 2026-09-23.
 
-## Conclusion first, revised 2026-09-23
+## SUPERSEDED IN PART BY D6, 2026-09-24
+
+**The plateau narrowed and the threshold is now on its edge.** D6
+measures saturation over distinct models and drops the 188 rows that
+name no model, which shrinks several populations:
+
+| counted by | plateau | headroom above 30 |
+|---|---|---:|
+| rows *(what the section below measured)* | 17–35 | 5 |
+| **models, under D6** | **15–30** | **0** |
+
+At a threshold of 31, **FrontierCode (30 models) falls out**. SWE-Bench
+Verified is at 33, GSO-Bench at 38. And **OSWorld has already crossed**:
+37 of its 57 rows were agent-only submissions, leaving 9 models, so it
+is now `thin` rather than `partial`.
+
+**So the conclusion below — "a cliff with nothing standing on it does
+not need a fence" — no longer holds as stated.** Something is standing
+on it. The redesign options at the end of this document (graded
+confidence, subsampling intervals) move from "not warranted" to
+"warranted if another benchmark approaches the line". They are still
+unbuilt, and this project is in a resting state, so they go to
+`CLAUDE.md` §8 rather than being built now.
+
+The caveat the section below raised against itself — that its counts
+were rows, not models — turned out to be the thing that mattered.
+
+---
+
+## Conclusion first, revised 2026-09-23 — SUPERSEDED, see above
 
 This document was originally titled "the population cliff" and argued
 that a hard cutoff was a design problem. **Measured more finely, it is

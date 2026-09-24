@@ -1487,6 +1487,130 @@ class BenchmarkScores:
     def dated(self) -> int:
         return sum(1 for d in self.model_dates if d)
 
+    @property
+    def population_note(self) -> str:
+        """
+        What this distribution is a distribution OF, said accurately.
+
+        DECISION D6, option (v). A saturation reading that calls itself
+        "the top 20% of 204 frontier models" when the data holds 204
+        model-agent pairs from 60 models is wrong in the noun. Where a
+        benchmark's rows are mostly agent submissions with no model
+        attached, the reading says so rather than borrowing the source's
+        general population label.
+        """
+        label = self.population
+        if not self.scores:
+            return label
+        if self.unattributed > len(self.scores) / 2:
+            return f"agent systems and {label} (most rows name no model)"
+        if self.unattributed:
+            return f"{label} ({self.unattributed} rows name no model)"
+        return label
+
+    @property
+    def unattributed(self) -> int:
+        """Rows the source published without naming a model."""
+        return sum(1 for n in self.model_names if not (n or "").strip())
+
+    def one_row_per_model(self) -> "BenchmarkScores":
+        """
+        Collapse several rows for one model into that model's score.
+
+        DECISION D6 (owner, 2026-09-24). A source often publishes one row
+        per CONFIGURATION rather than per model — Epoch's `Agent`,
+        `Edit format` and `Shots` columns, HF's `Precision`. Measuring
+        saturation over those rows measures scaffold and shot-count
+        variance as though it were spread between models: Terminal
+        Bench's top 20% was 41 rows drawn from 14 distinct models, one
+        contributing 10 of them, while the reading called itself "the top
+        20% of 204 frontier models".
+
+        THE RULE, in the order it is applied:
+
+        1. WHERE THE SOURCE DOCUMENTS ONE, FOLLOW IT. Epoch collapses
+           repeated runs of an identical configuration to their MEAN with
+           a standard error ("we run most models multiple times on each
+           benchmark ... we show a confidence interval of plus and minus
+           one standard error around the 'true' mean evaluation score",
+           epoch.ai/benchmarks/about), and collapses variation between
+           GRADERS to the BEST — visible in its own export, whose
+           `score_column` is literally "Best score (across scorers)" for
+           GPQA diamond, MATH level 5, SWE-Bench verified, SimpleQA
+           Verified and MirrorCode. Both are applied by Epoch BEFORE this
+           repo sees the data, so following them costs nothing here and
+           is recorded rather than re-implemented.
+
+        2. ACROSS DIFFERENT CONFIGURATIONS, TAKE THE MODEL'S BEST.
+           THIS PART IS A CHOICE, NOT A SOURCED RULE, and is marked as
+           such wherever it is reported. No source documents a rule for
+           agents, edit formats, shot counts or precision variants: the
+           HF FAQ explicitly declines to name a canonical row
+           ("Duplicates with identical precision and commit should be
+           reported" — different precisions are intended entries), and
+           Epoch documents nothing for them.
+           The argument for `best`: saturation asks whether a benchmark
+           still SEPARATES MODELS AT THE TOP, a model's best
+           configuration is the closest available proxy for what that
+           model can do, and it runs in the same direction as Epoch's own
+           best-across-scorers convention. The argument against is that a
+           weak scaffold measures the scaffold rather than the model, and
+           that is precisely why its result is discarded here.
+           `docs/CONFIG_ROWS.md` measured the choice's impact as small:
+           zero tier changes and about seven rank moves of 28, whichever
+           of best / worst / median / mean is used.
+
+        3. ROWS WITH NO MODEL ARE DROPPED (option vi). 188 rows across
+           ten benchmarks carry an empty name; for OSWorld that is 37 of
+           57, and they are agent-only submissions — "agi-0 (50 steps)",
+           "UI-TARS-2-2509 (100 steps)" — where the agent IS the system.
+           A score with no model attached is not a model's score. The
+           count removed is reported per benchmark rather than absorbed
+           silently, and `population_note` says when what remains is
+           still mostly agent systems.
+
+        A SET WITH NO ATTRIBUTION AT ALL COLLAPSES TO NOTHING, and so
+        becomes unmeasurable. That is deliberate and it is the
+        conservative direction: the alternative — keeping every row when
+        a source names no models — would mean a source that publishes
+        LESS information escapes the rule that a source publishing more
+        has to obey, which is the uncheckability-pays failure recorded
+        five times in CLAUDE.md section 3. No committed score set is in
+        this position today (checked 2026-09-24, all four sources name
+        their models), so the rule costs nothing now and is here to stop
+        a future source buying a free pass with missing data.
+
+        The collapsed set keeps each surviving model's LATEST date, so a
+        time-travelled reading still sees a model only once it existed.
+        """
+        keep: dict[str, int] = {}
+        best: dict[str, float] = {}
+        dates: dict[str, str] = {}
+        for index, value in enumerate(self.scores):
+            name = (self.model_names[index] if index < len(self.model_names) else "")
+            name = (name or "").strip()
+            if not name:
+                continue  # (3): a row with no model is not a model's score
+            date = self.model_dates[index] if index < len(self.model_dates) else ""
+            if name not in best or value > best[name]:  # (2): the model's best
+                best[name] = value
+                keep[name] = index
+            # A model's date is the latest at which it is known to exist.
+            if date and date > dates.get(name, ""):
+                dates[name] = date
+
+        names = list(best)
+        return BenchmarkScores(
+            benchmark_key=self.benchmark_key,
+            scores=[best[n] for n in names],
+            model_names=names,
+            model_dates=[dates.get(n, "") for n in names],
+            ceiling=self.ceiling,
+            random_baseline=self.random_baseline,
+            source=self.source,
+            normalization=self.normalization,
+        )
+
     def before(self, cutoff: str) -> "BenchmarkScores":
         """
         The same set restricted to models dated before `cutoff`.

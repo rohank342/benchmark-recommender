@@ -87,8 +87,33 @@ Only the last two are close to inert. This is the ceiling on how much
 any ranking here can mean, and it is reproduced in the README so a
 reader of the ranking sees it.
 
+**DECISION D6, 2026-09-24 — saturation is measured over MODELS.** A
+source often publishes one row per *configuration* (Epoch's `Agent`,
+`Edit format`, `Shots`; HF's `Precision`), and reading every row as a
+model made the top band measure scaffold and shot-count variance.
+`BenchmarkScores.one_row_per_model` is now the single definition of a
+model's score, used by saturation **and** by `cross_source`:
+
+1. where the source documents a rule, follow it (Epoch's mean across
+   repeated identical runs, best across graders — both already applied
+   upstream);
+2. across different configurations, take the model's **best** — *a
+   choice, not a sourced rule*, argued in `CONFIG_ROWS.md`;
+3. drop rows with no model name (188 of them);
+4. name the population accurately — `agent systems` where most rows
+   name no model.
+
+Effect: mean catalog health 49.1 → **45.7**, **22 of 28** rank
+positions move, **one tier change** (OSWorld `partial` → `thin`, 57 rows
+→ 9 models), saturation measured for **22 of 28**. `HEALTHY_SPREAD` is
+unchanged at 0.24, because it is 3 × the *maximum* cross-source scatter
+and that maximum is still GPQA Diamond's 0.0805.
+
 **`MIN_SATURATION_POPULATION` is the exception in that table, revised
-2026-09-23.** Its 13 rank moves are real but they all occur at one end
+2026-09-23 and narrowed again by D6 — the plateau is now 15–30 on model
+counts, with the threshold sitting exactly on its upper edge (at 31,
+FrontierCode's 30 models fall out). The figures in the next paragraph
+are the pre-D6 row counts and are superseded.** Its 13 rank moves are real but they all occur at one end
 of the range. Measured at finer steps, the parameter is **completely
 inert from 17 to 35 inclusive** — zero rank moves, zero tier changes,
 mean health 49.2 throughout — and the current value of 30 sits inside

@@ -75,9 +75,14 @@ NOT beat sorting by release date, which also gets 10 of 12.
 `probes/findings.py correlations`, across those twelve at the cutoff:
 
     r(age, kept)          -0.793    age predicts the decision
-    r(health, kept)       +0.502    the score predicts it much less well
-    r(saturation, kept)   -0.198    (was recorded +0.300 — sign flipped)
-    r(age, saturation)    +0.202    (was recorded +0.01)
+    r(health, kept)       +0.633    the score predicts it less well
+    r(saturation, kept)   -0.559
+    r(age, saturation)    +0.702
+
+D6 (2026-09-24) moved three of those, in the project's FAVOUR: pre-D6
+they read +0.502, -0.198 and +0.202. Age's own -0.793 did not move.
+NOTE WHAT THE FOURTH ONE MEANS: a saturation measure that tracks age
+MORE closely is closer to being an age proxy, not further from it.
 
 Saturation is not standing in for age, and it is not predicting the
 outcome either. AGE BEATS THE COMPOSITE SCORE ON THE DIRECT COMPARISON,
@@ -253,7 +258,7 @@ rate (wrong answer keys), reported saturation (only when unmeasurable).
 
 HEALTH IS NOT A CONSTANT — IT DECAYS EVERY DAY. Freshness is an age
 decay, so every health score falls as the clock advances, with no change
-to the repo. MEASURED 2026-09-23: mean catalog health falls 0.0286
+to the repo. MEASURED 2026-09-24: mean catalog health falls 0.0321
 points per day (`python probes/findings.py decay`; two adjacent as-of
 dates isolate it, since no evidence became public between them). So ANY
 HEALTH FIGURE IN A DOCUMENT IS EXACT ONLY ON THE DATE BESIDE IT, and
@@ -293,7 +298,7 @@ ALL FIGURES IN THIS SECTION RE-MEASURED 2026-09-22. The ones they
 replace are shown, because four of them had drifted and two had drifted
 far enough to reverse their meaning.
 
-Result: 10/12, separation lost by 26.9 points (was recorded 0.6), one
+Result: 10/12, separation lost by 25.1 points (was recorded 0.6, then 26.9 pre-D6), one
 inversion — MATH LEVEL 5, kept, below five retired benchmarks (was
 recorded as MMLU above MuSR; that is no longer the inversion). What
 matters more than the score:
@@ -301,9 +306,11 @@ matters more than the score:
 - Sorting by release date and calling the newer half "kept" ALSO gets
   10/12. The weighted factors add nothing over age on this test.
 - FRESHNESS ALONE gets 10/12 and loses separation by only 6.3 points,
-  against the full scorer's 26.9. Discrimination alone gets 6/12, which
-  is chance; reproducibility alone 6/12 at -60.0. On this test the
-  age-derived factor OUTPERFORMS all of them combined on the margin.
+  against the full scorer's 25.1. Discrimination alone gets 8/12 at
+  -18.2 (it was 6/12, chance, before D6); reproducibility alone 6/12 at
+  -60.0. On this test the age-derived factor STILL OUTPERFORMS all of
+  them combined on the margin, and that is the point — D6 improved
+  discrimination and did not change the conclusion.
 - Pairwise, ONLY 30 OF THE 36 retired-vs-kept pairs are valid: six span
   evidence tiers and are void, and all six involve MATH Level 5 (29
   models at the cutoff, therefore thin). On the 30 valid pairs the
@@ -609,6 +616,31 @@ This is the kind of thing worth hunting.
   rule-dependent. COUNTING INSTEAD OF ASSERTING IS NECESSARY AND NOT
   SUFFICIENT; the count is only as good as the grouping under it.
 
+- A DEFINITIONAL FIX CAN IMPROVE A TEST RESULT, AND THAT IS THE MOMENT
+  TO BE MOST CAREFUL. D6 was argued entirely from the structure of the
+  data — a source publishes one row per configuration, so rows are not
+  models — and was decided before its effect on any test was computed.
+  It then moved three headline figures IN THE PROJECT'S FAVOUR:
+  discrimination-alone 6/12 (chance) -> 8/12, r(health, kept) +0.502 ->
+  +0.633, r(saturation, kept) -0.198 -> -0.559. The standing rule
+  permits this (a change argued from evidence, with the test rerun
+  afterwards and reported) and it would forbid the reverse order.
+  WHAT KEPT IT HONEST: age's own -0.793 did not move, freshness alone
+  still beats discrimination alone on both correctness and margin, and
+  r(age, saturation) rose from +0.202 to +0.702 — which is BAD for the
+  scorer, because a saturation measure that tracks age more closely is
+  closer to being an age proxy. A favourable result from a principled
+  change is still a result to interrogate, not to bank.
+
+- A PROBE'S PROSE GOES STALE WHILE ITS NUMBERS UPDATE. After D6,
+  probes/findings.py still printed "measured saturation barely predicts
+  it at all" and "age and saturation are only weakly related" directly
+  beneath figures of -0.559 and +0.702, which contradicted both. The
+  numbers are recomputed every run; the sentences around them are not.
+  WHEN A DEFINITION CHANGES, RE-READ THE COMMENTARY, not just the
+  values — and prefer commentary that states a comparison the code can
+  still support over one that asserts a magnitude.
+
 - A STALE FIGURE CAN OVERTURN A RESULT, NOT JUST BLUR ONE. Section 4a
   recorded "pairwise: age 34/36, full trust 35/36" — the single figure
   anywhere in this brief where the scorer BEAT the calendar. Re-measured
@@ -794,7 +826,7 @@ SCORING — demoted and bounded:
    HEALTHY_SPREAD is no longer on this list as "mis-calibrated": it was
    re-derived from the measured noise floor to 0.24 (3 x the max of 8
    cross-source scatters). Its defensible range 0.084-0.358 still moves
-   mean catalog health 56.2 -> 43.8 and up to 19 of 28 ranks, and the
+   mean catalog health 54.1 -> 40.2 and up to 21 of 28 ranks, and the
    multiplier 3 is named in the code as the invented element.
 9. Saturation still depends on the submission pipeline; an archived
    leaderboard yields a frozen reading. No fix proposed.

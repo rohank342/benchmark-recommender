@@ -136,13 +136,25 @@ class AgreementReport:
 
 
 def _index_by_model(scores: BenchmarkScores) -> dict[str, float]:
-    """Mean score per matched model name."""
-    grouped: dict[str, list[float]] = {}
-    for name, score in zip(scores.model_names, scores.scores):
+    """
+    One score per matched model name.
+
+    THIS USED TO TAKE THE MEAN of a model's rows, which was the D5
+    defect — silently averaging incomparable configurations — sitting
+    inside the reproducibility factor. Since D6 it defers to
+    `BenchmarkScores.one_row_per_model`, so "a model's score" has ONE
+    definition in this repo and reproducibility and saturation cannot
+    drift apart. `match_key` still normalizes names across sources on
+    top of that; where two DIFFERENT model names normalize to the same
+    key, the best is kept, consistent with D6.
+    """
+    collapsed = scores.one_row_per_model()
+    index: dict[str, float] = {}
+    for name, score in zip(collapsed.model_names, collapsed.scores):
         key = match_key(name)
-        if key:
-            grouped.setdefault(key, []).append(score)
-    return {key: statistics.mean(values) for key, values in grouped.items()}
+        if key and score > index.get(key, float("-inf")):
+            index[key] = score
+    return index
 
 
 def compare_sources(a: BenchmarkScores, b: BenchmarkScores) -> AgreementReport:

@@ -1,5 +1,108 @@
 # Rows versus models
 
+> **DECISION D6 TAKEN 2026-09-24 — this document is now the evidence
+> behind an implemented rule, not an open investigation.** What was
+> decided, and what it did, is in the section immediately below. The
+> investigation that produced it follows unchanged, including its
+> figures, which were measured under the OLD definition and are marked
+> superseded where D6 moved them.
+
+---
+
+## D6 — what was decided, and what it changed
+
+**The rule, applied in this order** (`BenchmarkScores.one_row_per_model`,
+one function used by saturation *and* by `cross_source`):
+
+1. **Where the source documents a rule, follow it.** Epoch collapses
+   repeated runs of an identical configuration to their **mean** with a
+   standard error, and variation between **graders to the best** — its
+   export's `score_column` is literally `"Best score (across scorers)"`
+   for five benchmarks. Both are applied by Epoch before this repo sees
+   the data, so they are recorded rather than re-implemented.
+2. **Across different configurations, take each model's BEST entry.**
+   **This part is a choice, not a sourced rule.** No source documents
+   one for agents, edit formats, shot counts or precision: the HF FAQ
+   explicitly declines to name a canonical row, and Epoch documents
+   nothing. The argument for `best`: saturation asks whether a benchmark
+   still separates models *at the top*, a model's best configuration is
+   the closest available proxy for what it can do, and it runs in the
+   same direction as Epoch's own best-across-scorers convention. The
+   argument against: a weak scaffold measures the scaffold, which is
+   exactly why its result is discarded.
+3. **Rows with no model name are dropped** (option vi). A score with no
+   model attached is not a model's score.
+4. **Every reading names its population accurately** (option v). Where
+   most rows name no model, it says `agent systems`, not `models`.
+
+### What it removed, per benchmark
+
+| benchmark | rows | dropped | models | ≥30? |
+|---|---:|---:|---:|:--:|
+| **OSWorld** | 57 | **37** | **9** | **NO** |
+| GSM8K | 235 | 65 | 93 | yes |
+| MMLU | 249 | 32 | 136 | yes |
+| HellaSwag | 135 | 22 | 76 | yes |
+| ARC | 142 | 8 | 77 | yes |
+| Winogrande | 145 | 8 | 80 | yes |
+| Aider polyglot | 77 | 5 | 71 | yes |
+| FrontierCode | 35 | 5 | **30** | yes, exactly |
+| BIG-Bench Hard | 92 | 4 | 50 | yes |
+| Terminal Bench | 204 | 2 | 59 | yes |
+
+**188 rows dropped in total. One benchmark changes tier: OSWorld,
+`partial` → `thin`.** 37 of its 57 rows were agent-only submissions, and
+the 9 models that remain are far below the 30-model minimum, so its
+saturation is now unmeasurable. That is the honest state of that entry,
+not a loss.
+
+### Catalog impact
+
+| | before D6 | after D6 |
+|---|---:|---:|
+| mean catalog health | 49.1 | **45.7** |
+| rank positions changed | — | **22 of 28** |
+| tier changes | — | **1** (OSWorld) |
+| saturation measured | 23 of 28 | **22 of 28** |
+
+**The 22 rank moves are larger than this document's investigation
+predicted (~7).** That estimate measured *collapsing alone*; dropping
+the 188 unattributed rows is the other half of D6 and it moves more.
+Recorded because the rationale given for the choice cited the smaller
+figure.
+
+Biggest movers: ARC 53.1 → 34.5, GSM8K 40.8 → 24.2, Winogrande
+56.0 → 48.1, TriviaQA 15.5 → 9.9. All fall, because removing
+configuration spread from the top band makes these benchmarks read as
+**more** saturated.
+
+### `HEALTHY_SPREAD` did not move
+
+It is derived as 3 × the **maximum** cross-source scatter. Individual
+scatters changed (median 0.0278 → 0.0348) but the maximum is still GPQA
+Diamond's **0.0805**, so 3 × max = 0.2416 → **0.24, unchanged**. No
+re-derivation, and no new choice.
+
+### The plateau narrowed, and the threshold is now on its edge
+
+| counted by | plateau |
+|---|---|
+| rows *(superseded)* | 17–35 |
+| models, blanks kept *(superseded)* | 15–33 |
+| **models, D6** | **15–30** |
+
+`MIN_SATURATION_POPULATION = 30` now sits **exactly on the upper edge**:
+at 31, FrontierCode (**30 models**) falls out. Headroom above is
+**zero**, where the earlier investigation reported 3–5. SWE-Bench
+Verified is at 33 and GSO-Bench at 38.
+
+**This weakens the "comfortable plateau" conclusion of
+`POPULATION_CLIFF.md`**, which is corrected there.
+
+---
+
+## The investigation, as run — figures below predate D6
+
 **Investigation only. No scoring change, and no second forward-test seal.**
 All figures measured 2026-09-23 with `python probes/config_rows.py`
 unless another command is named.

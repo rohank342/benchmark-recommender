@@ -14,7 +14,7 @@ composite score.
 
 **Established, and reproducible from the committed data:**
 
-- **Measured saturation** for 23 of 28, computed from real score
+- **Measured saturation** for 22 of 28, computed from real score
   distributions, each labelled with the model population it was measured
   on and the number of models behind it.
 - **Cross-source agreement** for 8 of 28 — the same models scored by two
@@ -35,18 +35,17 @@ than release date does.** Three tests have been run to a conclusion:
 |---|---|
 | **HF retirement backtest** (June 2024, 12 benchmarks) | **RETIRED 2026-09-22 as a discriminating test.** On the 30 comparisons that are actually valid the scorer gets 30/30 — **and so does sorting by release date.** It cannot separate them and never will: that is a property of these twelve benchmarks. Kept as a regression check. |
 | **Candidate 1** (OpenAI abandons SWE-Bench Verified) | **Not a valid comparison.** The two benchmarks are in different evidence tiers — 18 models against 196. Exhausted as a test. |
-| **Hindcast** (does trust at T predict later saturation?) | 2 of 4 discordant pairs — a coin flip. Declared descriptive before it was run. |
+| **Hindcast** (does trust at T predict later saturation?) | 2 of 3 discordant pairs. Declared descriptive before it was run. |
 
 On the backtest's twelve benchmarks, measured 2026-09-23
 (`python probes/findings.py correlations`):
 
 - **Release date predicts HF's retire/keep decision at r = −0.793.** The
-  composite health score predicts it at **+0.502** and measured
+  composite health score predicts it at **+0.633** and measured
   saturation at **−0.198**. Age predicts the decision better than the
   score built to predict it.
-- **Measured saturation alone scores 6/12 on the backtest — exactly
-  chance.** Freshness alone, the age-derived factor, scores 10/12 and
-  loses separation by 6.3 points against the full scorer's 26.9
+- **Measured saturation alone scores 8/12 on the backtest.** Freshness alone, the age-derived factor, scores 10/12 and
+  loses separation by 6.3 points against the full scorer's 25.1
   (`python backtest.py --sweep`).
 
 > ⚠️ **Do not quote the backtest's 30/30.** The baseline it is meant to
@@ -144,7 +143,7 @@ committed data:
 
 | | coverage |
 |---|---|
-| Saturation (the `discrimination` factor) | 23 of 28 benchmarks |
+| Saturation (the `discrimination` factor) | 22 of 28 benchmarks |
 | Cross-source agreement (`reproducibility`) | 8 of 28 |
 
 **Curated** — read out of papers and reports by a human, cited in each entry's
@@ -176,7 +175,7 @@ anybody's finding:
   leakage half-life, the penalty curves. `HEALTHY_SPREAD` was derived from
   the measured noise floor on 2026-09-22 (0.24) after seven months of being
   a chosen number; **its defensible range is 0.084–0.358, across which mean
-  catalog health moves 12 points (56.2 → 43.8) and up to 19 of 28
+  catalog health moves 14 points (54.1 → 40.2) and up to 21 of 28
   benchmarks change rank.**
 
 The UI reports `measured` / `curated` / `unknown` per factor, per benchmark,
@@ -337,5 +336,5 @@ for the 30-model threshold, which is a cliff rather than a taper.
 On the twelve benchmarks of the retirement test, measured 2026-09-22
 (`python probes/findings.py correlations`): release date predicts HF's
 retire/keep decision at **r = −0.793**, the composite health score at
-**+0.502**, and measured saturation at **−0.198**. **Age predicts the
+**+0.633**, and measured saturation at **−0.559**. **Age predicts the
 decision better than the score built to predict it.**

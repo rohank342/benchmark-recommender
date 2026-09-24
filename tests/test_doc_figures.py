@@ -249,7 +249,7 @@ FIGURES: list[Figure] = [
         "cross-source scatter, max",
         (F, "noise"),
         r"max ([\d.]+)\n",
-        ((r"docs/FINDINGS.md", r"mean 0\.0370   max ([\d.]+)"),),
+        ((r"docs/FINDINGS.md", r"mean 0\.0390   max ([\d.]+)"),),
     ),
     Figure(
         "cross-source scatter, median",
@@ -385,7 +385,7 @@ FIGURES: list[Figure] = [
         (F, "correlations"),
         r"r\(age, measured saturation\)\s+([+-][\d.]+)",
         (
-            (r"docs/FINDINGS.md", r"`r\(age, saturation\) = ([+-][\d.]+)`"),
+            (r"docs/FINDINGS.md", r"\*\*\+0\.633, −0\.559 and ([+−-][\d.]+)\*\*"),
             (r"CLAUDE.md", r"r\(age, saturation\)\s+([+-][\d.]+)"),
         ),
     ),
@@ -416,8 +416,8 @@ FIGURES: list[Figure] = [
     Figure(
         "discrimination alone, separation gap",
         ("backtest.py", "--sweep"),
-        r"discrimination\s+6/12\s+False\s+([+-][\d.]+)",
-        ((r"docs/FINDINGS.md", r"discrimination alone \(measured saturation\) \| 6/12 \| ([+−-][\d.]+)"),),
+        r"discrimination\s+8/12\s+False\s+([+-][\d.]+)",
+        ((r"docs/FINDINGS.md", r"discrimination alone \(measured saturation\) \| 8/12 \| ([+−-][\d.]+)"),),
     ),
     Figure(
         "reproducibility alone, separation gap",
@@ -433,8 +433,8 @@ FIGURES: list[Figure] = [
         r"0\.084\s+\d+\s+\d+\s+([\d.]+)",
         (
             (r"docs/FINDINGS.md", r"mean catalog health moves from \*\*([\d.]+) to"),
-            (r"README.md", r"catalog health moves 12 points \(([\d.]+) →"),
-            (r"CLAUDE.md", r"mean catalog health ([\d.]+) -> 43\.8"),
+            (r"README.md", r"catalog health moves 14 points \(([\d.]+) →"),
+            (r"CLAUDE.md", r"mean catalog health ([\d.]+) -> 40\.2"),
         ),
         tolerance=1.0,
         decays=True,
@@ -446,9 +446,9 @@ FIGURES: list[Figure] = [
          "0.084", "0.197", "0.24", "0.358"),
         r"0\.358\s+\d+\s+\d+\s+([\d.]+)",
         (
-            (r"docs/FINDINGS.md", r"moves from \*\*56\.2 to ([\d.]+)\*\*"),
-            (r"README.md", r"56\.2 → ([\d.]+)\)"),
-            (r"CLAUDE.md", r"56\.2 -> ([\d.]+)"),
+            (r"docs/FINDINGS.md", r"moves from \*\*54\.1 to ([\d.]+)\*\*"),
+            (r"README.md", r"54\.1 → ([\d.]+)\)"),
+            (r"CLAUDE.md", r"54\.1 -> ([\d.]+)"),
         ),
         tolerance=1.0,
         decays=True,
@@ -462,14 +462,14 @@ FIGURES: list[Figure] = [
         # CLAUDE.md section 7 was rewritten around the plateau on
         # 2026-09-23 and no longer states the 40-threshold figures;
         # FINDINGS.md and POPULATION_CLIFF.md carry them.
-        ((r"docs/FINDINGS.md", r"changes \*\*(\d+) tiers and 13 ranks\*\*"),),
+        ((r"docs/FINDINGS.md", r"changes \*\*(\d+) tiers and 16 ranks\*\*"),),
     ),
     Figure(
         "MIN_SATURATION_POPULATION at 40, rank moves",
         ("probes/impact.py", "parameter", "MIN_SATURATION_POPULATION",
          "20", "25", "30", "35", "40"),
         r"\n\s+40\s+(\d+)\s+\d+\s+[\d.]+",
-        ((r"docs/FINDINGS.md", r"changes \*\*3 tiers and (\d+) ranks\*\*"),),
+        ((r"docs/FINDINGS.md", r"changes \*\*4 tiers and (\d+) ranks\*\*"),),
     ),
     # ---- [12] health decay ----------------------------------------------
     Figure(
@@ -507,8 +507,8 @@ FIGURES: list[Figure] = [
         ("probes/hindcast.py",),
         r"scorer right on (\d+) of \d+ discordant",
         (
-            (r"docs/FINDINGS.md", r"\*\*(\d+) of 4 discordant pairs\*\*"),
-            (r"README.md", r"\| (\d+) of 4 discordant pairs"),
+            (r"docs/FINDINGS.md", r"\*\*(\d+) of 3 discordant pairs\*\*"),
+            (r"README.md", r"\| (\d+) of 3 discordant pairs"),
         ),
     ),
     Figure(

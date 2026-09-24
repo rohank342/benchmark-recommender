@@ -388,11 +388,20 @@ def correlations() -> None:
         f"(n={len(age_sat)})"
     )
     print(
-        "\n  Age predicts the decision far better than the composite health\n"
-        "  score does, and measured saturation -- the factor carrying the\n"
-        "  most weight -- barely predicts it at all. Age and saturation are\n"
-        "  also only weakly related, so saturation is not standing in for\n"
-        "  age; it is adding little on this set either way."
+        "\n  AGE STILL PREDICTS THE DECISION BEST. That is the headline and\n"
+        "  it has not changed.\n"
+        "\n  This commentary was rewritten 2026-09-24, because D6 moved the\n"
+        "  numbers and the old wording -- 'saturation barely predicts it at\n"
+        "  all', 'age and saturation are only weakly related' -- became\n"
+        "  false against the figures printed above it. Under the previous\n"
+        "  row-counting definition those read -0.198 and +0.202; measured\n"
+        "  over models they are stronger.\n"
+        "\n  What that does NOT mean. r(age, saturation) rising is not good\n"
+        "  news for the scorer: a saturation measure that tracks age\n"
+        "  closely is closer to being an age proxy, not further from it.\n"
+        "  The question this project cannot answer is whether measured\n"
+        "  saturation carries signal age does not, and a stronger\n"
+        "  correlation WITH age makes that harder to establish, not easier."
     )
 
 
