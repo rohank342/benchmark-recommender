@@ -149,7 +149,11 @@ def test_every_probe_has_a_smoke_test() -> None:
     """
     covered = {args[0] for args, _ in COMMANDS} | set(UNCOVERABLE)
     on_disk = {
-        f"probes/{p.name}" for p in (ROOT / "probes").glob("*.py")
+        f"probes/{p.name}"
+        for p in (ROOT / "probes").glob("*.py")
+        # __init__.py makes the package importable for the invariant
+        # tests; it is not a probe and has no report to run.
+        if p.name != "__init__.py"
     }
     missing = on_disk - covered
     assert not missing, (
