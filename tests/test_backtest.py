@@ -370,6 +370,62 @@ class TestSealedForwardTest:
             == "4278081a7bebece9483cf1ec53d399d7aa3aeb137a652dcf5874c31eb02c562f"
         )
 
+    def test_the_primary_seal_is_byte_for_byte_unchanged(self):
+        """
+        The PRIMARY seal, created 2026-09-24 under decision D6 with
+        saturation measured over distinct models. Pinned the same way as
+        the original: payload digest and whole-file digest, both as
+        literals, so it cannot be edited even by a session that also
+        updates its hash.
+
+        Per FORWARD_TEST.md Amendment 1 both seals are evaluated in 2028
+        and reported side by side, whatever they show.
+        """
+        import hashlib
+        import json
+        import pathlib
+
+        path = (
+            pathlib.Path(__file__).resolve().parent.parent
+            / "data" / "forward_test" / "sealed_2026-09-24.json"
+        )
+        assert (
+            hashlib.sha256(path.read_bytes()).hexdigest()
+            == "f1f4cd7d7a3402871b7b42cb21ef6215691a6cbdad61e51ff5e3e3ad4e096fe9"
+        ), "the primary seal has been modified; seals are immutable"
+        sealed = json.loads(path.read_text())
+        assert (
+            sealed["sha256_of_payload_without_this_field"]
+            == "fa6cda364065fde341eddd35792e450a34c6af5dd564cb06c473d61002e1c46b"
+        )
+        assert sealed["definition"]["population_unit"] == "distinct model"
+        assert len(sealed["benchmarks"]) == 28
+
+    def test_the_two_seals_differ_only_in_how_a_population_is_counted(self):
+        """
+        The thing a 2028 reader needs to trust: the seals were taken
+        under the same parameters, so a difference between them is the
+        population definition and not a moved constant.
+        """
+        import json
+        import pathlib
+
+        root = pathlib.Path(__file__).resolve().parent.parent / "data" / "forward_test"
+        original = json.loads((root / "sealed_2026-09-22.json").read_text())
+        primary = json.loads((root / "sealed_2026-09-24.json").read_text())
+        shared = set(original["parameters"]) & set(primary["parameters"])
+        differing = {
+            k: (original["parameters"][k], primary["parameters"][k])
+            for k in shared
+            if original["parameters"][k] != primary["parameters"][k]
+        }
+        assert not differing, (
+            f"the seals differ in a PARAMETER, not only in population "
+            f"counting: {differing}. Amendment 1 says both are scored "
+            "under their own sealed parameters, but a difference here "
+            "would mean the comparison is confounded."
+        )
+
     def test_every_parameter_needed_to_score_it_was_sealed(self):
         sealed, _ = self._sealed()
         params = sealed["parameters"]

@@ -84,6 +84,13 @@ COMMANDS: list[tuple[list[str], tuple[str, ...]]] = [
         ("MIN_SATURATION_POPULATION", "tier changes"),
     ),
     (["probes/musr_baseline.py"], ("COMMITTED", "random_baseline")),
+    # Verify-only by default; --write is never run by CI, and refuses to
+    # overwrite an existing dated seal in any case.
+    (["probes/seal_forward_test.py"], ("COMMITTED FORWARD-TEST SEALS", "intact")),
+    (
+        ["probes/score_forward_test.py", "--dry-run"],
+        ("DRY RUN", "CIRCULAR", "sealed_2026-09-24.json"),
+    ),
 ]
 
 # Commands cited in documents that CANNOT be smoke-tested here, each with

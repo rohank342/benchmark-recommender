@@ -1,0 +1,1998 @@
+{
+  "benchmarks": [
+    {
+      "evidence": {
+        "curated": [
+          "freshness",
+          "reproducibility"
+        ],
+        "dropped": [
+          "reproducibility"
+        ],
+        "factors_possible": 3,
+        "factors_used": 2,
+        "measured": [
+          "discrimination"
+        ]
+      },
+      "factors": [
+        {
+          "basis": "measured",
+          "name": "discrimination",
+          "value": 0.4430750000000001,
+          "weight": 0.6666666666666666
+        },
+        {
+          "basis": "curated",
+          "name": "freshness",
+          "value": 0.5435738450361919,
+          "weight": 0.3333333333333333
+        },
+        {
+          "basis": "curated",
+          "name": "reproducibility",
+          "value": 0.4,
+          "weight": 0.0
+        },
+        {
+          "basis": "curated",
+          "name": "specificity",
+          "value": 0.7,
+          "weight": 1.0
+        }
+      ],
+      "health": 47.7,
+      "key": "aider_polyglot",
+      "measured_saturation": 0.5569249999999999,
+      "models_measured": 71,
+      "name": "Aider polyglot",
+      "penalties": [],
+      "population": "frontier models (5 rows name no model)",
+      "primary_source": "epoch_ai",
+      "release_date": "2024-12-21",
+      "relevance": 70.0,
+      "rows_before_collapsing": 77,
+      "saturation_by_source": {
+        "epoch_ai": {
+          "models": 71,
+          "population": "frontier models (5 rows name no model)",
+          "rows": 77,
+          "saturation": 0.5569249999999999
+        }
+      },
+      "specificity_dimensions": [
+        1,
+        2,
+        2,
+        1,
+        1
+      ],
+      "tier": "partial"
+    },
+    {
+      "evidence": {
+        "curated": [
+          "freshness"
+        ],
+        "dropped": [],
+        "factors_possible": 3,
+        "factors_used": 3,
+        "measured": [
+          "discrimination",
+          "reproducibility"
+        ]
+      },
+      "factors": [
+        {
+          "basis": "measured",
+          "name": "discrimination",
+          "value": 0.4458466666666666,
+          "weight": 0.5
+        },
+        {
+          "basis": "curated",
+          "name": "freshness",
+          "value": 0.05188663727196027,
+          "weight": 0.25
+        },
+        {
+          "basis": "measured",
+          "name": "reproducibility",
+          "value": 0.43545000000000056,
+          "weight": 0.25
+        },
+        {
+          "basis": "curated",
+          "name": "specificity",
+          "value": 0.3,
+          "weight": 1.0
+        }
+      ],
+      "health": 34.5,
+      "key": "arc",
+      "measured_saturation": 0.5541533333333334,
+      "models_measured": 77,
+      "name": "ARC (AI2 Reasoning Challenge)",
+      "penalties": [
+        "WARNING: contamination reported but never quantified \u2014 no penalty applied"
+      ],
+      "population": "frontier models (8 rows name no model)",
+      "primary_source": "epoch_ai",
+      "release_date": "2018-03-14",
+      "relevance": 30.0,
+      "rows_before_collapsing": 142,
+      "saturation_by_source": {
+        "epoch_ai": {
+          "models": 77,
+          "population": "frontier models (8 rows name no model)",
+          "rows": 142,
+          "saturation": 0.5541533333333334
+        },
+        "open_llm_leaderboard_v1": {
+          "models": 6896,
+          "population": "open community models (HF leaderboard v1)",
+          "rows": 7260,
+          "saturation": 0.21799546565143824
+        }
+      },
+      "specificity_dimensions": [
+        2,
+        0,
+        1,
+        0,
+        0
+      ],
+      "tier": "full"
+    },
+    {
+      "evidence": {
+        "curated": [
+          "freshness"
+        ],
+        "dropped": [],
+        "factors_possible": 3,
+        "factors_used": 3,
+        "measured": [
+          "discrimination",
+          "reproducibility"
+        ]
+      },
+      "factors": [
+        {
+          "basis": "measured",
+          "name": "discrimination",
+          "value": 0.7208351111111113,
+          "weight": 0.5
+        },
+        {
+          "basis": "curated",
+          "name": "freshness",
+          "value": 0.25527726927873384,
+          "weight": 0.25
+        },
+        {
+          "basis": "measured",
+          "name": "reproducibility",
+          "value": 0.2529875000000006,
+          "weight": 0.25
+        },
+        {
+          "basis": "curated",
+          "name": "specificity",
+          "value": 0.3,
+          "weight": 1.0
+        }
+      ],
+      "health": 48.7,
+      "key": "bbh",
+      "measured_saturation": 0.2791648888888887,
+      "models_measured": 50,
+      "name": "BIG-Bench Hard",
+      "penalties": [
+        "WARNING: contamination reported but never quantified \u2014 no penalty applied"
+      ],
+      "population": "frontier models (4 rows name no model)",
+      "primary_source": "epoch_ai",
+      "release_date": "2022-10-17",
+      "relevance": 30.0,
+      "rows_before_collapsing": 92,
+      "saturation_by_source": {
+        "epoch_ai": {
+          "models": 50,
+          "population": "frontier models (4 rows name no model)",
+          "rows": 92,
+          "saturation": 0.2791648888888887
+        },
+        "open_llm_leaderboard_v2": {
+          "models": 4496,
+          "population": "open community models (HF leaderboard v2)",
+          "rows": 4575,
+          "saturation": 0.1847111272525028
+        }
+      },
+      "specificity_dimensions": [
+        1,
+        1,
+        0,
+        0,
+        1
+      ],
+      "tier": "full"
+    },
+    {
+      "evidence": {
+        "curated": [
+          "freshness",
+          "reproducibility"
+        ],
+        "dropped": [
+          "reproducibility"
+        ],
+        "factors_possible": 3,
+        "factors_used": 2,
+        "measured": [
+          "discrimination"
+        ]
+      },
+      "factors": [
+        {
+          "basis": "measured",
+          "name": "discrimination",
+          "value": 0.2190340947873448,
+          "weight": 0.6666666666666666
+        },
+        {
+          "basis": "curated",
+          "name": "freshness",
+          "value": 0.933387430999292,
+          "weight": 0.3333333333333333
+        },
+        {
+          "basis": "curated",
+          "name": "reproducibility",
+          "value": 0.4,
+          "weight": 0.0
+        },
+        {
+          "basis": "curated",
+          "name": "specificity",
+          "value": 0.9,
+          "weight": 1.0
+        }
+      ],
+      "health": 45.7,
+      "key": "deepswe",
+      "measured_saturation": 0.7809659052126552,
+      "models_measured": 69,
+      "name": "DeepSWE",
+      "penalties": [],
+      "population": "frontier models",
+      "primary_source": "epoch_ai",
+      "release_date": "2026-05-26",
+      "relevance": 90.0,
+      "rows_before_collapsing": 69,
+      "saturation_by_source": {
+        "epoch_ai": {
+          "models": 69,
+          "population": "frontier models",
+          "rows": 69,
+          "saturation": 0.7809659052126552
+        }
+      },
+      "specificity_dimensions": [
+        1,
+        2,
+        2,
+        2,
+        2
+      ],
+      "tier": "partial"
+    },
+    {
+      "evidence": {
+        "curated": [
+          "freshness",
+          "reproducibility"
+        ],
+        "dropped": [
+          "discrimination",
+          "reproducibility"
+        ],
+        "factors_possible": 3,
+        "factors_used": 1,
+        "measured": []
+      },
+      "factors": [
+        {
+          "basis": "unknown",
+          "name": "discrimination",
+          "value": 0.5,
+          "weight": 0.0
+        },
+        {
+          "basis": "curated",
+          "name": "freshness",
+          "value": 0.2631527912705846,
+          "weight": 1.0
+        },
+        {
+          "basis": "curated",
+          "name": "reproducibility",
+          "value": 0.4,
+          "weight": 0.0
+        },
+        {
+          "basis": "curated",
+          "name": "specificity",
+          "value": 0.7,
+          "weight": 1.0
+        }
+      ],
+      "health": 26.3,
+      "key": "ds_1000",
+      "measured_saturation": null,
+      "models_measured": 0,
+      "name": "DS-1000",
+      "penalties": [],
+      "population": "",
+      "primary_source": "",
+      "release_date": "2022-11-18",
+      "relevance": 70.0,
+      "rows_before_collapsing": 0,
+      "saturation_by_source": {},
+      "specificity_dimensions": [
+        2,
+        2,
+        2,
+        1,
+        0
+      ],
+      "tier": "thin"
+    },
+    {
+      "evidence": {
+        "curated": [
+          "freshness",
+          "reproducibility"
+        ],
+        "dropped": [
+          "reproducibility"
+        ],
+        "factors_possible": 3,
+        "factors_used": 2,
+        "measured": [
+          "discrimination"
+        ]
+      },
+      "factors": [
+        {
+          "basis": "measured",
+          "name": "discrimination",
+          "value": 0.33342000000000005,
+          "weight": 0.6666666666666666
+        },
+        {
+          "basis": "curated",
+          "name": "freshness",
+          "value": 0.9403259756440089,
+          "weight": 0.3333333333333333
+        },
+        {
+          "basis": "curated",
+          "name": "reproducibility",
+          "value": 0.4,
+          "weight": 0.0
+        },
+        {
+          "basis": "curated",
+          "name": "specificity",
+          "value": 1.0,
+          "weight": 1.0
+        }
+      ],
+      "health": 53.6,
+      "key": "frontiercode",
+      "measured_saturation": 0.66658,
+      "models_measured": 30,
+      "name": "FrontierCode",
+      "penalties": [],
+      "population": "frontier models (5 rows name no model)",
+      "primary_source": "epoch_ai",
+      "release_date": "2026-06-08",
+      "relevance": 100.0,
+      "rows_before_collapsing": 35,
+      "saturation_by_source": {
+        "epoch_ai": {
+          "models": 30,
+          "population": "frontier models (5 rows name no model)",
+          "rows": 35,
+          "saturation": 0.66658
+        }
+      },
+      "specificity_dimensions": [
+        2,
+        2,
+        2,
+        2,
+        2
+      ],
+      "tier": "partial"
+    },
+    {
+      "evidence": {
+        "curated": [
+          "freshness"
+        ],
+        "dropped": [],
+        "factors_possible": 3,
+        "factors_used": 3,
+        "measured": [
+          "discrimination",
+          "reproducibility"
+        ]
+      },
+      "factors": [
+        {
+          "basis": "measured",
+          "name": "discrimination",
+          "value": 0.335763525690119,
+          "weight": 0.5
+        },
+        {
+          "basis": "curated",
+          "name": "freshness",
+          "value": 0.3728616512044802,
+          "weight": 0.25
+        },
+        {
+          "basis": "measured",
+          "name": "reproducibility",
+          "value": 0.0,
+          "weight": 0.25
+        },
+        {
+          "basis": "curated",
+          "name": "specificity",
+          "value": 0.2,
+          "weight": 1.0
+        }
+      ],
+      "health": 26.1,
+      "key": "gpqa_diamond",
+      "measured_saturation": 0.664236474309881,
+      "models_measured": 313,
+      "name": "GPQA Diamond",
+      "penalties": [],
+      "population": "frontier models",
+      "primary_source": "epoch_ai",
+      "release_date": "2023-11-20",
+      "relevance": 20.0,
+      "rows_before_collapsing": 313,
+      "saturation_by_source": {
+        "epoch_ai": {
+          "models": 313,
+          "population": "frontier models",
+          "rows": 313,
+          "saturation": 0.664236474309881
+        },
+        "open_llm_leaderboard_v2": {
+          "models": 4496,
+          "population": "open community models (HF leaderboard v2)",
+          "rows": 4575,
+          "saturation": 0.19032682342108512
+        }
+      },
+      "specificity_dimensions": [
+        1,
+        0,
+        1,
+        0,
+        0
+      ],
+      "tier": "full"
+    },
+    {
+      "evidence": {
+        "curated": [
+          "freshness"
+        ],
+        "dropped": [],
+        "factors_possible": 3,
+        "factors_used": 3,
+        "measured": [
+          "discrimination",
+          "reproducibility"
+        ]
+      },
+      "factors": [
+        {
+          "basis": "measured",
+          "name": "discrimination",
+          "value": 0.3692864912280702,
+          "weight": 0.5
+        },
+        {
+          "basis": "curated",
+          "name": "freshness",
+          "value": 0.18223040747159447,
+          "weight": 0.25
+        },
+        {
+          "basis": "measured",
+          "name": "reproducibility",
+          "value": 0.13272499999999998,
+          "weight": 0.25
+        },
+        {
+          "basis": "curated",
+          "name": "specificity",
+          "value": 0.4,
+          "weight": 1.0
+        }
+      ],
+      "health": 24.2,
+      "key": "gsm8k",
+      "measured_saturation": 0.6307135087719298,
+      "models_measured": 93,
+      "name": "GSM8K",
+      "penalties": [
+        "scores fall 5% on a difficulty-matched fresh set",
+        "2% of items are mislabelled or misgraded"
+      ],
+      "population": "frontier models (65 rows name no model)",
+      "primary_source": "epoch_ai",
+      "release_date": "2021-10-27",
+      "relevance": 40.0,
+      "rows_before_collapsing": 235,
+      "saturation_by_source": {
+        "epoch_ai": {
+          "models": 93,
+          "population": "frontier models (65 rows name no model)",
+          "rows": 235,
+          "saturation": 0.6307135087719298
+        },
+        "open_llm_leaderboard_v1": {
+          "models": 6896,
+          "population": "open community models (HF leaderboard v1)",
+          "rows": 7260,
+          "saturation": 0.27869165647208116
+        }
+      },
+      "specificity_dimensions": [
+        1,
+        1,
+        1,
+        0,
+        1
+      ],
+      "tier": "full"
+    },
+    {
+      "evidence": {
+        "curated": [
+          "freshness",
+          "reproducibility"
+        ],
+        "dropped": [
+          "reproducibility"
+        ],
+        "factors_possible": 3,
+        "factors_used": 2,
+        "measured": [
+          "discrimination"
+        ]
+      },
+      "factors": [
+        {
+          "basis": "measured",
+          "name": "discrimination",
+          "value": 0.5815872916666668,
+          "weight": 0.6666666666666666
+        },
+        {
+          "basis": "curated",
+          "name": "freshness",
+          "value": 0.6321575934515264,
+          "weight": 0.3333333333333333
+        },
+        {
+          "basis": "curated",
+          "name": "reproducibility",
+          "value": 0.4,
+          "weight": 0.0
+        },
+        {
+          "basis": "curated",
+          "name": "specificity",
+          "value": 1.0,
+          "weight": 1.0
+        }
+      ],
+      "health": 59.8,
+      "key": "gso_bench",
+      "measured_saturation": 0.4184127083333332,
+      "models_measured": 38,
+      "name": "GSO-Bench",
+      "penalties": [],
+      "population": "frontier models",
+      "primary_source": "epoch_ai",
+      "release_date": "2025-05-29",
+      "relevance": 100.0,
+      "rows_before_collapsing": 38,
+      "saturation_by_source": {
+        "epoch_ai": {
+          "models": 38,
+          "population": "frontier models",
+          "rows": 38,
+          "saturation": 0.4184127083333332
+        }
+      },
+      "specificity_dimensions": [
+        2,
+        2,
+        2,
+        2,
+        2
+      ],
+      "tier": "partial"
+    },
+    {
+      "evidence": {
+        "curated": [
+          "freshness"
+        ],
+        "dropped": [],
+        "factors_possible": 3,
+        "factors_used": 3,
+        "measured": [
+          "discrimination",
+          "reproducibility"
+        ]
+      },
+      "factors": [
+        {
+          "basis": "measured",
+          "name": "discrimination",
+          "value": 0.46670622222222224,
+          "weight": 0.5
+        },
+        {
+          "basis": "curated",
+          "name": "freshness",
+          "value": 0.0781244429570602,
+          "weight": 0.25
+        },
+        {
+          "basis": "measured",
+          "name": "reproducibility",
+          "value": 0.8809124999999992,
+          "weight": 0.25
+        },
+        {
+          "basis": "curated",
+          "name": "specificity",
+          "value": 0.1,
+          "weight": 1.0
+        }
+      ],
+      "health": 28.4,
+      "key": "hellaswag",
+      "measured_saturation": 0.5332937777777778,
+      "models_measured": 76,
+      "name": "HellaSwag",
+      "penalties": [
+        "WARNING: contamination reported but never quantified \u2014 no penalty applied",
+        "36% of items are mislabelled or misgraded"
+      ],
+      "population": "frontier models (22 rows name no model)",
+      "primary_source": "epoch_ai",
+      "release_date": "2019-05-19",
+      "relevance": 10.0,
+      "rows_before_collapsing": 135,
+      "saturation_by_source": {
+        "epoch_ai": {
+          "models": 76,
+          "population": "frontier models (22 rows name no model)",
+          "rows": 135,
+          "saturation": 0.5332937777777778
+        },
+        "open_llm_leaderboard_v1": {
+          "models": 6896,
+          "population": "open community models (HF leaderboard v1)",
+          "rows": 7260,
+          "saturation": 0.7125018558375635
+        }
+      },
+      "specificity_dimensions": [
+        0,
+        0,
+        1,
+        0,
+        0
+      ],
+      "tier": "full"
+    },
+    {
+      "evidence": {
+        "curated": [
+          "freshness",
+          "reproducibility"
+        ],
+        "dropped": [
+          "reproducibility"
+        ],
+        "factors_possible": 3,
+        "factors_used": 2,
+        "measured": [
+          "discrimination"
+        ]
+      },
+      "factors": [
+        {
+          "basis": "measured",
+          "name": "discrimination",
+          "value": 0.6458467553688143,
+          "weight": 0.6666666666666666
+        },
+        {
+          "basis": "curated",
+          "name": "freshness",
+          "value": 0.560875871093154,
+          "weight": 0.3333333333333333
+        },
+        {
+          "basis": "curated",
+          "name": "reproducibility",
+          "value": 0.6,
+          "weight": 0.0
+        },
+        {
+          "basis": "curated",
+          "name": "specificity",
+          "value": 0.2,
+          "weight": 1.0
+        }
+      ],
+      "health": 61.8,
+      "key": "hle",
+      "measured_saturation": 0.3541532446311857,
+      "models_measured": 46,
+      "name": "Humanity's Last Exam",
+      "penalties": [],
+      "population": "frontier models",
+      "primary_source": "epoch_ai",
+      "release_date": "2025-01-23",
+      "relevance": 20.0,
+      "rows_before_collapsing": 51,
+      "saturation_by_source": {
+        "epoch_ai": {
+          "models": 46,
+          "population": "frontier models",
+          "rows": 51,
+          "saturation": 0.3541532446311857
+        }
+      },
+      "specificity_dimensions": [
+        1,
+        1,
+        0,
+        0,
+        0
+      ],
+      "tier": "partial"
+    },
+    {
+      "evidence": {
+        "curated": [
+          "freshness",
+          "reproducibility"
+        ],
+        "dropped": [
+          "reproducibility"
+        ],
+        "factors_possible": 3,
+        "factors_used": 2,
+        "measured": [
+          "discrimination"
+        ]
+      },
+      "factors": [
+        {
+          "basis": "measured",
+          "name": "discrimination",
+          "value": 0.5616729999999999,
+          "weight": 0.6666666666666666
+        },
+        {
+          "basis": "curated",
+          "name": "freshness",
+          "value": 0.1638458411435207,
+          "weight": 0.3333333333333333
+        },
+        {
+          "basis": "curated",
+          "name": "reproducibility",
+          "value": 1.0,
+          "weight": 0.0
+        },
+        {
+          "basis": "curated",
+          "name": "specificity",
+          "value": 0.6,
+          "weight": 1.0
+        }
+      ],
+      "health": 28.1,
+      "key": "humaneval",
+      "measured_saturation": 0.43832700000000013,
+      "models_measured": 125,
+      "name": "HumanEval",
+      "penalties": [
+        "13% of items in pretraining data; scores fall 39% on a variant whose difficulty was not controlled, so part of that is difficulty rather than memorization"
+      ],
+      "population": "code models submitted to EvalPlus",
+      "primary_source": "evalplus",
+      "release_date": "2021-07-07",
+      "relevance": 60.0,
+      "rows_before_collapsing": 125,
+      "saturation_by_source": {
+        "evalplus": {
+          "models": 125,
+          "population": "code models submitted to EvalPlus",
+          "rows": 125,
+          "saturation": 0.43832700000000013
+        }
+      },
+      "specificity_dimensions": [
+        1,
+        2,
+        2,
+        1,
+        0
+      ],
+      "tier": "partial"
+    },
+    {
+      "evidence": {
+        "curated": [
+          "freshness",
+          "reproducibility"
+        ],
+        "dropped": [
+          "reproducibility"
+        ],
+        "factors_possible": 3,
+        "factors_used": 2,
+        "measured": [
+          "discrimination"
+        ]
+      },
+      "factors": [
+        {
+          "basis": "measured",
+          "name": "discrimination",
+          "value": 0.6973905728309233,
+          "weight": 0.6666666666666666
+        },
+        {
+          "basis": "curated",
+          "name": "freshness",
+          "value": 0.3707434605500993,
+          "weight": 0.3333333333333333
+        },
+        {
+          "basis": "curated",
+          "name": "reproducibility",
+          "value": 0.4,
+          "weight": 0.0
+        },
+        {
+          "basis": "curated",
+          "name": "specificity",
+          "value": 0.6,
+          "weight": 1.0
+        }
+      ],
+      "health": 58.9,
+      "key": "ifeval",
+      "measured_saturation": 0.30260942716907674,
+      "models_measured": 4496,
+      "name": "IFEval",
+      "penalties": [],
+      "population": "open community models (HF leaderboard v2)",
+      "primary_source": "open_llm_leaderboard_v2",
+      "release_date": "2023-11-14",
+      "relevance": 60.0,
+      "rows_before_collapsing": 4575,
+      "saturation_by_source": {
+        "open_llm_leaderboard_v2": {
+          "models": 4496,
+          "population": "open community models (HF leaderboard v2)",
+          "rows": 4575,
+          "saturation": 0.30260942716907674
+        }
+      },
+      "specificity_dimensions": [
+        1,
+        2,
+        2,
+        1,
+        0
+      ],
+      "tier": "partial"
+    },
+    {
+      "evidence": {
+        "curated": [
+          "freshness",
+          "reproducibility"
+        ],
+        "dropped": [
+          "discrimination",
+          "reproducibility"
+        ],
+        "factors_possible": 3,
+        "factors_used": 1,
+        "measured": []
+      },
+      "factors": [
+        {
+          "basis": "unknown",
+          "name": "discrimination",
+          "value": 0.5,
+          "weight": 0.0
+        },
+        {
+          "basis": "curated",
+          "name": "freshness",
+          "value": 0.7351076280011408,
+          "weight": 1.0
+        },
+        {
+          "basis": "curated",
+          "name": "reproducibility",
+          "value": 0.6,
+          "weight": 0.0
+        },
+        {
+          "basis": "curated",
+          "name": "specificity",
+          "value": 0.7,
+          "weight": 1.0
+        }
+      ],
+      "health": 73.5,
+      "key": "livecodebench",
+      "measured_saturation": null,
+      "models_measured": 0,
+      "name": "LiveCodeBench",
+      "penalties": [],
+      "population": "",
+      "primary_source": "",
+      "release_date": "2024-03-12",
+      "relevance": 70.0,
+      "rows_before_collapsing": 0,
+      "saturation_by_source": {},
+      "specificity_dimensions": [
+        2,
+        2,
+        2,
+        1,
+        0
+      ],
+      "tier": "thin"
+    },
+    {
+      "evidence": {
+        "curated": [
+          "freshness"
+        ],
+        "dropped": [],
+        "factors_possible": 3,
+        "factors_used": 3,
+        "measured": [
+          "discrimination",
+          "reproducibility"
+        ]
+      },
+      "factors": [
+        {
+          "basis": "measured",
+          "name": "discrimination",
+          "value": 0.23502218431095678,
+          "weight": 0.5
+        },
+        {
+          "basis": "curated",
+          "name": "freshness",
+          "value": 0.14564700550965146,
+          "weight": 0.25
+        },
+        {
+          "basis": "measured",
+          "name": "reproducibility",
+          "value": 0.6943457703927494,
+          "weight": 0.25
+        },
+        {
+          "basis": "curated",
+          "name": "specificity",
+          "value": 0.5,
+          "weight": 1.0
+        }
+      ],
+      "health": 32.8,
+      "key": "math_level_5",
+      "measured_saturation": 0.7649778156890432,
+      "models_measured": 108,
+      "name": "MATH Level 5",
+      "penalties": [
+        "WARNING: contamination reported but never quantified \u2014 no penalty applied"
+      ],
+      "population": "frontier models",
+      "primary_source": "epoch_ai",
+      "release_date": "2021-03-05",
+      "relevance": 50.0,
+      "rows_before_collapsing": 108,
+      "saturation_by_source": {
+        "epoch_ai": {
+          "models": 108,
+          "population": "frontier models",
+          "rows": 108,
+          "saturation": 0.7649778156890432
+        },
+        "open_llm_leaderboard_v2": {
+          "models": 4496,
+          "population": "open community models (HF leaderboard v2)",
+          "rows": 4575,
+          "saturation": 0.14332381685205783
+        }
+      },
+      "specificity_dimensions": [
+        2,
+        1,
+        1,
+        0,
+        1
+      ],
+      "tier": "full"
+    },
+    {
+      "evidence": {
+        "curated": [
+          "freshness",
+          "reproducibility"
+        ],
+        "dropped": [
+          "discrimination",
+          "reproducibility"
+        ],
+        "factors_possible": 3,
+        "factors_used": 1,
+        "measured": []
+      },
+      "factors": [
+        {
+          "basis": "unknown",
+          "name": "discrimination",
+          "value": 0.5,
+          "weight": 0.0
+        },
+        {
+          "basis": "curated",
+          "name": "freshness",
+          "value": 0.1701885023597344,
+          "weight": 1.0
+        },
+        {
+          "basis": "curated",
+          "name": "reproducibility",
+          "value": 0.6,
+          "weight": 0.0
+        },
+        {
+          "basis": "curated",
+          "name": "specificity",
+          "value": 0.6,
+          "weight": 1.0
+        }
+      ],
+      "health": 17.0,
+      "key": "mbpp",
+      "measured_saturation": null,
+      "models_measured": 0,
+      "name": "MBPP",
+      "penalties": [
+        "WARNING: contamination reported but never quantified \u2014 no penalty applied"
+      ],
+      "population": "",
+      "primary_source": "",
+      "release_date": "2021-08-16",
+      "relevance": 60.0,
+      "rows_before_collapsing": 0,
+      "saturation_by_source": {},
+      "specificity_dimensions": [
+        1,
+        2,
+        2,
+        1,
+        0
+      ],
+      "tier": "thin"
+    },
+    {
+      "evidence": {
+        "curated": [
+          "freshness",
+          "reproducibility"
+        ],
+        "dropped": [
+          "discrimination",
+          "reproducibility"
+        ],
+        "factors_possible": 3,
+        "factors_used": 1,
+        "measured": []
+      },
+      "factors": [
+        {
+          "basis": "unknown",
+          "name": "discrimination",
+          "value": 0.5,
+          "weight": 0.0
+        },
+        {
+          "basis": "curated",
+          "name": "freshness",
+          "value": 0.950018423870487,
+          "weight": 1.0
+        },
+        {
+          "basis": "curated",
+          "name": "reproducibility",
+          "value": 0.2,
+          "weight": 0.0
+        },
+        {
+          "basis": "curated",
+          "name": "specificity",
+          "value": 0.9,
+          "weight": 1.0
+        }
+      ],
+      "health": 95.0,
+      "key": "mirrorcode",
+      "measured_saturation": null,
+      "models_measured": 8,
+      "name": "MirrorCode",
+      "penalties": [],
+      "population": "frontier models",
+      "primary_source": "epoch_ai",
+      "release_date": "2026-06-26",
+      "relevance": 90.0,
+      "rows_before_collapsing": 8,
+      "saturation_by_source": {
+        "epoch_ai": {
+          "models": 8,
+          "population": "frontier models",
+          "rows": 8,
+          "saturation": null
+        }
+      },
+      "specificity_dimensions": [
+        2,
+        2,
+        2,
+        1,
+        2
+      ],
+      "tier": "thin"
+    },
+    {
+      "evidence": {
+        "curated": [
+          "freshness"
+        ],
+        "dropped": [],
+        "factors_possible": 3,
+        "factors_used": 3,
+        "measured": [
+          "discrimination",
+          "reproducibility"
+        ]
+      },
+      "factors": [
+        {
+          "basis": "measured",
+          "name": "discrimination",
+          "value": 0.37863950617283937,
+          "weight": 0.5
+        },
+        {
+          "basis": "curated",
+          "name": "freshness",
+          "value": 0.12288174092214994,
+          "weight": 0.25
+        },
+        {
+          "basis": "measured",
+          "name": "reproducibility",
+          "value": 0.9195500000000008,
+          "weight": 0.25
+        },
+        {
+          "basis": "curated",
+          "name": "specificity",
+          "value": 0.2,
+          "weight": 1.0
+        }
+      ],
+      "health": 26.5,
+      "key": "mmlu",
+      "measured_saturation": 0.6213604938271606,
+      "models_measured": 136,
+      "name": "MMLU",
+      "penalties": [
+        "28% of items in pretraining data",
+        "6% of items are mislabelled or misgraded"
+      ],
+      "population": "frontier models (32 rows name no model)",
+      "primary_source": "epoch_ai",
+      "release_date": "2020-09-07",
+      "relevance": 20.0,
+      "rows_before_collapsing": 249,
+      "saturation_by_source": {
+        "epoch_ai": {
+          "models": 136,
+          "population": "frontier models (32 rows name no model)",
+          "rows": 249,
+          "saturation": 0.6213604938271606
+        },
+        "open_llm_leaderboard_v1": {
+          "models": 6896,
+          "population": "open community models (HF leaderboard v1)",
+          "rows": 7260,
+          "saturation": 0.20706886666666666
+        }
+      },
+      "specificity_dimensions": [
+        2,
+        0,
+        0,
+        0,
+        0
+      ],
+      "tier": "full"
+    },
+    {
+      "evidence": {
+        "curated": [
+          "freshness",
+          "reproducibility"
+        ],
+        "dropped": [
+          "reproducibility"
+        ],
+        "factors_possible": 3,
+        "factors_used": 2,
+        "measured": [
+          "discrimination"
+        ]
+      },
+      "factors": [
+        {
+          "basis": "measured",
+          "name": "discrimination",
+          "value": 0.84212849474725,
+          "weight": 0.6666666666666666
+        },
+        {
+          "basis": "curated",
+          "name": "freshness",
+          "value": 0.44913015037252185,
+          "weight": 0.3333333333333333
+        },
+        {
+          "basis": "curated",
+          "name": "reproducibility",
+          "value": 0.6,
+          "weight": 0.0
+        },
+        {
+          "basis": "curated",
+          "name": "specificity",
+          "value": 0.2,
+          "weight": 1.0
+        }
+      ],
+      "health": 57.7,
+      "key": "mmlu_pro",
+      "measured_saturation": 0.15787150525274996,
+      "models_measured": 4496,
+      "name": "MMLU-Pro",
+      "penalties": [
+        "16% of items in pretraining data"
+      ],
+      "population": "open community models (HF leaderboard v2)",
+      "primary_source": "open_llm_leaderboard_v2",
+      "release_date": "2024-06-03",
+      "relevance": 20.0,
+      "rows_before_collapsing": 4575,
+      "saturation_by_source": {
+        "open_llm_leaderboard_v2": {
+          "models": 4496,
+          "population": "open community models (HF leaderboard v2)",
+          "rows": 4575,
+          "saturation": 0.15787150525274996
+        }
+      },
+      "specificity_dimensions": [
+        2,
+        0,
+        0,
+        0,
+        0
+      ],
+      "tier": "partial"
+    },
+    {
+      "evidence": {
+        "curated": [
+          "freshness",
+          "reproducibility"
+        ],
+        "dropped": [
+          "reproducibility"
+        ],
+        "factors_possible": 3,
+        "factors_used": 2,
+        "measured": [
+          "discrimination"
+        ]
+      },
+      "factors": [
+        {
+          "basis": "measured",
+          "name": "discrimination",
+          "value": 0.9447681089746424,
+          "weight": 0.6666666666666666
+        },
+        {
+          "basis": "curated",
+          "name": "freshness",
+          "value": 0.36342410732575237,
+          "weight": 0.3333333333333333
+        },
+        {
+          "basis": "curated",
+          "name": "reproducibility",
+          "value": 0.4,
+          "weight": 0.0
+        },
+        {
+          "basis": "curated",
+          "name": "specificity",
+          "value": 0.2,
+          "weight": 1.0
+        }
+      ],
+      "health": 75.1,
+      "key": "musr",
+      "measured_saturation": 0.05523189102535763,
+      "models_measured": 4496,
+      "name": "MuSR",
+      "penalties": [],
+      "population": "open community models (HF leaderboard v2)",
+      "primary_source": "open_llm_leaderboard_v2",
+      "release_date": "2023-10-24",
+      "relevance": 20.0,
+      "rows_before_collapsing": 4575,
+      "saturation_by_source": {
+        "open_llm_leaderboard_v2": {
+          "models": 4496,
+          "population": "open community models (HF leaderboard v2)",
+          "rows": 4575,
+          "saturation": 0.05523189102535763
+        }
+      },
+      "specificity_dimensions": [
+        0,
+        0,
+        1,
+        0,
+        1
+      ],
+      "tier": "partial"
+    },
+    {
+      "evidence": {
+        "curated": [
+          "freshness",
+          "reproducibility"
+        ],
+        "dropped": [
+          "discrimination",
+          "reproducibility"
+        ],
+        "factors_possible": 3,
+        "factors_used": 1,
+        "measured": []
+      },
+      "factors": [
+        {
+          "basis": "unknown",
+          "name": "discrimination",
+          "value": 0.5,
+          "weight": 0.0
+        },
+        {
+          "basis": "curated",
+          "name": "freshness",
+          "value": 0.4270872515750835,
+          "weight": 1.0
+        },
+        {
+          "basis": "curated",
+          "name": "reproducibility",
+          "value": 0.4,
+          "weight": 0.0
+        },
+        {
+          "basis": "curated",
+          "name": "specificity",
+          "value": 0.9,
+          "weight": 1.0
+        }
+      ],
+      "health": 42.7,
+      "key": "osworld",
+      "measured_saturation": null,
+      "models_measured": 9,
+      "name": "OSWorld",
+      "penalties": [],
+      "population": "agent systems and frontier models (most rows name no model)",
+      "primary_source": "epoch_ai",
+      "release_date": "2024-04-11",
+      "relevance": 90.0,
+      "rows_before_collapsing": 57,
+      "saturation_by_source": {
+        "epoch_ai": {
+          "models": 9,
+          "population": "agent systems and frontier models (most rows name no model)",
+          "rows": 57,
+          "saturation": null
+        }
+      },
+      "specificity_dimensions": [
+        1,
+        2,
+        2,
+        2,
+        2
+      ],
+      "tier": "thin"
+    },
+    {
+      "evidence": {
+        "curated": [
+          "freshness",
+          "reproducibility"
+        ],
+        "dropped": [
+          "reproducibility"
+        ],
+        "factors_possible": 3,
+        "factors_used": 2,
+        "measured": [
+          "discrimination"
+        ]
+      },
+      "factors": [
+        {
+          "basis": "measured",
+          "name": "discrimination",
+          "value": 0.7327988246092969,
+          "weight": 0.6666666666666666
+        },
+        {
+          "basis": "curated",
+          "name": "freshness",
+          "value": 0.6971070169911687,
+          "weight": 0.3333333333333333
+        },
+        {
+          "basis": "curated",
+          "name": "reproducibility",
+          "value": 0.4,
+          "weight": 0.0
+        },
+        {
+          "basis": "curated",
+          "name": "specificity",
+          "value": 0.3,
+          "weight": 1.0
+        }
+      ],
+      "health": 72.1,
+      "key": "simpleqa_verified",
+      "measured_saturation": 0.2672011753907031,
+      "models_measured": 80,
+      "name": "SimpleQA Verified",
+      "penalties": [],
+      "population": "frontier models",
+      "primary_source": "epoch_ai",
+      "release_date": "2025-09-09",
+      "relevance": 30.0,
+      "rows_before_collapsing": 80,
+      "saturation_by_source": {
+        "epoch_ai": {
+          "models": 80,
+          "population": "frontier models",
+          "rows": 80,
+          "saturation": 0.2672011753907031
+        }
+      },
+      "specificity_dimensions": [
+        1,
+        1,
+        1,
+        0,
+        0
+      ],
+      "tier": "partial"
+    },
+    {
+      "evidence": {
+        "curated": [
+          "freshness",
+          "reproducibility"
+        ],
+        "dropped": [
+          "reproducibility"
+        ],
+        "factors_possible": 3,
+        "factors_used": 2,
+        "measured": [
+          "discrimination"
+        ]
+      },
+      "factors": [
+        {
+          "basis": "measured",
+          "name": "discrimination",
+          "value": 0.2400119424054208,
+          "weight": 0.6666666666666666
+        },
+        {
+          "basis": "curated",
+          "name": "freshness",
+          "value": 0.4804525141531792,
+          "weight": 0.3333333333333333
+        },
+        {
+          "basis": "curated",
+          "name": "reproducibility",
+          "value": 1.0,
+          "weight": 0.0
+        },
+        {
+          "basis": "curated",
+          "name": "specificity",
+          "value": 1.0,
+          "weight": 1.0
+        }
+      ],
+      "health": 21.5,
+      "key": "swe_bench_verified",
+      "measured_saturation": 0.7599880575945792,
+      "models_measured": 33,
+      "name": "SWE-Bench Verified",
+      "penalties": [
+        "WARNING: contamination reported but never quantified \u2014 no penalty applied",
+        "at least 16% of items are mislabelled or misgraded"
+      ],
+      "population": "frontier models",
+      "primary_source": "epoch_ai",
+      "release_date": "2024-08-13",
+      "relevance": 100.0,
+      "rows_before_collapsing": 35,
+      "saturation_by_source": {
+        "epoch_ai": {
+          "models": 33,
+          "population": "frontier models",
+          "rows": 35,
+          "saturation": 0.7599880575945792
+        }
+      },
+      "specificity_dimensions": [
+        2,
+        2,
+        2,
+        2,
+        2
+      ],
+      "tier": "partial"
+    },
+    {
+      "evidence": {
+        "curated": [
+          "freshness",
+          "reproducibility"
+        ],
+        "dropped": [
+          "reproducibility"
+        ],
+        "factors_possible": 3,
+        "factors_used": 2,
+        "measured": [
+          "discrimination"
+        ]
+      },
+      "factors": [
+        {
+          "basis": "measured",
+          "name": "discrimination",
+          "value": 0.6443750000000001,
+          "weight": 0.6666666666666666
+        },
+        {
+          "basis": "curated",
+          "name": "freshness",
+          "value": 0.6261835587339676,
+          "weight": 0.3333333333333333
+        },
+        {
+          "basis": "curated",
+          "name": "reproducibility",
+          "value": 0.6,
+          "weight": 0.0
+        },
+        {
+          "basis": "curated",
+          "name": "specificity",
+          "value": 0.9,
+          "weight": 1.0
+        }
+      ],
+      "health": 63.8,
+      "key": "terminal_bench",
+      "measured_saturation": 0.3556249999999998,
+      "models_measured": 59,
+      "name": "Terminal Bench",
+      "penalties": [],
+      "population": "frontier models (2 rows name no model)",
+      "primary_source": "epoch_ai",
+      "release_date": "2025-05-19",
+      "relevance": 90.0,
+      "rows_before_collapsing": 204,
+      "saturation_by_source": {
+        "epoch_ai": {
+          "models": 59,
+          "population": "frontier models (2 rows name no model)",
+          "rows": 204,
+          "saturation": 0.3556249999999998
+        }
+      },
+      "specificity_dimensions": [
+        1,
+        2,
+        2,
+        2,
+        2
+      ],
+      "tier": "partial"
+    },
+    {
+      "evidence": {
+        "curated": [
+          "freshness",
+          "reproducibility"
+        ],
+        "dropped": [
+          "discrimination",
+          "reproducibility"
+        ],
+        "factors_possible": 3,
+        "factors_used": 1,
+        "measured": []
+      },
+      "factors": [
+        {
+          "basis": "unknown",
+          "name": "discrimination",
+          "value": 0.5,
+          "weight": 0.0
+        },
+        {
+          "basis": "curated",
+          "name": "freshness",
+          "value": 0.5420276509799772,
+          "weight": 1.0
+        },
+        {
+          "basis": "curated",
+          "name": "reproducibility",
+          "value": 0.4,
+          "weight": 0.0
+        },
+        {
+          "basis": "curated",
+          "name": "specificity",
+          "value": 0.9,
+          "weight": 1.0
+        }
+      ],
+      "health": 54.2,
+      "key": "the_agent_company",
+      "measured_saturation": null,
+      "models_measured": 14,
+      "name": "The Agent Company",
+      "penalties": [],
+      "population": "frontier models",
+      "primary_source": "epoch_ai",
+      "release_date": "2024-12-18",
+      "relevance": 90.0,
+      "rows_before_collapsing": 16,
+      "saturation_by_source": {
+        "epoch_ai": {
+          "models": 14,
+          "population": "frontier models",
+          "rows": 16,
+          "saturation": null
+        }
+      },
+      "specificity_dimensions": [
+        1,
+        2,
+        2,
+        2,
+        2
+      ],
+      "tier": "thin"
+    },
+    {
+      "evidence": {
+        "curated": [
+          "freshness",
+          "reproducibility"
+        ],
+        "dropped": [
+          "reproducibility"
+        ],
+        "factors_possible": 3,
+        "factors_used": 2,
+        "measured": [
+          "discrimination"
+        ]
+      },
+      "factors": [
+        {
+          "basis": "measured",
+          "name": "discrimination",
+          "value": 0.12976875,
+          "weight": 0.6666666666666666
+        },
+        {
+          "basis": "curated",
+          "name": "freshness",
+          "value": 0.03869307449734208,
+          "weight": 0.3333333333333333
+        },
+        {
+          "basis": "curated",
+          "name": "reproducibility",
+          "value": 0.6,
+          "weight": 0.0
+        },
+        {
+          "basis": "curated",
+          "name": "specificity",
+          "value": 0.4,
+          "weight": 1.0
+        }
+      ],
+      "health": 9.9,
+      "key": "triviaqa",
+      "measured_saturation": 0.87023125,
+      "models_measured": 39,
+      "name": "TriviaQA",
+      "penalties": [
+        "WARNING: contamination reported but never quantified \u2014 no penalty applied"
+      ],
+      "population": "frontier models",
+      "primary_source": "epoch_ai",
+      "release_date": "2017-05-09",
+      "relevance": 40.0,
+      "rows_before_collapsing": 115,
+      "saturation_by_source": {
+        "epoch_ai": {
+          "models": 39,
+          "population": "frontier models",
+          "rows": 115,
+          "saturation": 0.87023125
+        }
+      },
+      "specificity_dimensions": [
+        2,
+        1,
+        1,
+        0,
+        0
+      ],
+      "tier": "partial"
+    },
+    {
+      "evidence": {
+        "curated": [
+          "freshness",
+          "reproducibility"
+        ],
+        "dropped": [
+          "reproducibility"
+        ],
+        "factors_possible": 3,
+        "factors_used": 2,
+        "measured": [
+          "discrimination"
+        ]
+      },
+      "factors": [
+        {
+          "basis": "measured",
+          "name": "discrimination",
+          "value": 0.6203028979809104,
+          "weight": 0.6666666666666666
+        },
+        {
+          "basis": "curated",
+          "name": "freshness",
+          "value": 0.17394611092633494,
+          "weight": 0.3333333333333333
+        },
+        {
+          "basis": "curated",
+          "name": "reproducibility",
+          "value": 0.8,
+          "weight": 0.0
+        },
+        {
+          "basis": "curated",
+          "name": "specificity",
+          "value": 0.2,
+          "weight": 1.0
+        }
+      ],
+      "health": 47.2,
+      "key": "truthfulqa",
+      "measured_saturation": 0.37969710201908957,
+      "models_measured": 6812,
+      "name": "TruthfulQA",
+      "penalties": [
+        "WARNING: contamination reported but never quantified \u2014 no penalty applied"
+      ],
+      "population": "open community models (HF leaderboard v1)",
+      "primary_source": "open_llm_leaderboard_v1",
+      "release_date": "2021-09-08",
+      "relevance": 20.0,
+      "rows_before_collapsing": 7170,
+      "saturation_by_source": {
+        "open_llm_leaderboard_v1": {
+          "models": 6812,
+          "population": "open community models (HF leaderboard v1)",
+          "rows": 7170,
+          "saturation": 0.37969710201908957
+        }
+      },
+      "specificity_dimensions": [
+        1,
+        0,
+        1,
+        0,
+        0
+      ],
+      "tier": "partial"
+    },
+    {
+      "evidence": {
+        "curated": [
+          "freshness"
+        ],
+        "dropped": [],
+        "factors_possible": 3,
+        "factors_used": 3,
+        "measured": [
+          "discrimination",
+          "reproducibility"
+        ]
+      },
+      "factors": [
+        {
+          "basis": "measured",
+          "name": "discrimination",
+          "value": 0.5239208333333337,
+          "weight": 0.5
+        },
+        {
+          "basis": "curated",
+          "name": "freshness",
+          "value": 0.0831770176198323,
+          "weight": 0.25
+        },
+        {
+          "basis": "measured",
+          "name": "reproducibility",
+          "value": 0.7948249999999994,
+          "weight": 0.25
+        },
+        {
+          "basis": "curated",
+          "name": "specificity",
+          "value": 0.2,
+          "weight": 1.0
+        }
+      ],
+      "health": 48.1,
+      "key": "winogrande",
+      "measured_saturation": 0.4760791666666663,
+      "models_measured": 80,
+      "name": "Winogrande",
+      "penalties": [
+        "WARNING: contamination reported but never quantified \u2014 no penalty applied"
+      ],
+      "population": "frontier models (8 rows name no model)",
+      "primary_source": "epoch_ai",
+      "release_date": "2019-07-24",
+      "relevance": 20.0,
+      "rows_before_collapsing": 145,
+      "saturation_by_source": {
+        "epoch_ai": {
+          "models": 80,
+          "population": "frontier models (8 rows name no model)",
+          "rows": 145,
+          "saturation": 0.4760791666666663
+        },
+        "open_llm_leaderboard_v1": {
+          "models": 6896,
+          "population": "open community models (HF leaderboard v1)",
+          "rows": 7260,
+          "saturation": 0.35654606776649744
+        }
+      },
+      "specificity_dimensions": [
+        1,
+        0,
+        1,
+        0,
+        0
+      ],
+      "tier": "full"
+    }
+  ],
+  "definition": {
+    "collapsing_rule": "BenchmarkScores.one_row_per_model: follow the source where it documents a rule (Epoch's mean across repeated identical runs, best across graders); across different configurations take the model's best (a CHOICE, not a sourced rule); drop rows naming no model; name the population accurately.",
+    "differs_from_2026_09_22": "The original seal measured saturation over CONFIGURATION ROWS. Terminal Bench read 204 'models' where the data holds 204 model-agent pairs from 60 models.",
+    "population_unit": "distinct model"
+  },
+  "parameters": {
+    "contamination_penalty_floor": 0.65,
+    "cross_source_min_overlap": 10,
+    "cross_source_scatter_tolerance": 0.08,
+    "full_contamination_effect": 0.4,
+    "full_contamination_rate": 0.3,
+    "full_item_error_rate": 0.2,
+    "health_weights": {
+      "discrimination": 0.5,
+      "freshness": 0.25,
+      "reproducibility": 0.25
+    },
+    "healthy_spread": 0.24,
+    "item_error_penalty_floor": 0.6,
+    "leakage_half_life_days": 730,
+    "min_saturation_population": 30,
+    "saturation_top_percentile": 20.0,
+    "specificity_max": 10
+  },
+  "purpose": "Forward test baseline, PRIMARY seal. Saturation measured over distinct models per decision D6. See docs/FORWARD_TEST.md, Amendment 1. IMMUTABLE.",
+  "sealed_at": "2026-09-24",
+  "sha256_of_payload_without_this_field": "fa6cda364065fde341eddd35792e450a34c6af5dd564cb06c473d61002e1c46b"
+}

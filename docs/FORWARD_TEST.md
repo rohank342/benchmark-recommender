@@ -246,3 +246,64 @@ population-comparability rules, and every parameter in the original
 seal. The amendment changes **how a population is counted**, and nothing
 else. Both seals are scored under their own sealed parameters, per the
 original design.
+
+---
+
+# AMENDMENT 2 — 2026-09-24: the primary seal exists
+
+**Nothing above this line has been modified.**
+
+## The two seals, for a reader in 2028
+
+| | retained | **PRIMARY** |
+|---|---|---|
+| file | `data/forward_test/sealed_2026-09-22.json` | **`data/forward_test/sealed_2026-09-24.json`** |
+| benchmarks | 26 | 28 |
+| payload SHA-256 | `4278081a7bebece9483cf1ec53d399d7aa3aeb137a652dcf5874c31eb02c562f` | `fa6cda364065fde341eddd35792e450a34c6af5dd564cb06c473d61002e1c46b` |
+| file SHA-256 | `4e3eb55d7264fc124831fc59a83c4caa43bcfd3d0d5a430e5ba60b690b8a038e` | `f1f4cd7d7a3402871b7b42cb21ef6215691a6cbdad61e51ff5e3e3ad4e096fe9` |
+| created by | an uncommitted one-off | `probes/seal_forward_test.py --write`, commit `7c50a4f` |
+
+All four digests are pinned as literals in `tests/test_backtest.py`, so
+neither seal can be edited even by someone who also updates its hash.
+
+## The one paragraph that matters
+
+**The two seals differ in exactly one thing: what a "model" is when
+saturation is measured.** The 2026-09-22 seal counted every row a source
+published, and several sources publish one row per *configuration* — the
+agent driving the model, the edit format, the shot count, the numeric
+precision. So Terminal Bench was recorded as 204 models when the data
+holds 204 model-agent pairs from 60 models, and the top 20% of that
+"population" was 41 rows drawn from 14 models, one of them contributing
+10. The 2026-09-24 seal measures over distinct models instead: it
+follows each source's own rule where one is documented, takes a model's
+**best** entry across configurations where none is (a choice, not a
+sourced rule — see `CONFIG_ROWS.md`), and drops the 188 rows that name
+no model at all. **Every scoring parameter is identical between the two
+seals — a test asserts it** — so any difference in their 2028 verdicts
+is the population definition and nothing else.
+
+## How to score it
+
+`python probes/score_forward_test.py`, written 2026-09-24 and committed
+with this amendment. It refuses to run before the horizon; use
+`--dry-run` to rehearse. **A dry run will look like a pass and means
+nothing** — it compares health at seal time against saturation at the
+same moment, so the scorer is predicting its own input. The script says
+so on every dry run.
+
+Its docstring carries the full procedure: what to fetch and from which
+source, the population rule, the exclusion rules, the pass criterion,
+and the age baseline in its fixed form. **Whoever runs it in 2028 should
+have nothing left to choose**, because every choice made at the horizon
+is a choice made knowing the outcome.
+
+## What has not changed
+
+Horizon 2028-09-22. Pass at ≥70% of discordant pairs with at least 10
+pairs; fail at ≤40%; inconclusive otherwise. The age baseline, its form,
+and the rule that the scorer passes only by **beating** it. Both seals
+are evaluated and reported side by side whatever they show, and a
+disagreement between them is itself the finding — Amendment 1 fixes in
+advance how each outcome is to be read, including the one worst for this
+project.
