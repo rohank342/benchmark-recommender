@@ -89,7 +89,7 @@ COMMANDS: list[tuple[list[str], tuple[str, ...]]] = [
     (["probes/seal_forward_test.py"], ("COMMITTED FORWARD-TEST SEALS", "intact")),
     (
         ["probes/score_forward_test.py", "--dry-run"],
-        ("DRY RUN", "CIRCULAR", "sealed_2026-09-24.json"),
+        ("DRY RUN", "circular by construction", "sealed_2026-09-24.json"),
     ),
 ]
 
@@ -142,6 +142,32 @@ def test_cited_command_runs(args: list[str], expected: tuple[str, ...]) -> None:
             "The command is cited for that output.\n"
             f"--- stdout ---\n{result.stdout[-2000:]}"
         )
+
+
+def test_the_dry_run_never_prints_a_verdict() -> None:
+    """
+    A dry run of the forward test must not print PASS or FAIL.
+
+    Before the horizon the computation is circular: it compares health at
+    seal time against saturation at seal time, so the scorer is asked to
+    predict its own input and trivially succeeds. A line reading "PASS"
+    is the single most misquotable thing this repository could emit, and
+    the surrounding explanation does not travel with a screenshot.
+
+    The verdict is therefore WITHHELD rather than labelled — a label can
+    be cropped away, an absent line cannot. This test is what keeps it
+    absent.
+    """
+    result = _run(["probes/score_forward_test.py", "--dry-run"])
+    assert result.returncode == 0, result.stderr[-2000:]
+    for forbidden in ("PASS", "FAIL"):
+        assert forbidden not in result.stdout, (
+            f"dry-run output contains {forbidden!r}:\n"
+            + "\n".join(
+                line for line in result.stdout.splitlines() if forbidden in line
+            )
+        )
+    assert "DRY RUN — NOT A RESULT (circular by construction; see above)" in result.stdout
 
 
 def test_app_imports() -> None:

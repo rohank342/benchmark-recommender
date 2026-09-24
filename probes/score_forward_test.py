@@ -207,8 +207,8 @@ def main(argv: list[str]) -> int:
     if args.dry_run:
         print(
             "  *** DRY RUN. THESE NUMBERS ARE NOT A RESULT, AND A DRY RUN\n"
-            "  *** WILL ALMOST ALWAYS LOOK LIKE A PASS. Here is why, so\n"
-            "  *** that nobody quotes the verdict below out of context:\n"
+            "  *** WILL ALMOST ALWAYS LOOK FAVOURABLE. Here is why, and\n"
+            "  *** why no verdict is printed below at all:\n"
             "  ***\n"
             "  *** The outcome has not happened. Run today, this compares\n"
             "  *** each benchmark's health AT SEAL TIME against its\n"
@@ -218,9 +218,10 @@ def main(argv: list[str]) -> int:
             "  *** it trivially succeeds. That is circular by\n"
             "  *** construction, not evidence of anything.\n"
             "  ***\n"
-            "  *** The only number worth reading from a dry run is zero:\n"
-            "  *** that the machinery ran, the seals parsed, and the\n"
-            "  *** exclusions behaved. Nothing else.\n"
+            "  *** The only thing worth reading from a dry run is that\n"
+            "  *** the machinery ran, the seals parsed, and the exclusions\n"
+            "  *** behaved. Nothing else. The verdict is withheld rather\n"
+            "  *** than labelled, because a label can be cropped away.\n"
         )
 
     for seal_path in sorted(SEAL_DIR.glob("sealed_*.json")):
@@ -236,7 +237,12 @@ def main(argv: list[str]) -> int:
         print(f"    scorer right      {result['scorer_right']}")
         print(f"    age baseline right{result['baseline_right']:>4}")
         if result["dry_run"]:
-            print(f"    verdict           {result['verdict']} — CIRCULAR, see above, not a result")
+            # The computed verdict is deliberately NOT printed. Before the
+            # horizon it is circular by construction, and a line reading
+            # "PASS" is the single most misquotable thing this repository
+            # could emit. The words PASS and FAIL do not appear anywhere
+            # in dry-run output; a test enforces that.
+            print("    DRY RUN — NOT A RESULT (circular by construction; see above)")
         else:
             print(f"    VERDICT           {result['verdict']}")
         print()
