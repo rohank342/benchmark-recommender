@@ -1,5 +1,35 @@
 # Benchmark Recommender
 
+## Status — at rest since 2026-09-24
+
+**Established.** A dated, sourced, per-benchmark evidence record for
+**28 benchmarks**: measured saturation for **22 of 28** over stated model
+populations, cross-source agreement for **8 of 28**, contamination and
+item-quality audits where a study exists, each carrying its basis, and
+an explicit record of what nobody has checked.
+
+**Not established.** The composite score **has never been shown to rank
+benchmarks better than release date does.** Age predicts Hugging Face's
+retire/keep decision at **r = −0.793**; the composite score at
+**+0.633**. Every test of the score has been run to a conclusion and
+none beat the calendar.
+
+**Why it is at rest.** Nothing left in this project can be settled by
+working harder. The one live validation is a forward test whose outcome
+has not happened.
+
+**When the next real answer arrives: 2028-09-22.** Two sealed baselines
+are evaluated then, side by side, whatever they show. Until that date
+the honest answer to "does the scoring work?" is **no test has shown
+that it does** — and the per-benchmark evidence, which is the actual
+product, does not depend on the answer.
+
+See [CLAUDE.md](CLAUDE.md) §8 for the four events that would reopen
+active work, and [docs/FINDINGS.md](docs/FINDINGS.md) for the full
+write-up.
+
+---
+
 **An evidence dossier on 28 LLM benchmarks.** For each one: what has been
 measured, what was read out of a paper and by whom, when each claim became
 public, and — stated as plainly as the rest — what nobody has established.

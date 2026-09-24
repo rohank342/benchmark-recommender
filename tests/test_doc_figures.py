@@ -154,6 +154,7 @@ FIGURES: list[Figure] = [
         (
             (r"docs/FINDINGS.md", r"from a real score distribution \| \*\*(\d+) of"),
             (r"README.md", r"\*\*Measured saturation\*\* for (\d+) of"),
+            (r"README.md", r"measured saturation for \*\*(\d+) of 28\*\*"),
             (r"README.md", r"Saturation \(the `discrimination` factor\) \| (\d+) of"),
         ),
     ),
@@ -165,6 +166,7 @@ FIGURES: list[Figure] = [
             (r"docs/FINDINGS.md", r"same models, two evaluators\) \| \*\*(\d+) of"),
             (r"README.md", r"\*\*Cross-source agreement\*\* for (\d+) of"),
             (r"README.md", r"Cross-source agreement \(`reproducibility`\) \| (\d+) of"),
+            (r"README.md", r"cross-source agreement for \*\*(\d+) of 28\*\*"),
         ),
     ),
     Figure(
@@ -357,6 +359,7 @@ FIGURES: list[Figure] = [
         (
             (r"docs/FINDINGS.md", r"\*\*release date\*\* \(age\) \| \*\*([+−-][\d.]+)\*\*"),
             (r"README.md", r"retire/keep decision at r = ([+−-][\d.]+)\*\*"),
+            (r"README.md", r"retire/keep decision at \*\*r = ([+−-][\d.]+)\*\*"),
             (r"CLAUDE.md", r"r\(age, kept\)\s+([+-][\d.]+)"),
         ),
     ),
@@ -367,6 +370,7 @@ FIGURES: list[Figure] = [
         (
             (r"docs/FINDINGS.md", r"the composite health score \| ([+−-][\d.]+)"),
             (r"README.md", r"composite health score predicts it at \*\*([+−-][\d.]+)\*\*"),
+            (r"README.md", r"the composite score at\n\*\*([+−-][\d.]+)\*\*"),
             (r"CLAUDE.md", r"r\(health, kept\)\s+([+-][\d.]+)"),
         ),
     ),

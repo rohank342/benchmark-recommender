@@ -718,32 +718,65 @@ session can tell "the evidence changed" from "I got bored of waiting":
 NONE OF THESE IS A REASON TO RETUNE A WEIGHT. They are reasons to
 re-measure. The standing rule below still applies to all of them.
 
-TOP OF THE LIST UNTIL A RULE IS CHOSEN AND THE SECOND SEAL EXISTS:
-1. ROWS ARE NOT MODELS — see item 4 below, which is where the detail is.
-   It is listed first because it blocks the forward test's PRIMARY seal,
-   which cannot be created until the collapsing rule is decided. Nothing
-   else on this list gates a sealed baseline.
+═══ THE PROJECT IS AT REST AS OF 2026-09-24 ═══
+The active phase is closed. D3, D4, D5 and D6 are all decided and
+implemented; the primary forward-test seal exists; every command a doc
+cites runs in CI and every load-bearing figure is checked against the
+probe that produces it. THERE IS NOTHING LEFT THAT CAN BE SETTLED BY
+WORKING HARDER — the central claim is waiting on an outcome that has
+not happened.
 
-VALIDATION — one live test, and it is two years out:
-2. THE FORWARD TEST, sealed 2026-09-22, matures 2028-09-22, age baseline
-   fixed in advance. It is the ONLY live validation. Its seal covers 26
-   benchmarks; MBPP and DS-1000 were added afterwards and are correctly
-   OUT of it. AMENDMENT 1, 2026-09-23: the sealed readings measure
-   saturation over CONFIGURATION ROWS, so a second seal computed over
-   distinct models is designated PRIMARY — designated before the
-   corrected numbers existed, and committed before they were computed.
-   Both seals are evaluated side by side in 2028 whatever they show, and
-   a disagreement is itself the finding. THE ORIGINAL SEAL IS IMMUTABLE:
-   two literal digests are pinned in tests/test_backtest.py, so it
-   cannot be edited even by a session that also updates its hash.
-   Protect the seal: add a dated file, never overwrite.
-   The backtest is RETIRED on power (scorer 30/30, calendar 30/30 on the
-   valid pairs). Candidate 1 is exhausted. ARC-AGI-1 was scoped and
-   rejected — only 4 of its 75 available models predate the window
-   (probes/arc_agi_population.py).
-   The hindcast is now runnable (probes/hindcast.py) and still 2 of 4;
-   two rows of its recorded table mixed populations and are corrected in
-   place, WITHOUT changing the result.
+DO NOT START NEW INVESTIGATIONS. Do not tune, re-derive or "improve"
+the scoring. If you find something, write it into this section and
+stop.
+
+WHAT REOPENS THE PROJECT — concrete, and none of it is internal work:
+
+ R1. THE FORWARD TEST MATURES, 2028-09-22. Run
+     `python probes/score_forward_test.py` (it refuses to run early).
+     Report BOTH seals side by side whatever they show. The 2027-09-22
+     look may be reported but IS NOT THE TEST, however it comes out.
+ R2. A LEADERBOARD RETIRES OR ADDS A BENCHMARK WITH STATED REASONS,
+     where age and measured saturation disagree about it, both sides
+     are in the SAME evidence tier, and their populations are
+     comparable. All three conditions are required — each of them
+     separately killed Candidate 1 and ARC-AGI-1. Pre-register before
+     looking at any outcome.
+ R3. A NEW SCORE SOURCE with DATED, MODEL-ATTRIBUTED distributions.
+     Dated, because undated models cannot be time-travelled;
+     model-attributed, because D6 drops rows that name no model. Such
+     a source could lift reproducibility above 8 of 28, or give
+     LiveCodeBench, MBPP or DS-1000 a first reading.
+ R4. A PUBLISHED DECONTAMINATION OR ITEM-QUALITY AUDIT for a
+     catalogued benchmark — a difficulty-controlled variant in the way
+     GSM1k is for GSM8K, or a random-sample audit of SWE-Bench
+     Verified's unaudited 362. Either replaces an `uncontrolled` basis
+     or a floor with an actual estimate.
+
+KNOWN OPEN WORK THAT DOES **NOT** JUSTIFY REOPENING ON ITS OWN. These
+are real and they are recorded; none of them changes what the project
+can establish, so none is a reason to restart:
+  - MODEL-SIDE COVERAGE FELL TO 36% (68 of 191) when the re-fetch grew
+    the population, because 86 of 122 new models are quantized variants
+    citing the same unrecognised labels. Adding models makes it worse,
+    not better. A finding, not a task.
+  - THE REPEATED-LABEL RULE for Aider polyglot, Terminal Bench and
+    MultiPL HumanEval. D5 leaves every entry unweighted because no
+    canonical protocol is documented; the 2026-09-23 re-fetch confirmed
+    the distinguishing metadata is missing AT THE SOURCE, so no work
+    here resolves it. Only R4-style external publication would.
+  - OSWORLD IS AN AGENT BENCHMARK. 37 of 57 rows are agent-only
+    submissions; 9 models remain and it is `thin` under D6. Correct as
+    recorded. Whether such a benchmark belongs in a model-benchmark
+    catalog at all is a scoping question, not a defect.
+  - THE POPULATION THRESHOLD IS ON ITS EDGE. The plateau is 15-30 on
+    model counts and FrontierCode sits at exactly 30, so headroom is
+    zero. docs/POPULATION_CLIFF.md's redesign options move from "not
+    warranted" to "warranted if another benchmark approaches the line".
+    Watch, do not build.
+  - raw_benchmark_score still pools incomparable quantities.
+  - Nobody but Claude Code has scored anything against the specificity
+    rubric.
 
 COVERAGE — the product under Reading B, and where the real gap is:
 3. MODEL-WEIGHTED COVERAGE IS 42%: 34 of 81 scored models have at least
