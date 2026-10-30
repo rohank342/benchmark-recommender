@@ -807,13 +807,25 @@ COVERAGE — the product under Reading B, and where the real gap is:
    IMPACT: 7-8 of 28 ranks move, ZERO tier changes under any rule, mean
    health 49.2 -> 47.8-48.6. Direction counted, not assumed: 8 rise
    under every rule, 0 fall under every rule, 8 depend on the rule.
-   AWAITING THE OWNER'S DECISION on the collapsing rule. The forward
-   test's Amendment 1 (committed BEFORE any of these numbers existed)
-   designates the corrected seal PRIMARY and fixes how both seals are
-   reported in 2028. Do not create that seal until the rule is chosen.
-   TWO OPTIONS NEED NO DECISION and invent nothing: name the population
-   accurately in every explanation string, and stop counting rows with
-   no model as models.
+   DECIDED AND IMPLEMENTED (D6, commit 7c50a4f, 2026-09-24) — the
+   "awaiting the owner's decision" wording that stood here was stale and
+   is corrected 2026-10-30. The rule (BenchmarkScores.one_row_per_model,
+   used by saturation and cross_source): follow the source's own
+   convention where one exists; across different configurations take
+   each model's BEST (a CHOICE, not a sourced rule); drop the 188 rows
+   with no model name; name the population accurately ("agent systems"
+   where most rows name no model). The corrected seal exists and is
+   PRIMARY under the forward test's Amendment 1 (commit 66dbaf6). The
+   figures in the IMPACT paragraph above are the PRE-D6 investigation;
+   post-D6 impact is in section 1/4a and docs/CONFIG_ROWS.md (mean
+   health 49.1 -> 45.7, 22 of 28 ranks moved, one tier change: OSWorld
+   partial -> thin). Most of that movement came from dropping the blank
+   rows, not from choosing "best" — the choice among best / worst /
+   median / mean moved 0 tiers.
+   WHO DECIDED IS NOT RECORDED. The commit says "decided on the evidence"
+   without naming the decider. If a session made the call, the owner
+   should confirm or reverse it; until then it stands as implemented.
+   Do not reopen it on the strength of this note alone.
 5. raw_benchmark_score pools incomparable quantities AND within-source
    duplicates. Needs the per-category design change, scoped already.
    Same root as item 4.
