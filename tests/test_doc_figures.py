@@ -537,7 +537,18 @@ def _number(text: str) -> float:
     return float(text.replace("−", "-").replace(",", "").rstrip("."))
 
 
-@pytest.mark.parametrize("figure", FIGURES, ids=[f.name for f in FIGURES])
+@pytest.mark.parametrize(
+    "figure",
+    [
+        # The model side reads data/models_raw.json, which is gitignored;
+        # see conftest.py for why these skip loudly instead of failing.
+        pytest.param(f, marks=pytest.mark.needs_hub_data)
+        if f.command == (F, "modelside")
+        else f
+        for f in FIGURES
+    ],
+    ids=[f.name for f in FIGURES],
+)
 def test_doc_figure_matches_the_probe(figure: Figure) -> None:
     output = _output(figure.command)
     match = re.search(figure.probe, output)

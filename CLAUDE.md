@@ -384,6 +384,19 @@ conclusions.
 - CI runs OFFLINE against committed data. A dependency upgrade can break
   every fetcher in the repo and the suite will stay green. If you touch
   deps, smoke-test the fetchers live.
+- CI DOES NOT CHECK THE MODEL-SIDE FIGURES. data/models_raw.json is
+  gitignored (it embeds Artificial Analysis scores, internal-use only on
+  the free tier), so the CI runner lacks it and 11 tests skip there:
+  7 model-side figures in tests/test_doc_figures.py and 4 probe smoke
+  tests in tests/test_diagnostics.py (marked `needs_hub_data`; the
+  skip is announced at the top and bottom of the run, see conftest.py).
+  They run only where fetch_models.py has been run, so run the full
+  suite locally before trusting a model-side figure. Found 2026-10-30:
+  these tests were added 2026-09-23/24 and the commits were not pushed
+  until 2026-10-30, so the first CI run on them was red (11 failed) and
+  "CI green" in the brief's header described the 2026-09-22 state. Do
+  not add `needs_hub_data` to a test to make a red go away: it is for
+  tests whose only missing input is that file.
 - A DIAGNOSTIC NO TEST RUNS IS A DIAGNOSTIC THAT MAY BE SILENTLY DEAD.
   EVERY COMMAND A DOCUMENT CITES AS EVIDENCE IS SMOKE-TESTED IN CI.
   tests/test_diagnostics.py runs each one in a subprocess and fails on a

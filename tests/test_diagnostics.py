@@ -118,9 +118,26 @@ def _run(args: list[str]) -> subprocess.CompletedProcess:
     )
 
 
+# Commands whose output sections come from data/models_raw.json, which is
+# gitignored. They skip loudly when it is absent (see conftest.py) rather
+# than failing on a missing section. Every other command here runs on
+# committed data and must NOT be added to this set to make a red go away.
+NEEDS_HUB_DATA = {
+    ("probes/findings.py", "modelside"),
+    ("probes/impact.py",),
+    ("probes/impact.py", "citations"),
+    ("probes/impact.py", "weights"),
+}
+
+
 @pytest.mark.parametrize(
     "args,expected",
-    COMMANDS,
+    [
+        pytest.param(args, expected, marks=pytest.mark.needs_hub_data)
+        if tuple(args) in NEEDS_HUB_DATA
+        else (args, expected)
+        for args, expected in COMMANDS
+    ],
     ids=[" ".join(args) for args, _ in COMMANDS],
 )
 def test_cited_command_runs(args: list[str], expected: tuple[str, ...]) -> None:
