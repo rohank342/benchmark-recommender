@@ -712,8 +712,7 @@ against, and changing it anyway is how a test becomes a training set.
 What remains is EVIDENCE work: measuring things that are unmeasured,
 sourcing things that are unsourced, and keeping the record honest. That
 is items 3, 6 and 7. Items marked AWAITING A DECISION are the owner's,
-not a session's. None is marked at present; the one owner action open
-is confirming or reversing D6 (item 4).
+not a session's. None is marked at present.
 
 WHAT WOULD JUSTIFY REOPENING SCORING WORK. Written down so a future
 session can tell "the evidence changed" from "I got bored of waiting":
@@ -739,8 +738,8 @@ session can tell "the evidence changed" from "I got bored of waiting":
   (e) SPENT 2026-09-24. This read "the population definition is
       decided". D6 decided it (item 4) and moved every score, which is
       the re-measurement this trigger asked for. Kept so it is not read
-      as still open. If the owner reverses D6, the same logic reopens
-      scoring by construction.
+      as still open. The owner confirmed D6 on 2026-10-30; a later reversal
+      would reopen scoring by the same logic.
 NONE OF THESE IS A REASON TO RETUNE A WEIGHT. They are reasons to
 re-measure. The standing rule below still applies to all of them.
 
@@ -849,10 +848,10 @@ COVERAGE — the product under Reading B, and where the real gap is:
    partial -> thin). Most of that movement came from dropping the blank
    rows, not from choosing "best" — the choice among best / worst /
    median / mean moved 0 tiers.
-   WHO DECIDED IS NOT RECORDED. The commit says "decided on the evidence"
-   without naming the decider. If a session made the call, the owner
-   should confirm or reverse it; until then it stands as implemented.
-   Do not reopen it on the strength of this note alone.
+   CONFIRMED BY THE OWNER 2026-10-30, on Claude Code's recommendation.
+   Who took the decision on 2026-09-24 is still not recorded (the commit
+   says only "decided on the evidence"), and the confirmation settles
+   that it stands, not who made it.
 5. raw_benchmark_score pools incomparable quantities AND within-source
    duplicates. Needs the per-category design change, scoped already.
    Same root as item 4.

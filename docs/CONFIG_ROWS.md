@@ -5,7 +5,8 @@
 > decided, and what it did, is in the section immediately below. The
 > investigation that produced it follows unchanged, including its
 > figures, which were measured under the OLD definition and are marked
-> superseded where D6 moved them.
+> superseded where D6 moved them. **Confirmed by the owner 2026-10-30**,
+> on Claude Code's recommendation.
 
 ---
 
