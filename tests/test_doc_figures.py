@@ -537,13 +537,22 @@ def _number(text: str) -> float:
     return float(text.replace("−", "-").replace(",", "").rstrip("."))
 
 
+NEEDS_AA_DATA = {
+    "scored models",
+    "benchmark citations",
+    "models shown unweighted after D3",
+}
+
+
 @pytest.mark.parametrize(
     "figure",
     [
-        # The model side reads data/models_raw.json, which is gitignored;
-        # see conftest.py for why these skip loudly instead of failing.
-        pytest.param(f, marks=pytest.mark.needs_hub_data)
-        if f.command == (F, "modelside")
+        # These count the population Artificial Analysis contributes, and
+        # its file is gitignored; see conftest.py for why they skip loudly
+        # instead of failing. Measured by hiding the file: these three
+        # fail and every other figure holds.
+        pytest.param(f, marks=pytest.mark.needs_aa_data)
+        if f.name in NEEDS_AA_DATA
         else f
         for f in FIGURES
     ],

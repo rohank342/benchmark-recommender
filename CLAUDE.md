@@ -46,7 +46,7 @@ comparison; see docs/RANK_RANGES.md.
 
 Repo: github.com/rohank342/benchmark-recommender
 Local: ~/benchmark-recommender, branch main, 385 tests. CI green as of
-2026-10-30, where it runs 373 and skips 12 (section 6 says why).
+2026-10-30, where it runs 382 and skips 3 (section 6 says why).
 
 ═══ DIRECTION DECIDED 2026-09-22 — do not relitigate ═══
 This project is an EVIDENCE DOSSIER on 28 benchmarks. The per-benchmark
@@ -362,7 +362,8 @@ network at runtime.
                              saturation is computed against a baseline
                              nothing in the code claims.
   data/epoch_benchmarks/     Epoch AI export, CC-BY, requires attribution.
-  data/models_raw.json       Hub models (gitignored).
+  data/models_raw.json       Hub models. Committed since 2026-10-30, so a
+                             re-fetch shows up in review.
   data/artificial_analysis.json  (gitignored — free tier is internal-use
                              only, not ours to redistribute).
 
@@ -389,22 +390,25 @@ conclusions.
 - CI runs OFFLINE against committed data. A dependency upgrade can break
   every fetcher in the repo and the suite will stay green. If you touch
   deps, smoke-test the fetchers live.
-- CI DOES NOT CHECK THE MODEL-SIDE FIGURES. data/models_raw.json is
-  gitignored (it embeds Artificial Analysis scores, internal-use only on
-  the free tier), so the CI runner lacks it and 11 tests skip there:
-  7 model-side figures in tests/test_doc_figures.py and 4 probe smoke
-  tests in tests/test_diagnostics.py (marked `needs_hub_data`; the
-  skip is announced at the top and bottom of the run, see conftest.py).
-  They run only where fetch_models.py has been run, so run the full
-  suite locally before trusting a model-side figure. Found 2026-10-30:
-  these tests were added 2026-09-23/24 and the commits were not pushed
-  until 2026-10-30, so the first CI run on them was red (11 failed) and
-  "CI green" in the brief's header described the 2026-09-22 state. Do
-  not add `needs_hub_data` to a test to make a red go away: it is for
-  tests whose only missing input is that file.
+- CI DOES NOT CHECK THREE MODEL-SIDE FIGURES: scored models, benchmark
+  citations, and models shown unweighted. They need
+  data/artificial_analysis.json, which is gitignored because the free
+  tier is internal-use only, so they skip on the CI runner (marked
+  `needs_aa_data`; announced at the top and bottom of the run, see
+  conftest.py). Run the full suite locally before trusting those three.
+  Do not add the mark to a test to make a red go away: it is for tests
+  whose only missing input is that file.
+  HISTORY, 2026-10-30: 11 tests were added 2026-09-23/24 and the commits
+  went unpushed until 2026-10-30, so their first CI run was red and
+  "CI green" in this brief's header described the 2026-09-22 state. They
+  were first skipped on the stated ground that data/models_raw.json
+  embeds Artificial Analysis scores. THAT WAS FALSE, it was inferred
+  from a note about a different file: the file holds none, and was
+  gitignored only as a cache. It is now committed, and hiding the
+  Artificial Analysis file showed only 3 of the 11 need that data.
+  Commit 03fd4a7's message still carries the false reason.
 - A DIAGNOSTIC NO TEST RUNS IS A DIAGNOSTIC THAT MAY BE SILENTLY DEAD.
-  EVERY COMMAND A DOCUMENT CITES AS EVIDENCE IS SMOKE-TESTED IN CI,
-  except the four that need data/models_raw.json (note above).
+  EVERY COMMAND A DOCUMENT CITES AS EVIDENCE IS SMOKE-TESTED IN CI.
   tests/test_diagnostics.py runs each one in a subprocess and fails on a
   non-zero exit or a missing output section. It also fails if a document
   starts citing a command that is not covered, and if a probe is added
@@ -673,7 +677,7 @@ This is the kind of thing worth hunting.
   is not a rounding error waiting to be corrected. It can be carrying a
   conclusion. THIS IS WHY tests/test_doc_figures.py EXISTS: 47 figures,
   92 assertions, five documents, and it fails CI when a doc figure stops
-  matching the probe that produces it (seven model-side figures are
+  matching the probe that produces it (three model-side figures are
   checked locally only, section 6).
 
 - A PROBE CAN MISREPORT THE PROPERTY IT EXISTS TO CHECK.
@@ -747,8 +751,8 @@ re-measure. The standing rule below still applies to all of them.
 The active phase is closed. D3, D4, D5 and D6 are all decided and
 implemented; the primary forward-test seal exists; every command a doc
 cites runs and every load-bearing figure is checked against the probe
-that produces it, in CI except for the model side (section 6). THERE IS NOTHING LEFT THAT CAN BE SETTLED BY
-WORKING HARDER — the central claim is waiting on an outcome that has
+that produces it, in CI except for three figures (section 6). THERE IS
+NOTHING LEFT THAT CAN BE SETTLED BY WORKING HARDER — the central claim is waiting on an outcome that has
 not happened.
 
 DO NOT START NEW INVESTIGATIONS. Do not tune, re-derive or "improve"
@@ -869,7 +873,7 @@ COVERAGE — the product under Reading B, and where the real gap is:
    doc cites is run (tests/test_diagnostics.py) and every load-bearing
    figure is checked against the probe that produces it
    (tests/test_doc_figures.py, 47 figures / 92 assertions / 5 docs),
-   in CI except for the model side, which is local only (section 6).
+   in CI except for three figures, which are local only (section 6).
    Both guard themselves — a doc citing an uncovered command fails, a
    probe added without a smoke test fails, a footnote with no
    registered figure fails. Do not weaken those three.

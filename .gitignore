@@ -1,7 +1,6 @@
 .venv/
 __pycache__/
 *.pyc
-data/models_raw.json
 .env
 
 # Artificial Analysis catalog cache — API data, not ours to redistribute.
