@@ -438,7 +438,7 @@ FIGURES: list[Figure] = [
         (
             (r"docs/FINDINGS.md", r"mean catalog health moves from \*\*([\d.]+) to"),
             (r"README.md", r"catalog health moves 14 points \(([\d.]+) →"),
-            (r"CLAUDE.md", r"mean catalog health ([\d.]+) -> 40\.2"),
+            (r"CLAUDE.md", r"mean catalog health ([\d.]+) -> [\d.]+"),
         ),
         tolerance=1.0,
         decays=True,
@@ -450,9 +450,9 @@ FIGURES: list[Figure] = [
          "0.084", "0.197", "0.24", "0.358"),
         r"0\.358\s+\d+\s+\d+\s+([\d.]+)",
         (
-            (r"docs/FINDINGS.md", r"moves from \*\*54\.1 to ([\d.]+)\*\*"),
-            (r"README.md", r"54\.1 → ([\d.]+)\)"),
-            (r"CLAUDE.md", r"54\.1 -> ([\d.]+)"),
+            (r"docs/FINDINGS.md", r"moves from \*\*[\d.]+ to ([\d.]+)\*\*"),
+            (r"README.md", r"moves 14 points \([\d.]+ → ([\d.]+)"),
+            (r"CLAUDE.md", r"mean catalog health [\d.]+ -> ([\d.]+)"),
         ),
         tolerance=1.0,
         decays=True,

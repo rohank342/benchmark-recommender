@@ -95,7 +95,8 @@ on the corrected counts.
 
 So the plateau is real **under the current definition of a population**,
 and that definition is itself an open question. This document does not
-resolve it; CLAUDE.md section 8 item 3 carries it.
+resolve it; D6 later did, see CLAUDE.md section 8 item 4 and
+`docs/CONFIG_ROWS.md`.
 
 ## Where the 30 came from — derived, not chosen
 

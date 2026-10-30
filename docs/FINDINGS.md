@@ -613,8 +613,8 @@ observed spread distribution instead just moves the choice to a quantile.
 
 And the sensitivity is itself a finding. Across the defensible range
 0.084 (3× median scatter) to 0.358 (90th percentile of observed spreads),
-mean catalog health moves from **54.1 to 40.2** and up to **21 of 28**
-benchmarks change rank. [10] A constant whose plausible range reorders the
+mean catalog health moves from **53.5 to 39.7** (measured 2026-10-30; it
+decays daily) and up to **21 of 28** benchmarks change rank. [10] A constant whose plausible range reorders the
 catalog is not a detail.
 
 ### 5.2 `MIN_SATURATION_POPULATION` — a cliff
@@ -679,7 +679,7 @@ each would invent. Nothing has been built.
 4. **`raw_benchmark_score` pools incomparable quantities** and
    within-source duplicates. Needs a per-category design change.
 5. **Measurement gaps.** Reproducibility is measured for 8 of 28,
-   saturation for 23. LiveCodeBench, MBPP and DS-1000 have no score
+   saturation for 22. LiveCodeBench, MBPP and DS-1000 have no score
    source at all. [2]
 6. **Verification gaps.** SWE-Bench Verified's item error *upper* bound
    is unknown — 0.164 is a floor derived from an audit of 138 of its 500

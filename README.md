@@ -205,7 +205,8 @@ anybody's finding:
   leakage half-life, the penalty curves. `HEALTHY_SPREAD` was derived from
   the measured noise floor on 2026-09-22 (0.24) after seven months of being
   a chosen number; **its defensible range is 0.084–0.358, across which mean
-  catalog health moves 14 points (54.1 → 40.2) and up to 21 of 28
+  catalog health moves 14 points (53.5 → 39.7, measured 2026-10-30) and up
+  to 21 of 28
   benchmarks change rank.**
 
 The UI reports `measured` / `curated` / `unknown` per factor, per benchmark,

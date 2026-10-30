@@ -4,7 +4,7 @@ Read this before doing anything. It's the accumulated context for a project
 you have no memory of. At the end there are standing instructions about how
 I want you to work; those matter as much as the technical content.
 
-Last updated 2026-09-21.
+Last updated 2026-10-30.
 
 ═══════════════════════════════════════════════════════════════════════
 1. WHAT THIS IS
@@ -45,7 +45,8 @@ the numbers were never comparable. The thesis never needed the
 comparison; see docs/RANK_RANGES.md.
 
 Repo: github.com/rohank342/benchmark-recommender
-Local: ~/benchmark-recommender, branch main, 279 tests, CI green.
+Local: ~/benchmark-recommender, branch main, 385 tests. CI green as of
+2026-10-30, where it runs 373 and skips 12 (section 6 says why).
 
 ═══ DIRECTION DECIDED 2026-09-22 — do not relitigate ═══
 This project is an EVIDENCE DOSSIER on 28 benchmarks. The per-benchmark
@@ -277,7 +278,10 @@ contaminated", and measuring bought nothing. The cost of the fix is that
 unmeasured-but-real contamination is now free; SWE-Bench Verified is the
 live example. See docs/METHODOLOGY.md.
 
-THE SAME ERROR IS STILL LIVE IN REPRODUCIBILITY — see open work item 4.
+THE SAME ERROR IN REPRODUCIBILITY WAS FIXED 2026-09-22: an unmeasurable
+reproducibility is now dropped rather than replaced by the curated
+evaluator count (FALLBACK_CAPABLE in benchmark_scoring.py). The cost is
+the same in kind: one evaluator and five now score identically on it.
 
 Model scoring keeps TWO trusts apart, deliberately: how much to believe the
 benchmark, versus how much to believe the report of a model's result on it.
@@ -315,7 +319,8 @@ matters more than the score:
   evidence tiers and are void, and all six involve MATH Level 5 (29
   models at the cutoff, therefore thin). On the 30 valid pairs the
   scorer gets 30/30 and the calendar gets 30/30 — the test cannot
-  separate them, and that is why it is retired (section 8, item 1).
+  separate them, and that is why it is retired (docs/BACKTEST.md,
+  docs/BACKTEST_DESIGN.md).
 - Over all 36 pairs INCLUDING the void ones, purely as a correction to
   what this section used to claim: age 34/36, health 31/36, saturation
   20/30. It said "age 34/36, full trust 35/36" — i.e. it recorded the
@@ -398,7 +403,8 @@ conclusions.
   not add `needs_hub_data` to a test to make a red go away: it is for
   tests whose only missing input is that file.
 - A DIAGNOSTIC NO TEST RUNS IS A DIAGNOSTIC THAT MAY BE SILENTLY DEAD.
-  EVERY COMMAND A DOCUMENT CITES AS EVIDENCE IS SMOKE-TESTED IN CI.
+  EVERY COMMAND A DOCUMENT CITES AS EVIDENCE IS SMOKE-TESTED IN CI,
+  except the four that need data/models_raw.json (note above).
   tests/test_diagnostics.py runs each one in a subprocess and fails on a
   non-zero exit or a missing output section. It also fails if a document
   starts citing a command that is not covered, and if a probe is added
@@ -535,8 +541,8 @@ This is the kind of thing worth hunting.
   HumanEval (Python)" ranging 0.15 to 0.77. Checking for cross-SOURCE
   disagreement misses this entirely — there is none in the dataset —
   while a five-fold spread under one label was silently meaned. FIXED
-  by D5 on the model side; SEE SECTION 8 ITEM 3, the benchmark side has
-  the identical defect and it is still live there.
+  by D5 on the model side. The benchmark side had the identical defect,
+  fixed by D6 (section 8 item 4).
 - A DIAGNOSTIC CAN STOP RUNNING WITHOUT ANYTHING GOING RED.
   `backtest.py --sweep` — the command section 4a names as the project's
   headline test — raised ZeroDivisionError for 28 commits, from e247226
@@ -577,9 +583,10 @@ This is the kind of thing worth hunting.
   written as if a cliff needed fixing, on a coarse sweep that only
   sampled 20/25/30/35/40. WATCH LIST, the three that would end the
   plateau: SWE-Bench Verified 35, FrontierCode 35, GSO-Bench 38.
-  CAVEAT THAT UNDERCUTS IT: those are ROW counts. OSWorld looks clear
-  at 57 and has 10 distinct models (section 8 item 3), so counting
-  models instead of rows would recompute the whole plateau.
+  CAVEAT THAT UNDERCUTS IT: those are ROW counts. OSWorld looked clear
+  at 57 with far fewer distinct models, so counting models instead of
+  rows would recompute the whole plateau. D6 then did: 15-30, with
+  OSWorld at 9 models and thin (section 8 item 4).
 
 - ROWS ARE NOT MODELS, AND THE DEFECT TRAVELS UPWARD. D5 fixed one
   source reporting one label several times on the MODEL side. The
@@ -665,8 +672,9 @@ This is the kind of thing worth hunting.
   "re-measure" — that rule already existed — it is that a stale figure
   is not a rounding error waiting to be corrected. It can be carrying a
   conclusion. THIS IS WHY tests/test_doc_figures.py EXISTS: 47 figures,
-  86 assertions, four documents, and it fails CI when a doc figure stops
-  matching the probe that produces it.
+  92 assertions, five documents, and it fails CI when a doc figure stops
+  matching the probe that produces it (seven model-side figures are
+  checked locally only, section 6).
 
 - A PROBE CAN MISREPORT THE PROPERTY IT EXISTS TO CHECK.
   probes/impact.py printed a column headed "% of total weight" that
@@ -689,7 +697,9 @@ This is the kind of thing worth hunting.
 
 Re-ranked 2026-09-23 (FIFTH revision). The catalog is 28 benchmarks.
 Completed items are deleted rather than left to rot, and what they
-settled is recorded under item 3 so nothing is re-opened by accident.
+settled is recorded under item 5 so nothing is re-opened by accident.
+Numbering starts at 3 because items 1 and 2 were completed; numbers are
+not reassigned, so that references to them stay valid.
 
 ═══ READ THIS BEFORE PICKING UP WORK ═══
 THE PROJECT IS IN A WAITING STATE, and that is the correct state to be
@@ -701,8 +711,9 @@ against, and changing it anyway is how a test becomes a training set.
 
 What remains is EVIDENCE work: measuring things that are unmeasured,
 sourcing things that are unsourced, and keeping the record honest. That
-is items 2 and 4-7. Items marked AWAITING A DECISION are the owner's,
-not a session's.
+is items 3, 6 and 7. Items marked AWAITING A DECISION are the owner's,
+not a session's. None is marked at present; the one owner action open
+is confirming or reversing D6 (item 4).
 
 WHAT WOULD JUSTIFY REOPENING SCORING WORK. Written down so a future
 session can tell "the evidence changed" from "I got bored of waiting":
@@ -720,22 +731,24 @@ session can tell "the evidence changed" from "I got bored of waiting":
       measurable for enough benchmarks to change a tier — an EvalPlus-
       style export for LiveCodeBench, MBPP or DS-1000, or any second
       evaluator covering benchmarks this repo already scores, which
-      would lift reproducibility above 8 of 28 (item 5).
+      would lift reproducibility above 8 of 28 (item 6).
   (d) A DIFFICULTY-CONTROLLED CONTAMINATION VARIANT is published for a
       benchmark the catalog holds, in the way GSM1k is for GSM8K. That
       would retire the `uncontrolled` basis on HumanEval's 0.394 and is
-      the single most valuable external event for item 6.
-  (e) THE POPULATION DEFINITION IS DECIDED (item 3). That one moves
-      every score, so it reopens scoring by construction — which is
-      exactly why it is a decision and not a task.
+      the single most valuable external event for item 7.
+  (e) SPENT 2026-09-24. This read "the population definition is
+      decided". D6 decided it (item 4) and moved every score, which is
+      the re-measurement this trigger asked for. Kept so it is not read
+      as still open. If the owner reverses D6, the same logic reopens
+      scoring by construction.
 NONE OF THESE IS A REASON TO RETUNE A WEIGHT. They are reasons to
 re-measure. The standing rule below still applies to all of them.
 
 ═══ THE PROJECT IS AT REST AS OF 2026-09-24 ═══
 The active phase is closed. D3, D4, D5 and D6 are all decided and
 implemented; the primary forward-test seal exists; every command a doc
-cites runs in CI and every load-bearing figure is checked against the
-probe that produces it. THERE IS NOTHING LEFT THAT CAN BE SETTLED BY
+cites runs and every load-bearing figure is checked against the probe
+that produces it, in CI except for the model side (section 6). THERE IS NOTHING LEFT THAT CAN BE SETTLED BY
 WORKING HARDER — the central claim is waiting on an outcome that has
 not happened.
 
@@ -792,11 +805,12 @@ can establish, so none is a reason to restart:
     rubric.
 
 COVERAGE — the product under Reading B, and where the real gap is:
-3. MODEL-WEIGHTED COVERAGE IS 42%: 34 of 81 scored models have at least
-   one catalogued citation. Citation-weighted coverage is the wrong
+3. MODEL-WEIGHTED COVERAGE IS 36%: 68 of 191 scored models have at least
+   one catalogued citation (42%, 34 of 81, before the 2026-09-23
+   re-fetch grew the population; `probes/findings.py modelside`). Citation-weighted coverage is the wrong
    metric — most unrecognised citations are one composite index and two
    model cards. Adding benchmarks cannot close it.
-4. ROWS ARE NOT MODELS (item 1 points here) — the benchmark-side
+4. ROWS ARE NOT MODELS — the benchmark-side
    version of the defect D5 fixed on the model side, and here it drives
    50% of health.
    INVESTIGATED IN FULL 2026-09-23: docs/CONFIG_ROWS.md,
@@ -853,14 +867,15 @@ COVERAGE — the product under Reading B, and where the real gap is:
    shown as unweighted evidence, and unrecognised citations carry 0% of
    model-side weight. (On the smaller pre-re-fetch data: 24 of 81, 57.)
    ALSO DONE, and load-bearing for everything above: every command a
-   doc cites is run by CI (tests/test_diagnostics.py) and every
-   load-bearing figure is checked against the probe that produces it
-   (tests/test_doc_figures.py, 47 figures / 86 assertions / 4 docs).
+   doc cites is run (tests/test_diagnostics.py) and every load-bearing
+   figure is checked against the probe that produces it
+   (tests/test_doc_figures.py, 47 figures / 92 assertions / 5 docs),
+   in CI except for the model side, which is local only (section 6).
    Both guard themselves — a doc citing an uncovered command fails, a
    probe added without a smoke test fails, a footnote with no
    registered figure fails. Do not weaken those three.
 6. Measurement coverage: reproducibility measured for 8 of 28,
-   saturation for 23, a contamination RATE for 3, an item error rate
+   saturation for 22, a contamination RATE for 3, an item error rate
    for 4 — while 13 of 28 are flagged for contamination with nothing
    quantified, which since the 2026-09-21 fix costs them nothing.
    LiveCodeBench, MBPP and DS-1000 have no score source at all.
@@ -884,7 +899,8 @@ SCORING — demoted and bounded:
    HEALTHY_SPREAD is no longer on this list as "mis-calibrated": it was
    re-derived from the measured noise floor to 0.24 (3 x the max of 8
    cross-source scatters). Its defensible range 0.084-0.358 still moves
-   mean catalog health 54.1 -> 40.2 and up to 21 of 28 ranks, and the
+   mean catalog health 53.5 -> 39.7 and up to 21 of 28 ranks (measured
+   2026-10-30, it decays; it was recorded as 54.1 -> 40.2), and the
    multiplier 3 is named in the code as the invented element.
 9. Saturation still depends on the submission pipeline; an archived
    leaderboard yields a frozen reading. No fix proposed.
@@ -913,7 +929,7 @@ to decide whether to keep a change.
 
 The next real move is a test the project has not run: a genuinely
 independent dated decision (see docs/BACKTEST_DESIGN.md), or the forward
-test at item 1, which cannot be gamed because the outcome has not
+test (R1, docs/FORWARD_TEST.md), which cannot be gamed because the outcome has not
 happened yet.
 
 The crash fix of 2026-09-22 is the boundary case for this rule and is
