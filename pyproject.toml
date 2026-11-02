@@ -2,6 +2,7 @@
 name = "benchmark-recommender"
 version = "0.1.0"
 description = "Scores LLM benchmarks for whether they still discriminate, and ranks models downstream of that."
+license = { text = "MIT" }
 # Pinned deliberately. `uv venv` with no version silently picked macOS's
 # system Python 3.9 — end-of-life, and it printed an OpenSSL warning on
 # every run for weeks before anyone noticed.

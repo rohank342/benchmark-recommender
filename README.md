@@ -369,3 +369,13 @@ On the twelve benchmarks of the retirement test, measured 2026-09-22
 retire/keep decision at **r = −0.793**, the composite health score at
 **+0.633**, and measured saturation at **−0.559**. **Age predicts the
 decision better than the score built to predict it.**
+
+---
+
+## License
+
+The code is under the [MIT License](LICENSE). That license does not extend to
+the third-party data in `data/benchmark_scores/`, `data/epoch_benchmarks/` and
+`data/models_raw.json`, which keep their sources' own terms. Epoch AI's export
+is CC-BY: see [its source note](data/epoch_benchmarks/SOURCE.md) for the
+required credit.
